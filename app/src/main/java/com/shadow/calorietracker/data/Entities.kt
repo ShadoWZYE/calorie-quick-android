@@ -88,6 +88,7 @@ data class UserProfileEntity(
     val formulaSex: String,
     val activityLevel: String,
     val goalType: String,
+    val targetMode: String,
     val calorieGoal: Int,
     val proteinGoalGrams: Int,
     val carbsGoalGrams: Int,

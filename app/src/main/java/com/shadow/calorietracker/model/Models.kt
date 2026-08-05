@@ -118,6 +118,14 @@ enum class GoalType(val calorieAdjustment: Int) {
     MAINTAIN(0),
     GAIN(300),
 }
+enum class TargetMode { ESTIMATED, CUSTOM }
+
+data class DailyTargets(
+    val calories: Int,
+    val proteinGrams: Int,
+    val carbsGrams: Int,
+    val fatGrams: Int,
+)
 
 data class UserProfile(
     val onboardingComplete: Boolean,
@@ -131,6 +139,7 @@ data class UserProfile(
     val proteinGoalGrams: Int,
     val carbsGoalGrams: Int,
     val fatGoalGrams: Int,
+    val targetMode: TargetMode = TargetMode.ESTIMATED,
 )
 
 object EnergyEstimator {
@@ -150,6 +159,21 @@ object EnergyEstimator {
         .roundToInt()
         .plus(goalType.calorieAdjustment)
         .coerceAtLeast(1_200)
+
+    fun dailyTargets(
+        age: Int,
+        heightCm: Int,
+        weightKg: Double,
+        sex: FormulaSex,
+        activityLevel: ActivityLevel,
+        goalType: GoalType,
+    ): DailyTargets {
+        val calories = dailyGoal(age, heightCm, weightKg, sex, activityLevel, goalType)
+        val protein = (weightKg * 1.6).roundToInt()
+        val fat = (weightKg * 0.8).roundToInt()
+        val carbs = ((calories - protein * 4 - fat * 9) / 4.0).roundToInt().coerceAtLeast(0)
+        return DailyTargets(calories, protein, carbs, fat)
+    }
 }
 
 object FoodRecommender {

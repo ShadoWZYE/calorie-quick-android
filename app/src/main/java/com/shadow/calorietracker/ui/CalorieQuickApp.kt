@@ -78,6 +78,7 @@ import com.shadow.calorietracker.model.MacroKind
 import com.shadow.calorietracker.model.Nutrition
 import com.shadow.calorietracker.model.QuantityUsage
 import com.shadow.calorietracker.model.Serving
+import com.shadow.calorietracker.model.TargetMode
 import com.shadow.calorietracker.model.UnitUsage
 import com.shadow.calorietracker.model.UserProfile
 import com.shadow.calorietracker.model.projectedMacroOverages
@@ -167,20 +168,48 @@ private fun ProfileForm(
     var sexName by rememberSaveable { mutableStateOf((initial?.formulaSex ?: FormulaSex.FEMALE).name) }
     var activityName by rememberSaveable { mutableStateOf((initial?.activityLevel ?: ActivityLevel.LIGHT).name) }
     var goalName by rememberSaveable { mutableStateOf((initial?.goalType ?: GoalType.MAINTAIN).name) }
+    var targetModeName by rememberSaveable { mutableStateOf((initial?.targetMode ?: TargetMode.ESTIMATED).name) }
+    val defaultTargets = initial ?: UserProfile(
+        onboardingComplete = false,
+        age = 30,
+        heightCm = 175,
+        weightKg = 75.0,
+        formulaSex = FormulaSex.FEMALE,
+        activityLevel = ActivityLevel.LIGHT,
+        goalType = GoalType.MAINTAIN,
+        targetMode = TargetMode.ESTIMATED,
+        calorieGoal = 2_108,
+        proteinGoalGrams = 120,
+        carbsGoalGrams = 272,
+        fatGoalGrams = 60,
+    )
+    var calorieTarget by rememberSaveable { mutableStateOf(defaultTargets.calorieGoal.toString()) }
+    var proteinTarget by rememberSaveable { mutableStateOf(defaultTargets.proteinGoalGrams.toString()) }
+    var carbsTarget by rememberSaveable { mutableStateOf(defaultTargets.carbsGoalGrams.toString()) }
+    var fatTarget by rememberSaveable { mutableStateOf(defaultTargets.fatGoalGrams.toString()) }
 
     val ageValue = age.toIntOrNull()
     val heightValue = height.toIntOrNull()
-    val weightValue = weight.toDoubleOrNull()
-    val valid = ageValue in 18..100 && heightValue in 120..230 && weightValue != null && weightValue in 35.0..300.0
+    val weightValue = weight.replace(',', '.').toDoubleOrNull()
+    val measurementsValid = ageValue in 18..100 && heightValue in 120..230 &&
+        weightValue != null && weightValue in 35.0..300.0
     val validatedAge = ageValue ?: 0
     val validatedHeight = heightValue ?: 0
     val validatedWeight = weightValue ?: 0.0
     val sex = FormulaSex.valueOf(sexName)
     val activity = ActivityLevel.valueOf(activityName)
     val goal = GoalType.valueOf(goalName)
-    val estimate = if (valid) {
-        EnergyEstimator.dailyGoal(validatedAge, validatedHeight, validatedWeight, sex, activity, goal)
-    } else 0
+    val targetMode = TargetMode.valueOf(targetModeName)
+    val estimatedTargets = if (measurementsValid) {
+        EnergyEstimator.dailyTargets(validatedAge, validatedHeight, validatedWeight, sex, activity, goal)
+    } else null
+    val customCalories = calorieTarget.toIntOrNull()
+    val customProtein = proteinTarget.toIntOrNull()
+    val customCarbs = carbsTarget.toIntOrNull()
+    val customFat = fatTarget.toIntOrNull()
+    val customTargetsValid = customCalories in 500..10_000 && customProtein in 1..1_000 &&
+        customCarbs in 1..1_000 && customFat in 1..1_000
+    val valid = measurementsValid && (targetMode == TargetMode.ESTIMATED || customTargetsValid)
 
     LazyColumn(
         modifier = Modifier
@@ -241,12 +270,56 @@ private fun ProfileForm(
                 onSelect = { goalName = it.name },
             )
         }
+        item { SectionTitle(R.string.daily_targets, horizontalPadding = 0.dp) }
+        item {
+            ChoiceRow(
+                values = TargetMode.entries,
+                selected = targetMode,
+                label = { stringResource(if (it == TargetMode.ESTIMATED) R.string.estimated else R.string.custom) },
+                onSelect = { targetModeName = it.name },
+            )
+        }
         item {
             Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)) {
-                Column(Modifier.padding(18.dp)) {
-                    Text(stringResource(R.string.estimated_daily_goal), fontWeight = FontWeight.SemiBold)
-                    Text("$estimate ${stringResource(R.string.kcal)}", fontSize = 28.sp, fontWeight = FontWeight.Bold)
-                    Text(stringResource(R.string.estimate_disclaimer), color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    if (targetMode == TargetMode.ESTIMATED) {
+                        Text(stringResource(R.string.estimated_daily_goal), fontWeight = FontWeight.SemiBold)
+                        Text(
+                            "${estimatedTargets?.calories ?: 0} ${stringResource(R.string.kcal)}",
+                            fontSize = 28.sp,
+                            fontWeight = FontWeight.Bold,
+                        )
+                        estimatedTargets?.let {
+                            Text(
+                                stringResource(
+                                    R.string.macro_target_summary,
+                                    it.proteinGrams,
+                                    it.carbsGrams,
+                                    it.fatGrams,
+                                ),
+                            )
+                        }
+                        Text(
+                            stringResource(R.string.estimate_disclaimer),
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    } else {
+                        Text(stringResource(R.string.custom_target_explanation), fontWeight = FontWeight.SemiBold)
+                        NumericField(
+                            calorieTarget,
+                            { calorieTarget = it },
+                            R.string.calorie_target,
+                            Modifier.fillMaxWidth(),
+                        )
+                        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                            NumericField(proteinTarget, { proteinTarget = it }, R.string.protein_g, Modifier.weight(1f))
+                            NumericField(carbsTarget, { carbsTarget = it }, R.string.carbs_g, Modifier.weight(1f))
+                            NumericField(fatTarget, { fatTarget = it }, R.string.fat_g, Modifier.weight(1f))
+                        }
+                        if (!customTargetsValid) {
+                            Text(stringResource(R.string.invalid_custom_targets), color = MaterialTheme.colorScheme.error)
+                        }
+                    }
                 }
             }
         }
@@ -254,9 +327,16 @@ private fun ProfileForm(
             Button(
                 enabled = valid,
                 onClick = {
-                    val protein = (validatedWeight * 1.6).roundToInt()
-                    val fat = (validatedWeight * 0.8).roundToInt()
-                    val carbs = max(0, ((estimate - protein * 4 - fat * 9) / 4.0).roundToInt())
+                    val targets = if (targetMode == TargetMode.ESTIMATED) {
+                        requireNotNull(estimatedTargets)
+                    } else {
+                        com.shadow.calorietracker.model.DailyTargets(
+                            requireNotNull(customCalories),
+                            requireNotNull(customProtein),
+                            requireNotNull(customCarbs),
+                            requireNotNull(customFat),
+                        )
+                    }
                     onSave(
                         UserProfile(
                             true,
@@ -266,10 +346,11 @@ private fun ProfileForm(
                             sex,
                             activity,
                             goal,
-                            estimate,
-                            protein,
-                            carbs,
-                            fat,
+                            targets.calories,
+                            targets.proteinGrams,
+                            targets.carbsGrams,
+                            targets.fatGrams,
+                            targetMode,
                         ),
                     )
                 },
@@ -307,12 +388,26 @@ private fun NumericField(
 ) {
     OutlinedTextField(
         value = value,
-        onValueChange = { text -> onChange(text.filter { it.isDigit() || decimal && it == '.' }) },
+        onValueChange = { text ->
+            val filtered = text.filter { it.isDigit() || decimal && (it == '.' || it == ',') }
+            onChange(if (decimal) filtered.withSingleDecimalSeparator() else filtered)
+        },
         label = { Text(stringResource(label)) },
         keyboardOptions = KeyboardOptions(keyboardType = if (decimal) KeyboardType.Decimal else KeyboardType.Number),
         singleLine = true,
         modifier = modifier,
     )
+}
+
+private fun String.withSingleDecimalSeparator(): String {
+    var separatorSeen = false
+    return filter { character ->
+        if (character == '.' || character == ',') {
+            if (separatorSeen) false else true.also { separatorSeen = true }
+        } else {
+            true
+        }
+    }
 }
 
 @Composable

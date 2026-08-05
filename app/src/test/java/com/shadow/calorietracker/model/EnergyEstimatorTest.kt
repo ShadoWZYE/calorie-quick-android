@@ -36,4 +36,19 @@ class EnergyEstimatorTest {
             EnergyEstimator.dailyGoal(100, 120, 35.0, FormulaSex.FEMALE, ActivityLevel.SEDENTARY, GoalType.LOSE),
         )
     }
+
+    @Test
+    fun derivesCoherentMacroTargetsFromEstimatedCalories() {
+        assertEquals(
+            DailyTargets(calories = 2_336, proteinGrams = 120, carbsGrams = 329, fatGrams = 60),
+            EnergyEstimator.dailyTargets(
+                age = 30,
+                heightCm = 175,
+                weightKg = 75.0,
+                sex = FormulaSex.MALE,
+                activityLevel = ActivityLevel.LIGHT,
+                goalType = GoalType.MAINTAIN,
+            ),
+        )
+    }
 }

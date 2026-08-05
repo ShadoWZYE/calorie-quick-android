@@ -52,6 +52,16 @@
     <string name="maintain">Maintain</string>
     <string name="gain">Gain</string>
     <string name="estimated_daily_goal">Estimated daily target</string>
+    <string name="daily_targets">Daily targets</string>
+    <string name="estimated">Estimated</string>
+    <string name="custom">Custom</string>
+    <string name="macro_target_summary">Protein %1$d g · Carbs %2$d g · Fat %3$d g</string>
+    <string name="custom_target_explanation">Set the daily targets used by summaries and recommendations.</string>
+    <string name="calorie_target">Calories (kcal)</string>
+    <string name="protein_g">Protein (g)</string>
+    <string name="carbs_g">Carbs (g)</string>
+    <string name="fat_g">Fat (g)</string>
+    <string name="invalid_custom_targets">Enter 500–10,000 kcal and 1–1,000 g for each macro.</string>
     <string name="estimate_disclaimer">Use this as a starting point and adjust it based on measured progress. Consult a qualified professional for medical or specialized needs.</string>
     <string name="choose_serving">Choose how you want to measure this food</string>
     <string name="amount">Amount</string>

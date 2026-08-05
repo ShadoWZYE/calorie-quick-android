@@ -13,8 +13,8 @@ Exit: the prototype builds, the happy path is understandable without instruction
 
 ## M1 — Local-first private alpha (current)
 
-- Room schemas and non-destructive v1→v2→v3 migrations, seeded local foods, diary/unit snapshots, interaction-ranked quantity presets, and persistence are implemented; personal-food editing, meals, and edit/undo remain.
-- First-run onboarding, profile editing, BMR/TDEE estimate, activity/goal choice, and app-language settings are implemented; units and manual targets remain.
+- Room schemas and non-destructive v1→v2→v3→v4 migrations, seeded local foods, diary/unit snapshots, interaction-ranked quantity presets, and persistence are implemented; personal-food editing, meals, and edit/undo remain.
+- First-run onboarding, profile editing, BMR/TDEE estimate, activity/goal choice, manual calorie/macro targets, and app-language settings are implemented; display units remain.
 - Recents/frequency ranking, favourite servings, copy meal/day, templates.
 - Extensible nutrient schema; fibre by default; optional total/added sugar and sodium with manual targets; clear unknown-data states.
 - Normalized generic/branded product schema with mass/volume/piece dimensions, packages/barcodes, full nutrient panels, provenance, and immutable diary snapshots.

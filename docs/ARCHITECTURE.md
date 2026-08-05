@@ -16,7 +16,7 @@ The local database is the source of truth. Every daily-log mutation commits loca
 
 ## Data model
 
-Room persists `UserProfile`, `Food`, `Serving`, `ServingUsage`, and `DiaryEntry`. Diary rows contain food-name, entered-unit, normalized-weight, and nutrition snapshots so historical totals do not change when catalogue records are edited later. Nutrition is stored as integer milligrams; weight and decimal entered amounts use scaled integers.
+Room persists `UserProfile`, `Food`, `Serving`, `ServingUsage`, and `DiaryEntry`. Profile targets retain whether they are formula-estimated or user-defined; saving Settings never silently replaces a custom calorie or macro goal. Diary rows contain food-name, entered-unit, normalized-weight, and nutrition snapshots so historical totals do not change when catalogue records are edited later. Nutrition is stored as integer milligrams; weight and decimal entered amounts use scaled integers.
 
 Each diary row retains a consumption timestamp. Repeated additions of the same food within two minutes are accumulated transactionally into one row; additions outside that window remain separate events for later meal grouping and time-based reports.
 

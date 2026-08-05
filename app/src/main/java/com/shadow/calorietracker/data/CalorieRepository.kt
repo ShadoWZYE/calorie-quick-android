@@ -10,6 +10,7 @@ import com.shadow.calorietracker.model.LocalizedText
 import com.shadow.calorietracker.model.Nutrition
 import com.shadow.calorietracker.model.QuantityUsage
 import com.shadow.calorietracker.model.Serving
+import com.shadow.calorietracker.model.TargetMode
 import com.shadow.calorietracker.model.UserProfile
 import com.shadow.calorietracker.model.UnitUsage
 import java.time.LocalDate
@@ -199,17 +200,18 @@ private fun FoodEntry.toEntity() = DiaryEntryEntity(
 private fun LocalizedText.withoutLeadingOne() = LocalizedText(en.removePrefix("1 "), ro.removePrefix("1 "))
 
 private fun UserProfileEntity.toModel() = UserProfile(
-    onboardingComplete,
-    age,
-    heightCm,
-    weightGrams / 1_000.0,
-    FormulaSex.valueOf(formulaSex),
-    ActivityLevel.valueOf(activityLevel),
-    GoalType.valueOf(goalType),
-    calorieGoal,
-    proteinGoalGrams,
-    carbsGoalGrams,
-    fatGoalGrams,
+    onboardingComplete = onboardingComplete,
+    age = age,
+    heightCm = heightCm,
+    weightKg = weightGrams / 1_000.0,
+    formulaSex = FormulaSex.valueOf(formulaSex),
+    activityLevel = ActivityLevel.valueOf(activityLevel),
+    goalType = GoalType.valueOf(goalType),
+    calorieGoal = calorieGoal,
+    proteinGoalGrams = proteinGoalGrams,
+    carbsGoalGrams = carbsGoalGrams,
+    fatGoalGrams = fatGoalGrams,
+    targetMode = TargetMode.valueOf(targetMode),
 )
 
 private fun UserProfile.toEntity() = UserProfileEntity(
@@ -220,6 +222,7 @@ private fun UserProfile.toEntity() = UserProfileEntity(
     formulaSex = formulaSex.name,
     activityLevel = activityLevel.name,
     goalType = goalType.name,
+    targetMode = targetMode.name,
     calorieGoal = calorieGoal,
     proteinGoalGrams = proteinGoalGrams,
     carbsGoalGrams = carbsGoalGrams,
