@@ -2,7 +2,7 @@
 
 Milestones are outcome gates rather than promises by date.
 
-## M0 — Product and technical spike (current)
+## M0 — Product and technical spike (complete)
 
 - Research and architectural decisions.
 - Runnable bilingual Today/quick-add vertical slice.
@@ -11,10 +11,10 @@ Milestones are outcome gates rather than promises by date.
 
 Exit: the prototype builds, the happy path is understandable without instruction, and product/package naming decisions are captured.
 
-## M1 — Local-first private alpha
+## M1 — Local-first private alpha (current)
 
-- Room schema/migrations, personal foods, diary persistence, meals, edit/undo.
-- Onboarding, units, profile, transparent BMR/TDEE estimate and manual targets.
+- Room v1 schema, seeded local foods, diary persistence, and nutrition snapshots are implemented; migrations, personal-food editing, meals, and edit/undo remain.
+- First-run onboarding, profile editing, BMR/TDEE estimate, activity/goal choice, and app-language settings are implemented; units and manual targets remain.
 - Recents/frequency ranking, favourite servings, copy meal/day, templates.
 - Settings, export/delete, reminders, English/Romanian QA, accessibility.
 - Unit/UI/migration tests and measured performance budgets.
@@ -53,4 +53,3 @@ Exit: recommendations are explainable and never invent unavailable ingredients o
 - Controlled evaluation against weighed meals before any public accuracy claim.
 
 Exit: only ship if it is demonstrably faster than manual entry and error bounds are honest enough to be useful.
-

@@ -15,7 +15,6 @@
     <string name="no_entries">Nimic înregistrat. Adaugă un aliment frecvent dintr-o atingere.</string>
     <string name="no_results">Niciun aliment nu corespunde căutării.</string>
     <string name="per_100g">per 100 g</string>
-    <string name="amount">Cantitate</string>
     <string name="grams_short">g</string>
     <plurals name="add_food">
         <item quantity="one">Adaugă %1$d kcal</item>
@@ -29,4 +28,33 @@
         <item quantity="few">Mai ai doar %1$d kcal astăzi</item>
         <item quantity="other">Mai ai doar %1$d kcal astăzi</item>
     </plurals>
+    <string name="settings">Setări</string>
+    <string name="settings_subtitle">Profil, obiective și limbă</string>
+    <string name="back">Înapoi</string>
+    <string name="onboarding_title">Configurează obiectivul zilnic</string>
+    <string name="onboarding_subtitle">O estimare inițială rapidă. Poți modifica totul mai târziu.</string>
+    <string name="finish_setup">Începe monitorizarea</string>
+    <string name="save_changes">Salvează modificările</string>
+    <string name="language">Limbă</string>
+    <string name="language_intro">Alege limba aplicației. O poți schimba oricând din Setări.</string>
+    <string name="your_measurements">Măsurătorile tale</string>
+    <string name="formula_explanation">Vârsta, înălțimea, greutatea și sexul sunt folosite doar pentru estimarea energiei de repaus. Este o orientare, nu un sfat medical.</string>
+    <string name="age">Vârstă</string>
+    <string name="height_cm">Înălțime (cm)</string>
+    <string name="weight_kg">Greutate (kg)</string>
+    <string name="female">Feminin</string>
+    <string name="male">Masculin</string>
+    <string name="activity">Activitate obișnuită</string>
+    <string name="sedentary">Sedentară</string>
+    <string name="light_activity">Ușoară</string>
+    <string name="moderate_activity">Moderată</string>
+    <string name="active">Activă</string>
+    <string name="goal">Obiectiv</string>
+    <string name="lose">Slăbire</string>
+    <string name="maintain">Menținere</string>
+    <string name="gain">Creștere</string>
+    <string name="estimated_daily_goal">Obiectiv zilnic estimat</string>
+    <string name="estimate_disclaimer">Folosește valoarea ca punct de pornire și ajusteaz-o după progresul măsurat. Pentru nevoi medicale sau speciale, consultă un specialist calificat.</string>
+    <string name="choose_serving">Alege o porție sau introdu gramele exacte</string>
+    <string name="exact_grams">Greutate exactă</string>
 </resources>

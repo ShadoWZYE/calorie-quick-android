@@ -14,7 +14,11 @@ Compose UI -> ViewModel/state holder -> use cases -> repositories
 
 The local database is the source of truth. Every daily-log mutation commits locally first and updates the screen optimistically. Network import and eventual account sync are additive; neither may block logging.
 
-## Planned data model
+## Data model
+
+The first Room schema now persists `UserProfile`, `Food`, `Serving`, and `DiaryEntry`. Diary rows contain food-name and nutrition snapshots so historical totals do not change when catalogue records are edited later. Nutrition is stored as integer milligrams; weight is stored as integer grams.
+
+Planned extensions:
 
 - `UserProfile`: unit system, locale, measurements, activity assumptions, consent/settings versions.
 - `GoalPlan`: effective dates, calorie and nutrient targets, derivation method, manual override.
@@ -25,7 +29,7 @@ The local database is the source of truth. Every daily-log mutation commits loca
 - `Recipe` and `RecipeIngredient`: yield and portions backed by foods.
 - `SyncOperation`: idempotency key, entity/version, operation, retry state.
 
-Use integer minor units or scaled decimals for persisted nutrition, not floating point. The prototype uses `Double` only for disposable in-memory UI data.
+Use integer minor units or scaled decimals for persisted nutrition, not floating point. Domain/UI models convert persisted values to `Double` only in memory.
 
 ## Search and ranking
 
@@ -75,4 +79,3 @@ Community writes should enter a moderation/data-quality pipeline. Keep personal 
 - Compose UI tests for the core loop in `en` and `ro`, large fonts, and TalkBack semantics.
 - Contract tests using frozen catalogue payloads; do not rely on live providers in CI.
 - Macrobenchmarks on a physical reference device and screenshot/accessibility checks in release gates.
-

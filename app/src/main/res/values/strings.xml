@@ -15,7 +15,6 @@
     <string name="no_entries">Nothing logged yet. Add a frequent food in one tap.</string>
     <string name="no_results">No foods match this search.</string>
     <string name="per_100g">per 100 g</string>
-    <string name="amount">Amount</string>
     <string name="grams_short">g</string>
     <plurals name="add_food">
         <item quantity="one">Add %1$d kcal</item>
@@ -27,4 +26,33 @@
         <item quantity="one">Only %1$d kcal remains today</item>
         <item quantity="other">Only %1$d kcal remain today</item>
     </plurals>
+    <string name="settings">Settings</string>
+    <string name="settings_subtitle">Profile, goals, and language</string>
+    <string name="back">Back</string>
+    <string name="onboarding_title">Set up your daily target</string>
+    <string name="onboarding_subtitle">A quick starting estimate. You can change everything later.</string>
+    <string name="finish_setup">Start tracking</string>
+    <string name="save_changes">Save changes</string>
+    <string name="language">Language</string>
+    <string name="language_intro">Choose the language you want to use. It remains available in Settings.</string>
+    <string name="your_measurements">Your measurements</string>
+    <string name="formula_explanation">Age, height, weight, and sex are used only to estimate resting energy. This is guidance, not medical advice.</string>
+    <string name="age">Age</string>
+    <string name="height_cm">Height (cm)</string>
+    <string name="weight_kg">Weight (kg)</string>
+    <string name="female">Female</string>
+    <string name="male">Male</string>
+    <string name="activity">Typical activity</string>
+    <string name="sedentary">Sedentary</string>
+    <string name="light_activity">Light</string>
+    <string name="moderate_activity">Moderate</string>
+    <string name="active">Active</string>
+    <string name="goal">Goal</string>
+    <string name="lose">Lose</string>
+    <string name="maintain">Maintain</string>
+    <string name="gain">Gain</string>
+    <string name="estimated_daily_goal">Estimated daily target</string>
+    <string name="estimate_disclaimer">Use this as a starting point and adjust it based on measured progress. Consult a qualified professional for medical or specialized needs.</string>
+    <string name="choose_serving">Choose a serving or enter exact grams</string>
+    <string name="exact_grams">Exact weight</string>
 </resources>

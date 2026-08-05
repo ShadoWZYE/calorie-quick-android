@@ -2,7 +2,7 @@
 
 An Android calorie tracker designed around one product rule: logging food must be faster than deciding not to log it.
 
-This repository currently contains a first vertical-slice prototype: a launch-to-Today flow, local food search, one-tap serving presets, live calories/macros, removal, and English/Romanian resources.
+This repository contains a local-first Android prototype with first-run onboarding, editable measurements and goals, persistent diary history, local food search, portion presets, live calories/macros, and an in-app English/Romanian selector.
 
 ## Run locally
 

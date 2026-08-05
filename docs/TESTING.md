@@ -5,15 +5,16 @@ session. It builds, installs, and opens the latest code in the API 37 emulator.
 
 ## Current smoke test
 
-1. Confirm the app opens directly to **Today** without a setup/login barrier.
-2. Scroll the frequent-food list and confirm text is readable and cards respond.
-3. Search for an English name such as `banana` and a Romanian name such as
+1. On a fresh install, complete the short profile setup and confirm the estimated target changes with activity and goal.
+2. Switch to **Română** during setup, then back to English from the gear-shaped **Settings** screen.
+3. Scroll the frequent-food list and confirm text is readable and cards respond.
+4. Search for an English name such as `banana` and a Romanian name such as
    `banană`; both should find the same food.
-4. Open a food, try each serving preset, enter a custom gram value, and add it.
-5. Confirm calories and all three macros update immediately.
-6. Add several foods, scroll to today's entries, and remove one.
-7. Rotate the emulator and note any layout or state problems.
-8. Change the emulator language to Romanian, relaunch, and inspect translations.
+5. Open Banana and try **1 medium banana**, **1 small banana**, and an exact gram value.
+6. Confirm calories and all three macros update immediately.
+7. Add several foods, scroll to today's entries, and remove one.
+8. Rotate the emulator. Confirm the profile, entries, and total remain intact and the screen still fits.
+9. Close and relaunch the app. Confirm the same profile and today's entries remain.
 
 ## Feedback to capture
 
@@ -28,8 +29,7 @@ Screenshots plus the exact action immediately before a problem are ideal.
 
 ## Known prototype limitations
 
-- Entries are currently in memory and reset when the app process is recreated.
-- The daily goal and macro targets are hard-coded demo values.
-- Only the Today screen and quick-add sheet exist.
-- Sample foods are bundled; there is no persistent personal catalogue yet.
-
+- The calorie target is formula-derived; manual calorie/macro overrides are not available yet.
+- Diary entries can be added or deleted but not edited, grouped into meals, or undone.
+- The local catalogue is persistent but currently contains only bundled sample foods; users cannot create foods yet.
+- Reports, reminders, export/delete controls, and database migration tests remain for the private-alpha milestone.
