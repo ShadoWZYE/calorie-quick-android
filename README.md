@@ -19,6 +19,26 @@ Command line checks:
 .\gradlew.bat assembleDebug
 ```
 
+### One-click Windows testing
+
+Double-click `Launch Calorie Quick.bat` in the repository, or use the installed
+**Calorie Quick Test** desktop/Start Menu shortcut. The launcher:
+
+1. starts or reuses `CalorieQuick_API_37`;
+2. builds the latest debug APK;
+3. waits for Android to finish booting;
+4. installs and opens the app.
+
+The emulator remains open for interactive testing. Close its window when done.
+For a faster relaunch without rebuilding, run:
+
+```powershell
+.\tools\launch-test.ps1 -SkipBuild
+```
+
+Use the focused [testing guide](docs/TESTING.md) to report actionable feedback
+and see the prototype's known limitations.
+
 ## Product principles
 
 - Open directly to today's log; no dashboard detour.
@@ -29,4 +49,3 @@ Command line checks:
 - Ask for camera, health, and notification permissions only at the moment their feature is used.
 
 See [docs/PRODUCT.md](docs/PRODUCT.md), [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md), [docs/ROADMAP.md](docs/ROADMAP.md), and [docs/RESEARCH.md](docs/RESEARCH.md).
-
