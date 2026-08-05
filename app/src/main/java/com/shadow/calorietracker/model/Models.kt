@@ -61,8 +61,19 @@ data class FoodEntry(
     val foodId: String,
     val foodName: LocalizedText,
     val grams: Int,
+    val enteredAmount: Double,
+    val unitKey: String,
+    val unitLabel: LocalizedText,
     val consumedAtEpochMillis: Long,
     val nutrition: Nutrition,
+)
+
+data class UnitUsage(
+    val foodId: String,
+    val unitKey: String,
+    val useCount: Int,
+    val lastUsedAtEpochMillis: Long,
+    val lastAmount: Double,
 )
 
 enum class FormulaSex { FEMALE, MALE }
@@ -111,3 +122,27 @@ object EnergyEstimator {
         .coerceAtLeast(1_200)
 }
 
+object FoodRecommender {
+    fun rank(
+        foods: List<Food>,
+        totals: Nutrition,
+        profile: UserProfile,
+        frequencyByFoodId: Map<String, Int>,
+    ): List<Food> {
+        val proteinNeed = needRatio(totals.proteinGrams, profile.proteinGoalGrams)
+        val carbsNeed = needRatio(totals.carbsGrams, profile.carbsGoalGrams)
+        val fatNeed = needRatio(totals.fatGrams, profile.fatGoalGrams)
+
+        return foods.sortedWith(
+            compareByDescending<Food> { food ->
+                food.nutritionPer100g.proteinGrams / profile.proteinGoalGrams.coerceAtLeast(1) * proteinNeed +
+                    food.nutritionPer100g.carbsGrams / profile.carbsGoalGrams.coerceAtLeast(1) * carbsNeed +
+                    food.nutritionPer100g.fatGrams / profile.fatGoalGrams.coerceAtLeast(1) * fatNeed
+            }.thenByDescending { frequencyByFoodId[it.id] ?: 0 }
+                .thenBy { it.names.en },
+        )
+    }
+
+    private fun needRatio(consumed: Double, goal: Int): Double =
+        ((goal - consumed) / goal.coerceAtLeast(1)).coerceIn(0.0, 1.0)
+}

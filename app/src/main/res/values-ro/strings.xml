@@ -10,7 +10,7 @@
     <string name="fat">Grăsimi</string>
     <string name="search_hint">Caută în alimentele tale…</string>
     <string name="quick_add">Adăugare rapidă</string>
-    <string name="frequent_foods">Alimente frecvente</string>
+    <string name="recommended_foods">Recomandate</string>
     <string name="today_entries">Înregistrările de astăzi</string>
     <string name="no_entries">Nimic înregistrat. Adaugă un aliment frecvent dintr-o atingere.</string>
     <string name="no_results">Niciun aliment nu corespunde căutării.</string>
@@ -55,6 +55,8 @@
     <string name="gain">Creștere</string>
     <string name="estimated_daily_goal">Obiectiv zilnic estimat</string>
     <string name="estimate_disclaimer">Folosește valoarea ca punct de pornire și ajusteaz-o după progresul măsurat. Pentru nevoi medicale sau speciale, consultă un specialist calificat.</string>
-    <string name="choose_serving">Alege o porție sau introdu gramele exacte</string>
-    <string name="exact_grams">Greutate exactă</string>
+    <string name="choose_serving">Alege cum vrei să măsori acest aliment</string>
+    <string name="amount">Cantitate</string>
+    <string name="summary_hint">Atinge pentru detaliile macronutrienților de astăzi</string>
+    <string name="macro_breakdown">Macronutrienții de astăzi</string>
 </resources>

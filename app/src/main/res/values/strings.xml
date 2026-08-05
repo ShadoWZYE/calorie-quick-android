@@ -10,7 +10,7 @@
     <string name="fat">Fat</string>
     <string name="search_hint">Search your foods…</string>
     <string name="quick_add">Quick add</string>
-    <string name="frequent_foods">Frequent foods</string>
+    <string name="recommended_foods">Recommended</string>
     <string name="today_entries">Today’s entries</string>
     <string name="no_entries">Nothing logged yet. Add a frequent food in one tap.</string>
     <string name="no_results">No foods match this search.</string>
@@ -53,6 +53,8 @@
     <string name="gain">Gain</string>
     <string name="estimated_daily_goal">Estimated daily target</string>
     <string name="estimate_disclaimer">Use this as a starting point and adjust it based on measured progress. Consult a qualified professional for medical or specialized needs.</string>
-    <string name="choose_serving">Choose a serving or enter exact grams</string>
-    <string name="exact_grams">Exact weight</string>
+    <string name="choose_serving">Choose how you want to measure this food</string>
+    <string name="amount">Amount</string>
+    <string name="summary_hint">Tap for today’s macro breakdown</string>
+    <string name="macro_breakdown">Today’s macros</string>
 </resources>

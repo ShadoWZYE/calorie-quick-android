@@ -2,6 +2,7 @@ package com.shadow.calorietracker.ui
 
 import androidx.appcompat.app.AppCompatDelegate
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -31,6 +32,8 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -41,9 +44,9 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -67,10 +70,15 @@ import com.shadow.calorietracker.model.EnergyEstimator
 import com.shadow.calorietracker.model.Food
 import com.shadow.calorietracker.model.FoodEntry
 import com.shadow.calorietracker.model.FormulaSex
+import com.shadow.calorietracker.model.FoodRecommender
 import com.shadow.calorietracker.model.GoalType
 import com.shadow.calorietracker.model.Nutrition
+import com.shadow.calorietracker.model.Serving
+import com.shadow.calorietracker.model.UnitUsage
 import com.shadow.calorietracker.model.UserProfile
+import com.shadow.calorietracker.data.GRAMS_UNIT_KEY
 import java.text.DateFormat
+import java.text.NumberFormat
 import java.util.Locale
 import java.util.Date
 import kotlin.math.max
@@ -329,14 +337,20 @@ private fun GoalType.labelResource() = when (this) {
 private fun TodayScreen(
     state: AppUiState,
     onOpenSettings: () -> Unit,
-    onAdd: (Food, Int) -> Unit,
+    onAdd: (Food, Double, Serving?) -> Unit,
     onDelete: (FoodEntry) -> Unit,
 ) {
     val locale = LocalLocale.current.platformLocale
     var query by rememberSaveable { mutableStateOf("") }
     var selectedFood by remember { mutableStateOf<Food?>(null) }
+    var showMacroDetails by rememberSaveable { mutableStateOf(false) }
     val profile = requireNotNull(state.profile)
-    val filteredFoods = state.foods.filter { it.matches(query) }
+    val frequencyByFoodId = state.unitUsage.mapValues { (_, usages) -> usages.sumOf(UnitUsage::useCount) }
+    val displayedFoods = if (query.isBlank()) {
+        FoodRecommender.rank(state.foods, state.totals, profile, frequencyByFoodId)
+    } else {
+        state.foods.filter { it.matches(query) }
+    }
 
     Scaffold(modifier = Modifier.fillMaxSize()) { contentPadding ->
         LazyColumn(
@@ -361,7 +375,7 @@ private fun TodayScreen(
                     }
                 }
             }
-            item { SummaryCard(state.totals, profile) }
+            item { SummaryCard(state.totals, profile) { showMacroDetails = true } }
             item {
                 OutlinedTextField(
                     value = query,
@@ -378,9 +392,9 @@ private fun TodayScreen(
                     shape = RoundedCornerShape(18.dp),
                 )
             }
-            item { SectionTitle(if (query.isBlank()) R.string.frequent_foods else R.string.quick_add) }
-            if (filteredFoods.isEmpty()) item { EmptyText(R.string.no_results) }
-            else items(filteredFoods, key = { it.id }) { FoodRow(it, locale) { selectedFood = it } }
+            item { SectionTitle(if (query.isBlank()) R.string.recommended_foods else R.string.quick_add) }
+            if (displayedFoods.isEmpty()) item { EmptyText(R.string.no_results) }
+            else items(displayedFoods, key = { it.id }) { FoodRow(it, locale) { selectedFood = it } }
             item { SectionTitle(R.string.today_entries) }
             if (state.entries.isEmpty()) item { EmptyText(R.string.no_entries) }
             else items(state.entries, key = { it.id }) { EntryRow(it, locale) { onDelete(it) } }
@@ -389,18 +403,22 @@ private fun TodayScreen(
     }
 
     selectedFood?.let { food ->
-        QuickAddSheet(food, locale, { selectedFood = null }) { grams ->
-            onAdd(food, grams)
+        QuickAddSheet(food, state.unitUsage[food.id].orEmpty(), locale, { selectedFood = null }) { amount, serving ->
+            onAdd(food, amount, serving)
             selectedFood = null
             query = ""
         }
     }
+    if (showMacroDetails) {
+        MacroDetailsSheet(state.totals, profile) { showMacroDetails = false }
+    }
 }
 
 @Composable
-private fun SummaryCard(totals: Nutrition, profile: UserProfile) {
+private fun SummaryCard(totals: Nutrition, profile: UserProfile, onOpenDetails: () -> Unit) {
     val remaining = max(0, profile.calorieGoal - totals.calories)
     Card(
+        onClick = onOpenDetails,
         modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer),
         shape = RoundedCornerShape(24.dp),
@@ -427,7 +445,49 @@ private fun SummaryCard(totals: Nutrition, profile: UserProfile) {
             if (remaining in 1..250) {
                 Text(pluralStringResource(R.plurals.goal_warning, remaining, remaining), color = MaterialTheme.colorScheme.error)
             }
+            Text(
+                stringResource(R.string.summary_hint),
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                fontSize = 12.sp,
+            )
         }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun MacroDetailsSheet(totals: Nutrition, profile: UserProfile, onDismiss: () -> Unit) {
+    ModalBottomSheet(onDismissRequest = onDismiss) {
+        Column(
+            Modifier.fillMaxWidth().navigationBarsPadding().padding(horizontal = 24.dp),
+            verticalArrangement = Arrangement.spacedBy(18.dp),
+        ) {
+            Text(stringResource(R.string.macro_breakdown), fontSize = 24.sp, fontWeight = FontWeight.Bold)
+            MacroDetail(R.string.protein, totals.proteinGrams, profile.proteinGoalGrams)
+            MacroDetail(R.string.carbs, totals.carbsGrams, profile.carbsGoalGrams)
+            MacroDetail(R.string.fat, totals.fatGrams, profile.fatGoalGrams)
+            Spacer(Modifier.height(12.dp))
+        }
+    }
+}
+
+@Composable
+private fun MacroDetail(label: Int, consumed: Double, goal: Int) {
+    val remaining = max(0, goal - consumed.roundToInt())
+    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+            Text(stringResource(label), fontWeight = FontWeight.SemiBold)
+            Text("${consumed.roundToInt()} / ${goal}g")
+        }
+        LinearProgressIndicator(
+            progress = { (consumed / goal.coerceAtLeast(1)).toFloat().coerceIn(0f, 1f) },
+            modifier = Modifier.fillMaxWidth().height(8.dp),
+        )
+        Text(
+            "$remaining g ${stringResource(R.string.remaining)}",
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            fontSize = 13.sp,
+        )
     }
 }
 
@@ -485,7 +545,12 @@ private fun EntryRow(entry: FoodEntry, locale: Locale, onRemove: () -> Unit) {
         Column(Modifier.weight(1f)) {
             Text(entry.foodName.forLocale(locale), fontWeight = FontWeight.SemiBold)
             val time = DateFormat.getTimeInstance(DateFormat.SHORT, locale).format(Date(entry.consumedAtEpochMillis))
-            Text("${entry.grams}g · $time", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp)
+            val amount = if (entry.unitKey == GRAMS_UNIT_KEY) {
+                "${entry.grams}g"
+            } else {
+                "${formatAmount(entry.enteredAmount, locale)} × ${entry.unitLabel.forLocale(locale)} · ${entry.grams}g"
+            }
+            Text("$amount · $time", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp)
         }
         Text("${entry.nutrition.calories} ${stringResource(R.string.kcal)}", fontWeight = FontWeight.Bold)
         IconButton(onClick = onRemove) { Icon(Icons.Default.Delete, stringResource(R.string.remove_entry)) }
@@ -495,9 +560,32 @@ private fun EntryRow(entry: FoodEntry, locale: Locale, onRemove: () -> Unit) {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun QuickAddSheet(food: Food, locale: Locale, onDismiss: () -> Unit, onAdd: (Int) -> Unit) {
-    var grams by remember(food.id) { mutableIntStateOf(food.servings.firstOrNull()?.grams ?: 100) }
-    val nutrition = food.nutritionPer100g.forGrams(grams)
+private fun QuickAddSheet(
+    food: Food,
+    usage: List<UnitUsage>,
+    locale: Locale,
+    onDismiss: () -> Unit,
+    onAdd: (Double, Serving?) -> Unit,
+) {
+    val usageByKey = usage.associateBy(UnitUsage::unitKey)
+    val choices = (food.servings.map { UnitChoice(it.id, it.label.forLocale(locale).removePrefix("1 "), it) } +
+        UnitChoice(GRAMS_UNIT_KEY, stringResource(R.string.grams_short), null))
+        .sortedWith(
+            compareByDescending<UnitChoice> { usageByKey[it.key]?.useCount ?: 0 }
+                .thenByDescending { usageByKey[it.key]?.lastUsedAtEpochMillis ?: 0L },
+        )
+    var selectedKey by remember(food.id) { mutableStateOf(choices.first().key) }
+    var amountText by remember(food.id) {
+        val preferred = choices.first()
+        val amount = usageByKey[preferred.key]?.lastAmount ?: if (preferred.serving == null) 100.0 else 1.0
+        mutableStateOf(formatEditableAmount(amount))
+    }
+    var unitMenuOpen by remember { mutableStateOf(false) }
+    val selected = choices.firstOrNull { it.key == selectedKey } ?: choices.first()
+    val amount = amountText.replace(',', '.').toDoubleOrNull()
+    val grams = amount?.let { (it * (selected.serving?.grams ?: 1)).roundToInt() } ?: 0
+    val valid = amount != null && amount > 0.0 && grams in 1..5_000
+    val nutrition = food.nutritionPer100g.forGrams(grams.coerceAtLeast(0))
     ModalBottomSheet(onDismissRequest = onDismiss) {
         Column(
             Modifier
@@ -510,27 +598,70 @@ private fun QuickAddSheet(food: Food, locale: Locale, onDismiss: () -> Unit, onA
             Text(food.name(locale), fontSize = 24.sp, fontWeight = FontWeight.Bold)
             Text(food.detail(locale), color = MaterialTheme.colorScheme.onSurfaceVariant)
             Text(stringResource(R.string.choose_serving), fontWeight = FontWeight.SemiBold)
-            food.servings.forEach { serving ->
+            choices.forEach { choice ->
                 FilterChip(
-                    selected = grams == serving.grams,
-                    onClick = { grams = serving.grams },
-                    label = { Text("${serving.label.forLocale(locale)} · ${serving.grams} g") },
+                    selected = selected.key == choice.key,
+                    onClick = {
+                        selectedKey = choice.key
+                        val remembered = usageByKey[choice.key]?.lastAmount
+                            ?: if (choice.serving == null) 100.0 else 1.0
+                        amountText = formatEditableAmount(remembered)
+                    },
+                    label = {
+                        val detail = choice.serving?.let { " · ${it.grams} g" }.orEmpty()
+                        Text("${choice.label}$detail")
+                    },
                 )
             }
-            FilterChip(selected = grams == 100, onClick = { grams = 100 }, label = { Text("100 g") })
-            OutlinedTextField(
-                value = grams.toString(),
-                onValueChange = { grams = it.filter(Char::isDigit).toIntOrNull()?.coerceIn(1, 5_000) ?: 1 },
-                label = { Text(stringResource(R.string.exact_grams)) },
-                suffix = { Text(stringResource(R.string.grams_short)) },
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                singleLine = true,
+            Box(Modifier.fillMaxWidth()) {
+                OutlinedTextField(
+                    value = amountText,
+                    onValueChange = { candidate ->
+                        val filtered = candidate.filter { it.isDigit() || it == '.' || it == ',' }
+                        if (filtered.count { it == '.' || it == ',' } <= 1) amountText = filtered
+                    },
+                    label = { Text(stringResource(R.string.amount)) },
+                    suffix = {
+                        TextButton(onClick = { unitMenuOpen = true }) { Text(selected.label) }
+                    },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                DropdownMenu(expanded = unitMenuOpen, onDismissRequest = { unitMenuOpen = false }) {
+                    choices.forEach { choice ->
+                        DropdownMenuItem(
+                            text = { Text(choice.label) },
+                            onClick = {
+                                selectedKey = choice.key
+                                val remembered = usageByKey[choice.key]?.lastAmount
+                                    ?: if (choice.serving == null) 100.0 else 1.0
+                                amountText = formatEditableAmount(remembered)
+                                unitMenuOpen = false
+                            },
+                        )
+                    }
+                }
+            }
+            if (selected.serving != null && valid) {
+                Text("≈ $grams ${stringResource(R.string.grams_short)}", color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+            Button(
+                enabled = valid,
+                onClick = { onAdd(requireNotNull(amount), selected.serving) },
                 modifier = Modifier.fillMaxWidth(),
-            )
-            Button(onClick = { onAdd(grams) }, Modifier.fillMaxWidth()) {
+            ) {
                 Text(pluralStringResource(R.plurals.add_food, nutrition.calories, nutrition.calories))
             }
             Spacer(Modifier.height(8.dp))
         }
     }
 }
+
+private data class UnitChoice(val key: String, val label: String, val serving: Serving?)
+
+private fun formatEditableAmount(value: Double): String =
+    if (value % 1.0 == 0.0) value.toInt().toString() else value.toString().trimEnd('0').trimEnd('.')
+
+private fun formatAmount(value: Double, locale: Locale): String =
+    NumberFormat.getNumberInstance(locale).apply { maximumFractionDigits = 2 }.format(value)

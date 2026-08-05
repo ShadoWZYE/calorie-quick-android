@@ -12,7 +12,7 @@ Adults tracking calories and macronutrients for general wellness, starting with 
 
 1. Open Today.
 2. Search or tap a frequent/recent food.
-3. Confirm a remembered serving or enter grams.
+3. Confirm a remembered food-specific unit/amount or enter grams.
 4. See calories and macros update immediately.
 5. Undo or edit without navigating away.
 
@@ -21,7 +21,9 @@ Adults tracking calories and macronutrients for general wellness, starting with 
 - Optional onboarding for units, age/date of birth, height, weight, activity level, goal, and preferred weekly rate.
 - Transparent resting-energy estimate (Mifflin–St Jeor for eligible adults) plus configurable activity/goal adjustment.
 - Today log with meals, copy-from-yesterday, recent/frequent foods, serving memory, edit, undo, and offline persistence.
-- Personal foods and recipes with calories, protein, carbohydrates, fat, fibre, sodium, and optional micronutrients.
+- Personal foods and recipes with calories, protein, total carbohydrates, fat, fibre, total/added sugar, sodium, and extensible optional nutrients. Missing nutrient data must remain visibly unknown rather than silently becoming zero.
+- Optional nutrient focuses with user-configurable targets. General reference values must be labelled as references, while condition-specific targets require explicit user/clinician input.
+- EU-14 allergen and intolerance preferences. Confirmed allergens are hard recommendation exclusions; “may contain” and unknown allergen data remain distinct warning states.
 - Search that ranks exact barcode, personal foods, frequent foods, recent foods, then cached catalogue results.
 - English and Romanian UI, metric-first with configurable units.
 - User-controlled reminders and calm threshold warnings.
@@ -35,6 +37,7 @@ Adults tracking calories and macronutrients for general wellness, starting with 
 - Streak-free consistency insights so missed days are not punitive.
 - Offline barcode cache and a visible "verified / community / user-entered" confidence marker.
 - Data-quality checks: calories versus macro-derived energy, implausible serving sizes, and missing units.
+- Recommendation explanations showing macro fit, frequency, exclusions, and incomplete nutrition/allergen data.
 - Accessibility: large tap targets, dynamic type, TalkBack labels, colour-independent status, and left/right-handed quick actions.
 
 ## Product metrics
@@ -51,6 +54,6 @@ Adults tracking calories and macronutrients for general wellness, starting with 
 - Final public name, package/application ID, visual identity, and publisher.
 - Whether accounts/sync are optional forever or required for community contributions.
 - How conservative target guardrails should be and which clinical reviewer signs them off.
+- Which condition-oriented tracking presets are safe to offer after clinical review; no preset may diagnose, set medication advice, or claim a food is safe from incomplete data.
 - The first central catalogue regions after Romania and the source-merging policy.
 - Monetization and whether it changes catalogue, sync, or image-retention design.
-

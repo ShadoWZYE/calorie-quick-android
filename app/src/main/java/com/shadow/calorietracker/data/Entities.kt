@@ -47,11 +47,25 @@ data class DiaryEntryEntity(
     val foodNameEn: String,
     val foodNameRo: String,
     val grams: Int,
+    val enteredAmountMilliUnits: Long,
+    val unitKey: String,
+    val unitLabelEn: String,
+    val unitLabelRo: String,
     val consumedAtEpochMillis: Long,
     val calories: Int,
     val proteinMilligrams: Int,
     val carbsMilligrams: Int,
     val fatMilligrams: Int,
+)
+
+@Entity(tableName = "serving_usage", indices = [Index("foodId")])
+data class ServingUsageEntity(
+    @PrimaryKey val id: String,
+    val foodId: String,
+    val unitKey: String,
+    val useCount: Int,
+    val lastUsedAtEpochMillis: Long,
+    val lastAmountMilliUnits: Long,
 )
 
 @Entity(tableName = "user_profile")
@@ -69,4 +83,3 @@ data class UserProfileEntity(
     val carbsGoalGrams: Int,
     val fatGoalGrams: Int,
 )
-

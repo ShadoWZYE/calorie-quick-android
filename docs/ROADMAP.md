@@ -13,9 +13,12 @@ Exit: the prototype builds, the happy path is understandable without instruction
 
 ## M1 — Local-first private alpha (current)
 
-- Room v1 schema, seeded local foods, diary persistence, and nutrition snapshots are implemented; migrations, personal-food editing, meals, and edit/undo remain.
+- Room schemas and a v1→v2 migration, seeded local foods, diary/unit snapshots, preference-ranked servings, and persistence are implemented; personal-food editing, meals, and edit/undo remain.
 - First-run onboarding, profile editing, BMR/TDEE estimate, activity/goal choice, and app-language settings are implemented; units and manual targets remain.
 - Recents/frequency ranking, favourite servings, copy meal/day, templates.
+- Extensible nutrient schema; fibre by default; optional total/added sugar and sodium with manual targets; clear unknown-data states.
+- Normalized generic/branded product schema with mass/volume/piece dimensions, packages/barcodes, full nutrient panels, provenance, and immutable diary snapshots.
+- EU-14 allergen/intolerance exclusions with `contains`, `may contain`, and `unknown` confidence; recommendation filtering and warnings.
 - Settings, export/delete, reminders, English/Romanian QA, accessibility.
 - Unit/UI/migration tests and measured performance budgets.
 
@@ -44,6 +47,7 @@ Exit: sync is idempotent, tested under offline/conflict conditions, and local-on
 - On-device label/ingredient OCR with confirmation and parsing confidence.
 - Recipe builder, pantry/frequent-food recommendations, meal suggestions constrained by remaining macros and preferences.
 - Nutrient flags and trend insights with careful non-medical wording.
+- Clinically reviewed condition-oriented tracking helpers that tune only from explicit targets and never substitute for care advice.
 
 Exit: recommendations are explainable and never invent unavailable ingredients or nutrition facts.
 

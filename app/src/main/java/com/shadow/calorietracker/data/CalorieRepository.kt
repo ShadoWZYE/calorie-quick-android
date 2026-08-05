@@ -10,6 +10,7 @@ import com.shadow.calorietracker.model.LocalizedText
 import com.shadow.calorietracker.model.Nutrition
 import com.shadow.calorietracker.model.Serving
 import com.shadow.calorietracker.model.UserProfile
+import com.shadow.calorietracker.model.UnitUsage
 import java.time.LocalDate
 import java.time.ZoneId
 import java.util.UUID
@@ -20,6 +21,17 @@ import kotlin.math.roundToInt
 class CalorieRepository(private val database: AppDatabase) {
     val profile: Flow<UserProfile?> = database.profileDao().observe().map { it?.toModel() }
     val foods: Flow<List<Food>> = database.foodDao().observeFoods().map { rows -> rows.map { it.toModel() } }
+    val unitUsage: Flow<List<UnitUsage>> = database.servingUsageDao().observeAll().map { rows ->
+        rows.map {
+            UnitUsage(
+                foodId = it.foodId,
+                unitKey = it.unitKey,
+                useCount = it.useCount,
+                lastUsedAtEpochMillis = it.lastUsedAtEpochMillis,
+                lastAmount = it.lastAmountMilliUnits / 1_000.0,
+            )
+        }
+    }
 
     fun todayEntries(zoneId: ZoneId = ZoneId.systemDefault()): Flow<List<FoodEntry>> {
         val today = LocalDate.now(zoneId)
@@ -40,9 +52,13 @@ class CalorieRepository(private val database: AppDatabase) {
         database.profileDao().upsert(profile.toEntity())
     }
 
-    suspend fun addEntry(food: Food, grams: Int) {
+    suspend fun addEntry(food: Food, amount: Double, serving: Serving?) {
+        val grams = (amount * (serving?.grams ?: 1)).roundToInt().coerceIn(1, 5_000)
         val nutrition = food.nutritionPer100g.forGrams(grams)
         val now = System.currentTimeMillis()
+        val amountMilliUnits = (amount * 1_000).roundToInt().toLong()
+        val unitKey = serving?.id ?: GRAMS_UNIT_KEY
+        val unitLabel = serving?.label?.withoutLeadingOne() ?: LocalizedText("g", "g")
         database.withTransaction {
             val recent = database.diaryDao().findRecent(food.id, now - ENTRY_MERGE_WINDOW_MILLIS)
             if (recent == null) {
@@ -53,6 +69,10 @@ class CalorieRepository(private val database: AppDatabase) {
                         foodNameEn = food.names.en,
                         foodNameRo = food.names.ro,
                         grams = grams,
+                        enteredAmountMilliUnits = amountMilliUnits,
+                        unitKey = unitKey,
+                        unitLabelEn = unitLabel.en,
+                        unitLabelRo = unitLabel.ro,
                         consumedAtEpochMillis = now,
                         calories = nutrition.calories,
                         proteinMilligrams = (nutrition.proteinGrams * 1_000).roundToInt(),
@@ -61,9 +81,18 @@ class CalorieRepository(private val database: AppDatabase) {
                     ),
                 )
             } else {
+                val sameUnit = recent.unitKey == unitKey
                 database.diaryDao().update(
                     recent.copy(
                         grams = recent.grams + grams,
+                        enteredAmountMilliUnits = if (sameUnit) {
+                            recent.enteredAmountMilliUnits + amountMilliUnits
+                        } else {
+                            (recent.grams + grams) * 1_000L
+                        },
+                        unitKey = if (sameUnit) unitKey else GRAMS_UNIT_KEY,
+                        unitLabelEn = if (sameUnit) unitLabel.en else "g",
+                        unitLabelRo = if (sameUnit) unitLabel.ro else "g",
                         calories = recent.calories + nutrition.calories,
                         proteinMilligrams = recent.proteinMilligrams + (nutrition.proteinGrams * 1_000).roundToInt(),
                         carbsMilligrams = recent.carbsMilligrams + (nutrition.carbsGrams * 1_000).roundToInt(),
@@ -71,15 +100,27 @@ class CalorieRepository(private val database: AppDatabase) {
                     ),
                 )
             }
+            val usageId = "${food.id}|$unitKey"
+            if (database.servingUsageDao().increment(usageId, now, amountMilliUnits) == 0) {
+                database.servingUsageDao().insert(
+                    ServingUsageEntity(usageId, food.id, unitKey, 1, now, amountMilliUnits),
+                )
+            }
         }
     }
 
     suspend fun deleteEntry(entry: FoodEntry) {
-        database.diaryDao().delete(entry.toEntity())
+        database.withTransaction {
+            database.diaryDao().delete(entry.toEntity())
+            val usageId = "${entry.foodId}|${entry.unitKey}"
+            database.servingUsageDao().decrement(usageId)
+            database.servingUsageDao().deleteIfUnused(usageId)
+        }
     }
 }
 
 private const val ENTRY_MERGE_WINDOW_MILLIS = 2 * 60 * 1_000L
+const val GRAMS_UNIT_KEY = "grams"
 
 private fun FoodWithServings.toModel() = Food(
     id = food.id,
@@ -101,6 +142,9 @@ private fun DiaryEntryEntity.toModel() = FoodEntry(
     foodId = foodId,
     foodName = LocalizedText(foodNameEn, foodNameRo),
     grams = grams,
+    enteredAmount = enteredAmountMilliUnits / 1_000.0,
+    unitKey = unitKey,
+    unitLabel = LocalizedText(unitLabelEn, unitLabelRo),
     consumedAtEpochMillis = consumedAtEpochMillis,
     nutrition = Nutrition(
         calories,
@@ -111,11 +155,23 @@ private fun DiaryEntryEntity.toModel() = FoodEntry(
 )
 
 private fun FoodEntry.toEntity() = DiaryEntryEntity(
-    id, foodId, foodName.en, foodName.ro, grams, consumedAtEpochMillis, nutrition.calories,
-    (nutrition.proteinGrams * 1_000).roundToInt(),
-    (nutrition.carbsGrams * 1_000).roundToInt(),
-    (nutrition.fatGrams * 1_000).roundToInt(),
+    id = id,
+    foodId = foodId,
+    foodNameEn = foodName.en,
+    foodNameRo = foodName.ro,
+    grams = grams,
+    enteredAmountMilliUnits = (enteredAmount * 1_000).roundToInt().toLong(),
+    unitKey = unitKey,
+    unitLabelEn = unitLabel.en,
+    unitLabelRo = unitLabel.ro,
+    consumedAtEpochMillis = consumedAtEpochMillis,
+    calories = nutrition.calories,
+    proteinMilligrams = (nutrition.proteinGrams * 1_000).roundToInt(),
+    carbsMilligrams = (nutrition.carbsGrams * 1_000).roundToInt(),
+    fatMilligrams = (nutrition.fatGrams * 1_000).roundToInt(),
 )
+
+private fun LocalizedText.withoutLeadingOne() = LocalizedText(en.removePrefix("1 "), ro.removePrefix("1 "))
 
 private fun UserProfileEntity.toModel() = UserProfile(
     onboardingComplete,

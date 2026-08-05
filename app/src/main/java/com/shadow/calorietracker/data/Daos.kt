@@ -60,3 +60,24 @@ interface ProfileDao {
     @Upsert
     suspend fun upsert(profile: UserProfileEntity)
 }
+
+@Dao
+interface ServingUsageDao {
+    @Query("SELECT * FROM serving_usage")
+    fun observeAll(): Flow<List<ServingUsageEntity>>
+
+    @Query(
+        "UPDATE serving_usage SET useCount = useCount + 1, " +
+            "lastUsedAtEpochMillis = :usedAt, lastAmountMilliUnits = :amountMilliUnits WHERE id = :id",
+    )
+    suspend fun increment(id: String, usedAt: Long, amountMilliUnits: Long): Int
+
+    @Insert(onConflict = OnConflictStrategy.IGNORE)
+    suspend fun insert(usage: ServingUsageEntity)
+
+    @Query("UPDATE serving_usage SET useCount = useCount - 1 WHERE id = :id")
+    suspend fun decrement(id: String)
+
+    @Query("DELETE FROM serving_usage WHERE id = :id AND useCount <= 0")
+    suspend fun deleteIfUnused(id: String)
+}

@@ -63,11 +63,26 @@ Source: https://developer.android.com/develop/ui/compose/performance/baseline-pr
 - Whole-dish vision has unavoidable portion-size ambiguity; it should report ranges and confidence.
 - Sync/community features substantially expand security, moderation, deletion, and operational scope.
 
+### Optional nutrients and medical-context safeguards
+
+The nutrient model must distinguish total carbohydrate, fibre, total sugars, and added sugars. For diabetes-oriented tracking, total carbohydrate remains the primary label value; the American Diabetes Association cautions against deriving “net carbs” and recommends using total carbohydrate because fibre and sugar alcohol effects vary. Sugar alone is therefore not an adequate diabetes recommendation signal.
+
+General adult label references can seed an optional setup screen, not a prescription: the FDA Daily Values use at least 28 g fibre, less than 2,300 mg sodium, and less than 50 g added sugar for a 2,000 kcal reference diet. Total sugars have no FDA Daily Value. A lower sodium target such as 1,500–2,000 mg/day must be explicitly configured from the user’s qualified care guidance rather than inferred from a diagnosis.
+
+EU foods require declaration of 14 allergen groups. The catalogue must preserve `contains`, precautionary `may contain`, and `unknown` separately. Confirmed user allergens should exclude foods from recommendations, but incomplete catalogue data must never produce a “safe” claim.
+
+Sources:
+
+- https://diabetes.org/food-nutrition/reading-food-labels/making-sense-food-labels
+- https://diabetes.org/food-nutrition/understanding-carbs/get-to-know-carbs
+- https://www.fda.gov/food/nutrition-facts-label/daily-value-nutrition-and-supplement-facts-labels
+- https://food.ec.europa.eu/food-safety/campaign-2026/allergies_en
+
 ## Deferred investigations
 
 - Validate Romanian barcode coverage with a representative retail basket.
 - Get counsel on Open Food Facts ODbL compatibility with the planned normalized catalogue.
 - Define nutrient ontology and EU/US label unit mapping.
+- Validate the normalized package/panel model with representative Romanian products: a 500 ml drink, multipack, drained-weight canned food, powder prepared with water, and piece-based produce.
 - Usability-test quantity controls (grams, millilitres, household servings, pieces) with Romanian and English users.
 - Commission a registered dietitian review of goal guardrails, warnings, and copy.
-
