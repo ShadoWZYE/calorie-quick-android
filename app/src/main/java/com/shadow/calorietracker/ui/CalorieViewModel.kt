@@ -1,6 +1,7 @@
 package com.shadow.calorietracker.ui
 
 import android.app.Application
+import android.net.Uri
 import android.util.Log
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
@@ -8,6 +9,8 @@ import com.shadow.calorietracker.data.AppDatabase
 import com.shadow.calorietracker.data.CalorieRepository
 import com.shadow.calorietracker.data.OpenFoodFactsClient
 import com.shadow.calorietracker.data.OpenFoodFactsException
+import com.shadow.calorietracker.data.NutritionLabelOcr
+import com.shadow.calorietracker.data.NutritionLabelPrefill
 import com.shadow.calorietracker.model.Food
 import com.shadow.calorietracker.model.FoodEntry
 import com.shadow.calorietracker.model.Nutrition
@@ -46,12 +49,23 @@ data class FoodLookupState(
     val isBarcodeLookup: Boolean = false,
 )
 
+enum class NutritionLabelScanStatus { IDLE, PROCESSING, SUCCESS, ERROR }
+
+data class NutritionLabelScanState(
+    val status: NutritionLabelScanStatus = NutritionLabelScanStatus.IDLE,
+    val prefill: NutritionLabelPrefill? = null,
+)
+
 class CalorieViewModel(application: Application) : AndroidViewModel(application) {
     private val repository = CalorieRepository(AppDatabase.get(application))
     private val openFoodFacts = OpenFoodFactsClient()
     private val _foodLookupState = MutableStateFlow(FoodLookupState())
     val foodLookupState: StateFlow<FoodLookupState> = _foodLookupState.asStateFlow()
     private var lookupJob: Job? = null
+    private val nutritionLabelOcr = NutritionLabelOcr(application)
+    private val _nutritionLabelScanState = MutableStateFlow(NutritionLabelScanState())
+    val nutritionLabelScanState: StateFlow<NutritionLabelScanState> = _nutritionLabelScanState.asStateFlow()
+    private var nutritionLabelScanJob: Job? = null
 
     val uiState = combine(
         repository.profile,
@@ -143,5 +157,35 @@ class CalorieViewModel(application: Application) : AndroidViewModel(application)
                 FoodLookupState(normalized, FoodLookupStatus.ERROR, isBarcodeLookup = true)
             }
         }
+    }
+
+    fun scanNutritionLabel(uri: Uri, suggestedName: String) {
+        nutritionLabelScanJob?.cancel()
+        _nutritionLabelScanState.value = NutritionLabelScanState(NutritionLabelScanStatus.PROCESSING)
+        nutritionLabelScanJob = viewModelScope.launch {
+            _nutritionLabelScanState.value = try {
+                NutritionLabelScanState(
+                    NutritionLabelScanStatus.SUCCESS,
+                    nutritionLabelOcr.scan(uri, suggestedName),
+                )
+            } catch (error: Exception) {
+                Log.w("NutritionLabelOcr", "Label scan failed", error)
+                NutritionLabelScanState(NutritionLabelScanStatus.ERROR)
+            } finally {
+                if (uri.authority == "${getApplication<Application>().packageName}.fileprovider") {
+                    runCatching { getApplication<Application>().contentResolver.delete(uri, null, null) }
+                }
+            }
+        }
+    }
+
+    fun clearNutritionLabelScan() {
+        nutritionLabelScanJob?.cancel()
+        _nutritionLabelScanState.value = NutritionLabelScanState()
+    }
+
+    override fun onCleared() {
+        nutritionLabelOcr.close()
+        super.onCleared()
     }
 }

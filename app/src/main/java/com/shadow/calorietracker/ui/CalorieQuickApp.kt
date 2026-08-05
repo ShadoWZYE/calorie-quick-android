@@ -1,6 +1,10 @@
 package com.shadow.calorietracker.ui
 
+import android.net.Uri
 import androidx.appcompat.app.AppCompatDelegate
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.PickVisualMediaRequest
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -31,6 +35,7 @@ import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.QrCodeScanner
+import androidx.compose.material.icons.filled.DocumentScanner
 import androidx.compose.material3.Button
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
@@ -52,6 +57,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -70,6 +76,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.os.LocaleListCompat
+import androidx.core.content.FileProvider
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.shadow.calorietracker.R
@@ -95,11 +102,14 @@ import com.shadow.calorietracker.model.UnitUsage
 import com.shadow.calorietracker.model.UserProfile
 import com.shadow.calorietracker.model.projectedMacroOverages
 import com.shadow.calorietracker.data.GRAMS_UNIT_KEY
+import com.shadow.calorietracker.data.NutritionLabelPrefill
+import com.shadow.calorietracker.data.NutritionLabelWarning
 import com.google.mlkit.vision.barcode.common.Barcode
 import com.google.mlkit.vision.codescanner.GmsBarcodeScannerOptions
 import com.google.mlkit.vision.codescanner.GmsBarcodeScanning
 import java.text.DateFormat
 import java.text.NumberFormat
+import java.io.File
 import java.util.Locale
 import java.util.Date
 import kotlin.math.max
@@ -111,11 +121,26 @@ private enum class AppScreen { TODAY, SETTINGS, FOOD_EDITOR }
 fun CalorieQuickApp(viewModel: CalorieViewModel = viewModel()) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val lookupState by viewModel.foodLookupState.collectAsStateWithLifecycle()
+    val nutritionLabelScanState by viewModel.nutritionLabelScanState.collectAsStateWithLifecycle()
     val profile = state.profile
     var screenName by rememberSaveable { mutableStateOf(AppScreen.TODAY.name) }
     var editingFood by remember { mutableStateOf<Food?>(null) }
     var newFoodName by rememberSaveable { mutableStateOf("") }
     var newFoodBarcode by rememberSaveable { mutableStateOf("") }
+    var nutritionLabelPrefill by remember { mutableStateOf<NutritionLabelPrefill?>(null) }
+
+    LaunchedEffect(nutritionLabelScanState.status, nutritionLabelScanState.prefill) {
+        if (nutritionLabelScanState.status == NutritionLabelScanStatus.SUCCESS) {
+            nutritionLabelScanState.prefill?.let { prefill ->
+                editingFood = null
+                nutritionLabelPrefill = prefill
+                newFoodName = prefill.suggestedName
+                newFoodBarcode = prefill.barcode.orEmpty()
+                screenName = AppScreen.FOOD_EDITOR.name
+            }
+            viewModel.clearNutritionLabelScan()
+        }
+    }
 
     when {
         !state.loaded -> LoadingScreen()
@@ -132,6 +157,7 @@ fun CalorieQuickApp(viewModel: CalorieViewModel = viewModel()) {
             initial = editingFood,
             initialName = newFoodName,
             initialBarcode = newFoodBarcode,
+            nutritionLabelPrefill = nutritionLabelPrefill,
             onBack = { screenName = AppScreen.TODAY.name },
             onSave = {
                 viewModel.savePersonalFood(it)
@@ -149,21 +175,27 @@ fun CalorieQuickApp(viewModel: CalorieViewModel = viewModel()) {
             onDelete = viewModel::deleteEntry,
             onCreateFood = {
                 editingFood = null
+                nutritionLabelPrefill = null
                 newFoodName = it.first
                 newFoodBarcode = it.second.orEmpty()
                 screenName = AppScreen.FOOD_EDITOR.name
             },
             onEditFood = {
                 editingFood = it
+                nutritionLabelPrefill = null
                 newFoodBarcode = ""
                 screenName = AppScreen.FOOD_EDITOR.name
             },
             lookupState = lookupState,
+            nutritionLabelScanState = nutritionLabelScanState,
             onSearchGlobal = viewModel::searchOpenFoodFacts,
             onLookupBarcode = viewModel::lookupBarcode,
             onClearLookup = viewModel::clearFoodLookup,
+            onScanNutritionLabel = viewModel::scanNutritionLabel,
+            onClearNutritionLabelScan = viewModel::clearNutritionLabelScan,
             onImportFood = {
                 editingFood = it
+                nutritionLabelPrefill = null
                 newFoodName = ""
                 newFoodBarcode = ""
                 screenName = AppScreen.FOOD_EDITOR.name
@@ -212,25 +244,38 @@ private fun PersonalFoodEditorScreen(
     initial: Food?,
     initialName: String,
     initialBarcode: String,
+    nutritionLabelPrefill: NutritionLabelPrefill?,
     onBack: () -> Unit,
     onSave: (PersonalFoodDraft) -> Unit,
     onArchive: (String) -> Unit,
 ) {
     val locale = LocalLocale.current.platformLocale
     val initialPackageMeasure = initial?.takeIf(Food::isPackaged)?.servings?.firstOrNull(Serving::isPackage)
-    var name by rememberSaveable(initial?.id, initialName) {
-        mutableStateOf(initial?.name(locale) ?: initialName)
+    var name by rememberSaveable(initial?.id, initialName, nutritionLabelPrefill) {
+        mutableStateOf(initial?.name(locale) ?: nutritionLabelPrefill?.suggestedName ?: initialName)
     }
     var brand by rememberSaveable(initial?.id) { mutableStateOf(initial?.brand.orEmpty()) }
-    var barcode by rememberSaveable(initial?.id, initialBarcode) {
-        mutableStateOf(initial?.barcode ?: initialBarcode)
+    var barcode by rememberSaveable(initial?.id, initialBarcode, nutritionLabelPrefill) {
+        mutableStateOf(initial?.barcode ?: nutritionLabelPrefill?.barcode ?: initialBarcode)
     }
-    var calories by rememberSaveable(initial?.id) { mutableStateOf(initial?.nutritionPer100g?.calories?.toString().orEmpty()) }
-    var protein by rememberSaveable(initial?.id) { mutableStateOf(initial?.nutritionPer100g?.proteinGrams?.editableValue().orEmpty()) }
-    var carbs by rememberSaveable(initial?.id) { mutableStateOf(initial?.nutritionPer100g?.carbsGrams?.editableValue().orEmpty()) }
-    var fat by rememberSaveable(initial?.id) { mutableStateOf(initial?.nutritionPer100g?.fatGrams?.editableValue().orEmpty()) }
-    var fiber by rememberSaveable(initial?.id) { mutableStateOf(initial?.nutritionPer100g?.fiberGrams?.editableValue().orEmpty()) }
-    var allergens by remember(initial?.id) { mutableStateOf(initial?.allergens.orEmpty()) }
+    var calories by rememberSaveable(initial?.id, nutritionLabelPrefill) {
+        mutableStateOf(initial?.nutritionPer100g?.calories?.toString() ?: nutritionLabelPrefill?.caloriesPer100g?.toString().orEmpty())
+    }
+    var protein by rememberSaveable(initial?.id, nutritionLabelPrefill) {
+        mutableStateOf(initial?.nutritionPer100g?.proteinGrams?.editableValue() ?: nutritionLabelPrefill?.proteinPer100g?.editableValue().orEmpty())
+    }
+    var carbs by rememberSaveable(initial?.id, nutritionLabelPrefill) {
+        mutableStateOf(initial?.nutritionPer100g?.carbsGrams?.editableValue() ?: nutritionLabelPrefill?.carbsPer100g?.editableValue().orEmpty())
+    }
+    var fat by rememberSaveable(initial?.id, nutritionLabelPrefill) {
+        mutableStateOf(initial?.nutritionPer100g?.fatGrams?.editableValue() ?: nutritionLabelPrefill?.fatPer100g?.editableValue().orEmpty())
+    }
+    var fiber by rememberSaveable(initial?.id, nutritionLabelPrefill) {
+        mutableStateOf(initial?.nutritionPer100g?.fiberGrams?.editableValue() ?: nutritionLabelPrefill?.fiberPer100g?.editableValue().orEmpty())
+    }
+    var allergens by remember(initial?.id, nutritionLabelPrefill) {
+        mutableStateOf(initial?.allergens ?: nutritionLabelPrefill?.allergens.orEmpty())
+    }
     var measures by remember(initial?.id) {
         mutableStateOf(
             initial?.servings.orEmpty().filterNot { it.id == initialPackageMeasure?.id }.map {
@@ -238,12 +283,14 @@ private fun PersonalFoodEditorScreen(
             },
         )
     }
-    var isPackaged by rememberSaveable(initial?.id) { mutableStateOf(initial?.isPackaged == true) }
+    var isPackaged by rememberSaveable(initial?.id, nutritionLabelPrefill) {
+        mutableStateOf(initial?.isPackaged == true || nutritionLabelPrefill?.packageGrams != null)
+    }
     var packageLabel by rememberSaveable(initial?.id) {
         mutableStateOf(initialPackageMeasure?.label?.en?.removePrefix("1 ") ?: "package")
     }
-    var packageWeight by rememberSaveable(initial?.id) {
-        mutableStateOf(initialPackageMeasure?.grams?.toString().orEmpty())
+    var packageWeight by rememberSaveable(initial?.id, nutritionLabelPrefill) {
+        mutableStateOf(initialPackageMeasure?.grams?.toString() ?: nutritionLabelPrefill?.packageGrams?.toString().orEmpty())
     }
     var packageFractions by remember(initial?.id) {
         mutableStateOf(initialPackageMeasure?.suggestedAmounts?.toSet() ?: setOf(0.5, 0.25))
@@ -278,6 +325,7 @@ private fun PersonalFoodEditorScreen(
                     Text(
                         stringResource(
                             when {
+                                nutritionLabelPrefill != null -> R.string.review_scanned_label
                                 initial == null -> R.string.add_personal_food
                                 initial.isPersonal -> R.string.edit_personal_food
                                 else -> R.string.review_imported_food
@@ -288,7 +336,9 @@ private fun PersonalFoodEditorScreen(
                     )
                     Text(
                         stringResource(
-                            if (initial != null && !initial.isPersonal) {
+                            if (nutritionLabelPrefill != null) {
+                                R.string.ocr_review_notice
+                            } else if (initial != null && !initial.isPersonal) {
                                 R.string.open_food_facts_review_notice
                             } else {
                                 R.string.personal_food_private
@@ -296,6 +346,25 @@ private fun PersonalFoodEditorScreen(
                         ),
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
+                }
+            }
+        }
+        if (nutritionLabelPrefill != null) {
+            item {
+                Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.tertiaryContainer)) {
+                    Column(
+                        Modifier.fillMaxWidth().padding(14.dp),
+                        verticalArrangement = Arrangement.spacedBy(4.dp),
+                    ) {
+                        Text(stringResource(R.string.ocr_detected_values), fontWeight = FontWeight.SemiBold)
+                        nutritionLabelPrefill.warnings.forEach { warning ->
+                            Text(
+                                "• ${stringResource(warning.labelResource())}",
+                                color = MaterialTheme.colorScheme.onTertiaryContainer,
+                                fontSize = 13.sp,
+                            )
+                        }
+                    }
                 }
             }
         }
@@ -926,6 +995,7 @@ private fun GoalType.labelResource() = when (this) {
 private fun TodayScreen(
     state: AppUiState,
     lookupState: FoodLookupState,
+    nutritionLabelScanState: NutritionLabelScanState,
     onOpenSettings: () -> Unit,
     onAdd: (Food, Double, Serving?) -> Unit,
     onDelete: (FoodEntry) -> Unit,
@@ -934,10 +1004,25 @@ private fun TodayScreen(
     onSearchGlobal: (String, String) -> Unit,
     onLookupBarcode: (String, String) -> Unit,
     onClearLookup: () -> Unit,
+    onScanNutritionLabel: (Uri, String) -> Unit,
+    onClearNutritionLabelScan: () -> Unit,
     onImportFood: (Food) -> Unit,
 ) {
     val context = LocalContext.current
     val locale = LocalLocale.current.platformLocale
+    var pendingCameraUri by rememberSaveable { mutableStateOf<String?>(null) }
+    var showLabelSourceDialog by rememberSaveable { mutableStateOf(false) }
+    var query by rememberSaveable { mutableStateOf("") }
+    val labelPhotoPicker = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
+        uri?.let { onScanNutritionLabel(it, query.trim()) }
+    }
+    val labelCamera = rememberLauncherForActivityResult(ActivityResultContracts.TakePicture()) { captured ->
+        pendingCameraUri?.let(Uri::parse)?.let { uri ->
+            if (captured) onScanNutritionLabel(uri, query.trim())
+            else runCatching { context.contentResolver.delete(uri, null, null) }
+        }
+        pendingCameraUri = null
+    }
     val barcodeScanner = remember {
         val options = GmsBarcodeScannerOptions.Builder()
             .setBarcodeFormats(
@@ -950,7 +1035,6 @@ private fun TodayScreen(
             .build()
         GmsBarcodeScanning.getClient(context, options)
     }
-    var query by rememberSaveable { mutableStateOf("") }
     var selectedFood by remember { mutableStateOf<Food?>(null) }
     var showMacroDetails by rememberSaveable { mutableStateOf(false) }
     val profile = requireNotNull(state.profile)
@@ -1015,30 +1099,38 @@ private fun TodayScreen(
                     placeholder = { Text(stringResource(R.string.search_hint)) },
                     leadingIcon = { Icon(Icons.Default.Search, null) },
                     trailingIcon = {
-                        if (query.isNotEmpty()) {
-                            IconButton(onClick = {
-                                query = ""
-                                onClearLookup()
-                            }) {
-                                Icon(Icons.Default.Close, stringResource(R.string.close))
-                            }
-                        } else {
+                        Row {
                             IconButton(
-                                onClick = {
-                                    barcodeScanner.startScan().addOnSuccessListener { barcode ->
-                                        barcode.rawValue?.filter(Char::isDigit)?.takeIf(String::isNotEmpty)?.let { code ->
-                                            val localFood = state.foods.firstOrNull { it.barcode == code }
-                                            if (localFood != null) {
-                                                selectedFood = localFood
-                                            } else {
-                                                query = code
-                                                onLookupBarcode(code, locale.language)
+                                enabled = nutritionLabelScanState.status != NutritionLabelScanStatus.PROCESSING,
+                                onClick = { showLabelSourceDialog = true },
+                            ) {
+                                Icon(Icons.Default.DocumentScanner, stringResource(R.string.scan_nutrition_label))
+                            }
+                            if (query.isNotEmpty()) {
+                                IconButton(onClick = {
+                                    query = ""
+                                    onClearLookup()
+                                }) {
+                                    Icon(Icons.Default.Close, stringResource(R.string.close))
+                                }
+                            } else {
+                                IconButton(
+                                    onClick = {
+                                        barcodeScanner.startScan().addOnSuccessListener { barcode ->
+                                            barcode.rawValue?.filter(Char::isDigit)?.takeIf(String::isNotEmpty)?.let { code ->
+                                                val localFood = state.foods.firstOrNull { it.barcode == code }
+                                                if (localFood != null) {
+                                                    selectedFood = localFood
+                                                } else {
+                                                    query = code
+                                                    onLookupBarcode(code, locale.language)
+                                                }
                                             }
                                         }
-                                    }
-                                },
-                            ) {
-                                Icon(Icons.Default.QrCodeScanner, stringResource(R.string.scan_barcode))
+                                    },
+                                ) {
+                                    Icon(Icons.Default.QrCodeScanner, stringResource(R.string.scan_barcode))
+                                }
                             }
                         }
                     },
@@ -1047,6 +1139,35 @@ private fun TodayScreen(
                     singleLine = true,
                     shape = RoundedCornerShape(18.dp),
                 )
+            }
+            if (nutritionLabelScanState.status == NutritionLabelScanStatus.PROCESSING) {
+                item {
+                    Row(
+                        Modifier.fillMaxWidth().padding(horizontal = 20.dp),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        CircularProgressIndicator(Modifier.height(20.dp), strokeWidth = 2.dp)
+                        Text(stringResource(R.string.reading_nutrition_label))
+                    }
+                }
+            } else if (nutritionLabelScanState.status == NutritionLabelScanStatus.ERROR) {
+                item {
+                    Row(
+                        Modifier.fillMaxWidth().padding(horizontal = 20.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text(
+                            stringResource(R.string.ocr_scan_error),
+                            Modifier.weight(1f),
+                            color = MaterialTheme.colorScheme.error,
+                        )
+                        TextButton(onClick = {
+                            onClearNutritionLabelScan()
+                            showLabelSourceDialog = true
+                        }) { Text(stringResource(R.string.retry)) }
+                    }
+                }
             }
             if (query.isNotBlank()) {
                 item {
@@ -1148,6 +1269,30 @@ private fun TodayScreen(
     }
     if (showMacroDetails) {
         MacroDetailsSheet(state.totals, profile, state.fiberIncomplete) { showMacroDetails = false }
+    }
+    if (showLabelSourceDialog) {
+        AlertDialog(
+            onDismissRequest = { showLabelSourceDialog = false },
+            title = { Text(stringResource(R.string.scan_nutrition_label)) },
+            text = { Text(stringResource(R.string.scan_label_explanation)) },
+            confirmButton = {
+                TextButton(onClick = {
+                    showLabelSourceDialog = false
+                    val directory = File(context.cacheDir, "label-captures").apply { mkdirs() }
+                    directory.listFiles()?.filter { it.name.startsWith("nutrition-label-") }?.forEach(File::delete)
+                    val file = File.createTempFile("nutrition-label-", ".jpg", directory)
+                    val uri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
+                    pendingCameraUri = uri.toString()
+                    labelCamera.launch(uri)
+                }) { Text(stringResource(R.string.take_photo)) }
+            },
+            dismissButton = {
+                TextButton(onClick = {
+                    showLabelSourceDialog = false
+                    labelPhotoPicker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
+                }) { Text(stringResource(R.string.choose_photo)) }
+            },
+        )
     }
 }
 
@@ -1382,6 +1527,13 @@ private fun MacroKind.labelResource() = when (this) {
     MacroKind.PROTEIN -> R.string.protein
     MacroKind.CARBS -> R.string.carbs
     MacroKind.FAT -> R.string.fat
+}
+
+private fun NutritionLabelWarning.labelResource() = when (this) {
+    NutritionLabelWarning.BASIS_UNKNOWN -> R.string.ocr_basis_unknown
+    NutritionLabelWarning.MULTIPLE_COLUMNS_UNCLEAR -> R.string.ocr_columns_unclear
+    NutritionLabelWarning.NORMALIZED_FROM_SERVING -> R.string.ocr_normalized_serving
+    NutritionLabelWarning.CORE_VALUES_MISSING -> R.string.ocr_core_missing
 }
 
 @Composable
