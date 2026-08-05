@@ -68,4 +68,51 @@ class QuantityPresetsTest {
             presets.map { it.label },
         )
     }
+
+    @Test
+    fun personalTeaspoonMeasureBecomesAQuickAddUnit() {
+        val honey = Food(
+            id = "personal-honey",
+            names = LocalizedText("Honey", "Miere"),
+            details = LocalizedText("Personal food", "Aliment personal"),
+            nutritionPer100g = Nutrition(304, 0.3, 82.4, 0.0),
+            servings = listOf(Serving("honey-teaspoon", LocalizedText("1 teaspoon", "1 linguriță"), 7)),
+            isPersonal = true,
+        )
+
+        val choices = buildUnitChoices(honey, emptyList(), Locale.ENGLISH, "g")
+        val presets = buildQuantityPresets(choices, emptyList(), Locale.ENGLISH, "g")
+
+        assertEquals(listOf("teaspoon", "g"), choices.map { it.label })
+        assertEquals(listOf("teaspoon · 7 g", "100 g"), presets.map { it.label })
+    }
+
+    @Test
+    fun packagedFoodOffersSelectedFractionSplits() {
+        val readyMeal = Food(
+            id = "personal-ready-meal",
+            names = LocalizedText("Ready meal", "Mâncare gata preparată"),
+            details = LocalizedText("Personal food", "Aliment personal"),
+            nutritionPer100g = Nutrition(150, 8.0, 18.0, 5.0),
+            servings = listOf(
+                Serving(
+                    id = "ready-meal-package",
+                    label = LocalizedText("1 package", "1 ambalaj"),
+                    grams = 400,
+                    suggestedAmounts = listOf(0.5, 0.25),
+                    isPackage = true,
+                ),
+            ),
+            isPersonal = true,
+            isPackaged = true,
+        )
+
+        val choices = buildUnitChoices(readyMeal, emptyList(), Locale.ENGLISH, "g")
+        val presets = buildQuantityPresets(choices, emptyList(), Locale.ENGLISH, "g")
+
+        assertEquals(
+            listOf("package · 400 g", "½ × package · 200 g", "¼ × package · 100 g", "100 g"),
+            presets.map { it.label },
+        )
+    }
 }

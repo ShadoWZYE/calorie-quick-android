@@ -50,7 +50,7 @@ fun buildQuantityPresets(
             .map(QuantityUsage::amount)
             .filter { abs(it - choice.baseAmount) > 0.000_001 }
             .toList()
-        (usedAmounts + choice.baseAmount).distinct().map { amount ->
+        (usedAmounts + choice.baseAmount + choice.serving?.suggestedAmounts.orEmpty()).distinct().map { amount ->
             choice.toPreset(amount, locale, gramsLabel)
         }
     }.sortedWith(
@@ -60,13 +60,18 @@ fun buildQuantityPresets(
             usageByPreset[it.unitKey to it.amount]?.lastUsedAtEpochMillis ?: 0L
         }.thenBy {
             choiceOrder[it.unitKey] ?: Int.MAX_VALUE
-        }.thenBy { it.amount },
+        },
     )
 }
 
 private fun UnitChoice.toPreset(amount: Double, locale: Locale, gramsLabel: String): QuantityPreset {
     val grams = (amount * (serving?.grams ?: 1)).roundToInt()
-    val formattedAmount = NumberFormat.getNumberInstance(locale).apply { maximumFractionDigits = 2 }.format(amount)
+    val formattedAmount = when {
+        abs(amount - 0.5) < 0.000_001 -> "½"
+        abs(amount - (1.0 / 3.0)) < 0.001 -> "⅓"
+        abs(amount - 0.25) < 0.000_001 -> "¼"
+        else -> NumberFormat.getNumberInstance(locale).apply { maximumFractionDigits = 2 }.format(amount)
+    }
     val label = when {
         serving == null -> "$formattedAmount $gramsLabel"
         amount == 1.0 -> "$label · $grams $gramsLabel"

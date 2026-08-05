@@ -17,8 +17,9 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         QuantityUsageEntity::class,
         NutrientValueEntity::class,
         AllergenDeclarationEntity::class,
+        ServingPresetEntity::class,
     ],
-    version = 5,
+    version = 6,
     exportSchema = true,
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -36,7 +37,13 @@ abstract class AppDatabase : RoomDatabase() {
                 context.applicationContext,
                 AppDatabase::class.java,
                 "calorie-quick.db",
-            ).addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5).build().also { instance = it }
+            ).addMigrations(
+                MIGRATION_1_2,
+                MIGRATION_2_3,
+                MIGRATION_3_4,
+                MIGRATION_4_5,
+                MIGRATION_5_6,
+            ).build().also { instance = it }
         }
 
         private val MIGRATION_1_2 = object : Migration(1, 2) {
@@ -130,6 +137,19 @@ abstract class AppDatabase : RoomDatabase() {
                 }
                 db.execSQL("INSERT INTO allergen_declarations VALUES ('eggs|EGGS', 'eggs', 'EGGS', 'CONTAINS')")
                 db.execSQL("INSERT INTO allergen_declarations VALUES ('greek-yogurt|MILK', 'greek-yogurt', 'MILK', 'CONTAINS')")
+            }
+        }
+
+
+        private val MIGRATION_5_6 = object : Migration(5, 6) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE foods ADD COLUMN isPackaged INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE servings ADD COLUMN isPackage INTEGER NOT NULL DEFAULT 0")
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS serving_presets (" +
+                        "id TEXT NOT NULL, servingId TEXT NOT NULL, amountMilliUnits INTEGER NOT NULL, PRIMARY KEY(id))",
+                )
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_serving_presets_servingId ON serving_presets(servingId)")
             }
         }
     }

@@ -26,6 +26,18 @@ interface FoodDao {
     suspend fun insertServings(servings: List<ServingEntity>)
 
     @Upsert
+    suspend fun upsertServings(servings: List<ServingEntity>)
+
+    @Upsert
+    suspend fun upsertServingPresets(presets: List<ServingPresetEntity>)
+
+    @Query("DELETE FROM serving_presets WHERE servingId IN (SELECT id FROM servings WHERE foodId = :foodId)")
+    suspend fun deleteServingPresets(foodId: String)
+
+    @Query("DELETE FROM servings WHERE foodId = :foodId")
+    suspend fun deleteServings(foodId: String)
+
+    @Upsert
     suspend fun upsertFood(food: FoodEntity)
 
     @Upsert

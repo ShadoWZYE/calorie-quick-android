@@ -48,6 +48,8 @@ data class Serving(
     val id: String,
     val label: LocalizedText,
     val grams: Int,
+    val suggestedAmounts: List<Double> = emptyList(),
+    val isPackage: Boolean = false,
 )
 
 data class Food(
@@ -59,6 +61,7 @@ data class Food(
     val brand: String? = null,
     val barcode: String? = null,
     val isPersonal: Boolean = false,
+    val isPackaged: Boolean = false,
     val allergens: Map<Allergen, AllergenDeclaration> = emptyMap(),
 ) {
     fun name(locale: Locale): String = names.forLocale(locale)
@@ -80,7 +83,29 @@ data class PersonalFoodDraft(
     val barcode: String?,
     val nutritionPer100g: Nutrition,
     val allergens: Map<Allergen, AllergenDeclaration>,
+    val measures: List<PersonalMeasure>,
+    val isPackaged: Boolean,
 )
+
+data class PersonalMeasure(
+    val id: String? = null,
+    val label: LocalizedText,
+    val grams: Int,
+    val suggestedAmounts: List<Double> = emptyList(),
+    val isPackage: Boolean = false,
+)
+
+enum class CommonMeasure(val label: LocalizedText) {
+    TEASPOON(LocalizedText("teaspoon", "linguriță")),
+    TABLESPOON(LocalizedText("tablespoon", "lingură")),
+    CUP(LocalizedText("cup", "cană")),
+    PIECE(LocalizedText("piece", "bucată")),
+    SLICE(LocalizedText("slice", "felie")),
+    SCOOP(LocalizedText("scoop", "măsură")),
+    BOTTLE(LocalizedText("bottle", "sticlă")),
+    CAN(LocalizedText("can", "doză")),
+    PACKET(LocalizedText("packet", "pachet")),
+}
 
 enum class MacroKind { PROTEIN, CARBS, FAT }
 

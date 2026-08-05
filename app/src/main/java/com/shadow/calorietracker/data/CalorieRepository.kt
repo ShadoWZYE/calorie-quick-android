@@ -93,6 +93,7 @@ class CalorieRepository(private val database: AppDatabase) {
                     isPersonal = true,
                     archived = false,
                     updatedAtEpochMillis = now,
+                    isPackaged = draft.isPackaged,
                 ),
             )
             database.foodDao().deleteNutrients(foodId)
@@ -101,6 +102,29 @@ class CalorieRepository(private val database: AppDatabase) {
             database.foodDao().upsertAllergens(
                 draft.allergens.map { (allergen, declaration) ->
                     AllergenDeclarationEntity("$foodId|${allergen.name}", foodId, allergen.name, declaration.name)
+                },
+            )
+            database.foodDao().deleteServingPresets(foodId)
+            database.foodDao().deleteServings(foodId)
+            val servingEntities = draft.measures.map { measure ->
+                    val labelEn = measure.label.en.trim().removePrefix("1 ").trim()
+                    val labelRo = measure.label.ro.trim().removePrefix("1 ").trim()
+                    ServingEntity(
+                        id = measure.id ?: "personal-measure-${UUID.randomUUID()}",
+                        foodId = foodId,
+                        labelEn = "1 $labelEn",
+                        labelRo = "1 $labelRo",
+                        grams = measure.grams,
+                        isPackage = measure.isPackage,
+                    )
+                }
+            database.foodDao().upsertServings(servingEntities)
+            database.foodDao().upsertServingPresets(
+                draft.measures.zip(servingEntities).flatMap { (measure, serving) ->
+                    measure.suggestedAmounts.map { amount ->
+                        val milliUnits = (amount * 1_000).roundToInt().toLong()
+                        ServingPresetEntity("${serving.id}|$milliUnits", serving.id, milliUnits)
+                    }
                 },
             )
         }
@@ -212,12 +236,19 @@ private fun FoodWithServings.toModel() = Food(
             fiberGrams = nutrients["fiber"]?.amountMilliUnitsPer100g?.div(1_000.0),
         )
     },
-    servings = servings.sortedByDescending { it.grams }.map {
-        Serving(it.id, LocalizedText(it.labelEn, it.labelRo), it.grams)
+    servings = servings.sortedByDescending { it.serving.grams }.map {
+        Serving(
+            it.serving.id,
+            LocalizedText(it.serving.labelEn, it.serving.labelRo),
+            it.serving.grams,
+            it.presets.map { preset -> preset.amountMilliUnits / 1_000.0 },
+            it.serving.isPackage,
+        )
     },
     brand = food.brand,
     barcode = food.barcode,
     isPersonal = food.isPersonal,
+    isPackaged = food.isPackaged,
     allergens = allergenDeclarations.associate {
         Allergen.valueOf(it.allergenKey) to AllergenDeclaration.valueOf(it.declaration)
     },

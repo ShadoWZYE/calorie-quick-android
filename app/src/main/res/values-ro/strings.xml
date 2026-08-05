@@ -78,6 +78,21 @@
     <string name="nutrition_per_100g">Valori nutriționale per 100 g</string>
     <string name="calories">Calorii (kcal)</string>
     <string name="fiber_optional_g">Fibre (g, opțional)</string>
+    <string name="packaging">Ambalare</string>
+    <string name="prepackaged_item">Produs gata preparat sau preambalat</string>
+    <string name="prepackaged_explanation">Introdu greutatea totală și alege fracțiile ambalajului afișate ca selecții rapide.</string>
+    <string name="package_unit_name">Numele ambalajului</string>
+    <string name="package_name_example">ambalaj, sticlă, baton…</string>
+    <string name="total_package_weight">Greutate totală (g)</string>
+    <string name="quick_splits">Fracții rapide</string>
+    <string name="whole_package_always_available">Ambalajul întreg și gramele sunt mereu disponibile.</string>
+    <string name="custom_measures">Unități de măsură</string>
+    <string name="custom_measures_explanation">Opțional. Alege o unitate cunoscută sau scrie una proprie, apoi introdu greutatea ei pentru acest aliment. Exemplu: linguriță = 7 g.</string>
+    <string name="measure_name">Numele unității</string>
+    <string name="measure_name_example">linguriță</string>
+    <string name="grams_per_unit">Grame/unitate</string>
+    <string name="add_measure">Adaugă unitatea de măsură</string>
+    <string name="remove_measure">Elimină unitatea de măsură</string>
     <string name="allergens">Alergeni</string>
     <string name="allergen_cycle_hint">Atinge o dată pentru „conține”, de două ori pentru „poate conține”, apoi din nou pentru necunoscut.</string>
     <string name="contains">conține</string>

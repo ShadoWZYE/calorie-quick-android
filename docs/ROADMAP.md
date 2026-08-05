@@ -18,7 +18,7 @@ Exit: the prototype builds, the happy path is understandable without instruction
 - Recents/frequency ranking, favourite servings, copy meal/day, templates.
 - Extensible nutrient schema and fibre tracking with clear unknown-data states are implemented; optional total/added sugar and sodium with manual targets remain.
 - Normalized generic/branded product schema with mass/volume/piece dimensions, packages/barcodes, full nutrient panels, provenance, and immutable diary snapshots.
-- Offline personal-food create/edit/archive with EU-14 allergen declarations is implemented; preparation variants with most-used defaults and optional private store/price history remain.
+- Offline personal-food create/edit/archive with EU-14 allergen declarations, custom gram-converted measures, and prepackaged-item split presets is implemented; preparation variants with most-used defaults and optional private store/price history remain.
 - Opt-in catalogue submissions with immutable review snapshots; no automatic promotion of personal records.
 - EU-14 allergen/intolerance exclusions with `contains`, `may contain`, and `unknown` confidence; recommendation filtering and warnings.
 - Settings, export/delete, reminders, English/Romanian QA, accessibility.

@@ -22,6 +22,7 @@ data class FoodEntity(
     val isPersonal: Boolean = false,
     val archived: Boolean = false,
     val updatedAtEpochMillis: Long = 0,
+    val isPackaged: Boolean = false,
 )
 
 @Entity(tableName = "nutrient_values", indices = [Index("foodId")])
@@ -51,12 +52,26 @@ data class ServingEntity(
     val labelEn: String,
     val labelRo: String,
     val grams: Int,
+    val isPackage: Boolean = false,
+)
+
+@Entity(tableName = "serving_presets", indices = [Index("servingId")])
+data class ServingPresetEntity(
+    @PrimaryKey val id: String,
+    val servingId: String,
+    val amountMilliUnits: Long,
+)
+
+data class ServingWithPresets(
+    @Embedded val serving: ServingEntity,
+    @Relation(parentColumn = "id", entityColumn = "servingId")
+    val presets: List<ServingPresetEntity>,
 )
 
 data class FoodWithServings(
     @Embedded val food: FoodEntity,
-    @Relation(parentColumn = "id", entityColumn = "foodId")
-    val servings: List<ServingEntity>,
+    @Relation(parentColumn = "id", entityColumn = "foodId", entity = ServingEntity::class)
+    val servings: List<ServingWithPresets>,
     @Relation(parentColumn = "id", entityColumn = "foodId")
     val nutrientValues: List<NutrientValueEntity>,
     @Relation(parentColumn = "id", entityColumn = "foodId")

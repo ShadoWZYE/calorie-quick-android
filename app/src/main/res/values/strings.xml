@@ -75,7 +75,22 @@
     <string name="barcode_optional">Barcode (optional)</string>
     <string name="nutrition_per_100g">Nutrition per 100 g</string>
     <string name="calories">Calories (kcal)</string>
-    <string name="fiber_optional_g">Fibre (g, optional)</string>
+    <string name="fiber_optional_g">Fiber (g, optional)</string>
+    <string name="packaging">Packaging</string>
+    <string name="prepackaged_item">Ready-made or prepackaged item</string>
+    <string name="prepackaged_explanation">Enter the total item weight and choose which package fractions should appear as quick picks.</string>
+    <string name="package_unit_name">Package name</string>
+    <string name="package_name_example">package, bottle, bar…</string>
+    <string name="total_package_weight">Total weight (g)</string>
+    <string name="quick_splits">Quick splits</string>
+    <string name="whole_package_always_available">The whole package and grams are always available.</string>
+    <string name="custom_measures">Measuring units</string>
+    <string name="custom_measures_explanation">Optional. Pick a known unit or type your own, then enter its food-specific weight. Example: teaspoon = 7 g.</string>
+    <string name="measure_name">Unit name</string>
+    <string name="measure_name_example">teaspoon</string>
+    <string name="grams_per_unit">Grams/unit</string>
+    <string name="add_measure">Add measuring unit</string>
+    <string name="remove_measure">Remove measuring unit</string>
     <string name="allergens">Allergens</string>
     <string name="allergen_cycle_hint">Tap once for “contains,” twice for “may contain,” and again to return to unknown.</string>
     <string name="contains">contains</string>

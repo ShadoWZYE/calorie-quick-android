@@ -72,15 +72,18 @@ import com.shadow.calorietracker.R
 import com.shadow.calorietracker.model.ActivityLevel
 import com.shadow.calorietracker.model.Allergen
 import com.shadow.calorietracker.model.AllergenDeclaration
+import com.shadow.calorietracker.model.CommonMeasure
 import com.shadow.calorietracker.model.EnergyEstimator
 import com.shadow.calorietracker.model.Food
 import com.shadow.calorietracker.model.FoodEntry
 import com.shadow.calorietracker.model.FormulaSex
 import com.shadow.calorietracker.model.FoodRecommender
 import com.shadow.calorietracker.model.GoalType
+import com.shadow.calorietracker.model.LocalizedText
 import com.shadow.calorietracker.model.MacroKind
 import com.shadow.calorietracker.model.Nutrition
 import com.shadow.calorietracker.model.PersonalFoodDraft
+import com.shadow.calorietracker.model.PersonalMeasure
 import com.shadow.calorietracker.model.QuantityUsage
 import com.shadow.calorietracker.model.Serving
 import com.shadow.calorietracker.model.TargetMode
@@ -190,6 +193,8 @@ private fun PersonalFoodEditorScreen(
     onSave: (PersonalFoodDraft) -> Unit,
     onArchive: (String) -> Unit,
 ) {
+    val locale = LocalLocale.current.platformLocale
+    val initialPackageMeasure = initial?.takeIf(Food::isPackaged)?.servings?.firstOrNull(Serving::isPackage)
     var name by rememberSaveable(initial?.id, initialName) {
         mutableStateOf(initial?.names?.en ?: initialName)
     }
@@ -201,17 +206,39 @@ private fun PersonalFoodEditorScreen(
     var fat by rememberSaveable(initial?.id) { mutableStateOf(initial?.nutritionPer100g?.fatGrams?.editableValue().orEmpty()) }
     var fiber by rememberSaveable(initial?.id) { mutableStateOf(initial?.nutritionPer100g?.fiberGrams?.editableValue().orEmpty()) }
     var allergens by remember(initial?.id) { mutableStateOf(initial?.allergens.orEmpty()) }
+    var measures by remember(initial?.id) {
+        mutableStateOf(
+            initial?.servings.orEmpty().filterNot { it.id == initialPackageMeasure?.id }.map {
+                PersonalMeasure(it.id, it.label, it.grams)
+            },
+        )
+    }
+    var isPackaged by rememberSaveable(initial?.id) { mutableStateOf(initial?.isPackaged == true) }
+    var packageLabel by rememberSaveable(initial?.id) {
+        mutableStateOf(initialPackageMeasure?.label?.en?.removePrefix("1 ") ?: "package")
+    }
+    var packageWeight by rememberSaveable(initial?.id) {
+        mutableStateOf(initialPackageMeasure?.grams?.toString().orEmpty())
+    }
+    var packageFractions by remember(initial?.id) {
+        mutableStateOf(initialPackageMeasure?.suggestedAmounts?.toSet() ?: setOf(0.5, 0.25))
+    }
+    var measureLabel by rememberSaveable(initial?.id) { mutableStateOf("") }
+    var measureGrams by rememberSaveable(initial?.id) { mutableStateOf("") }
+    var selectedCommonMeasureName by rememberSaveable(initial?.id) { mutableStateOf<String?>(null) }
     var confirmArchive by remember { mutableStateOf(false) }
     val caloriesValue = calories.toIntOrNull()
     val proteinValue = protein.localizedDoubleOrNull()
     val carbsValue = carbs.localizedDoubleOrNull()
     val fatValue = fat.localizedDoubleOrNull()
     val fiberValue = fiber.localizedDoubleOrNull()
+    val packageWeightValue = packageWeight.toIntOrNull()
     val valid = name.isNotBlank() && caloriesValue in 0..5_000 &&
         proteinValue != null && proteinValue in 0.0..100.0 &&
         carbsValue != null && carbsValue in 0.0..100.0 &&
         fatValue != null && fatValue in 0.0..100.0 &&
-        (fiber.isBlank() || fiberValue != null && fiberValue in 0.0..100.0)
+        (fiber.isBlank() || fiberValue != null && fiberValue in 0.0..100.0) &&
+        (!isPackaged || packageLabel.isNotBlank() && packageWeightValue in 1..50_000)
 
     LazyColumn(
         modifier = Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding().padding(horizontal = 20.dp),
@@ -274,6 +301,132 @@ private fun PersonalFoodEditorScreen(
         item {
             NumericField(fiber, { fiber = it }, R.string.fiber_optional_g, Modifier.fillMaxWidth(), decimal = true)
         }
+        item { SectionTitle(R.string.packaging, horizontalPadding = 0.dp) }
+        item {
+            FilterChip(
+                selected = isPackaged,
+                onClick = { isPackaged = !isPackaged },
+                label = { Text(stringResource(R.string.prepackaged_item)) },
+            )
+        }
+        if (isPackaged) {
+            item {
+                Text(stringResource(R.string.prepackaged_explanation), color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+            item {
+                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    OutlinedTextField(
+                        value = packageLabel,
+                        onValueChange = { packageLabel = it },
+                        label = { Text(stringResource(R.string.package_unit_name)) },
+                        placeholder = { Text(stringResource(R.string.package_name_example)) },
+                        modifier = Modifier.weight(1f),
+                        singleLine = true,
+                    )
+                    NumericField(
+                        packageWeight,
+                        { packageWeight = it },
+                        R.string.total_package_weight,
+                        Modifier.weight(1f),
+                    )
+                }
+            }
+            item {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(stringResource(R.string.quick_splits), fontWeight = FontWeight.SemiBold)
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        listOf(0.5 to "½", (1.0 / 3.0) to "⅓", 0.25 to "¼").forEach { (amount, label) ->
+                            FilterChip(
+                                selected = packageFractions.any { kotlin.math.abs(it - amount) < 0.001 },
+                                onClick = {
+                                    packageFractions = if (packageFractions.any { kotlin.math.abs(it - amount) < 0.001 }) {
+                                        packageFractions.filterNot { kotlin.math.abs(it - amount) < 0.001 }.toSet()
+                                    } else {
+                                        packageFractions + amount
+                                    }
+                                },
+                                label = { Text(label) },
+                            )
+                        }
+                    }
+                    Text(stringResource(R.string.whole_package_always_available), color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            }
+        }
+        item { SectionTitle(R.string.custom_measures, horizontalPadding = 0.dp) }
+        item {
+            Text(stringResource(R.string.custom_measures_explanation), color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+        item {
+            FlowRow(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(4.dp),
+            ) {
+                CommonMeasure.entries.forEach { commonMeasure ->
+                    FilterChip(
+                        selected = selectedCommonMeasureName == commonMeasure.name,
+                        onClick = {
+                            selectedCommonMeasureName = commonMeasure.name
+                            measureLabel = commonMeasure.label.forLocale(locale)
+                        },
+                        label = { Text(commonMeasure.label.forLocale(locale)) },
+                    )
+                }
+            }
+        }
+        items(measures, key = { it.id ?: it.label }) { measure ->
+            Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(start = 16.dp, top = 8.dp, bottom = 8.dp, end = 6.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text("${measure.label.forLocale(locale)} · ${measure.grams} g", modifier = Modifier.weight(1f))
+                    IconButton(onClick = { measures = measures - measure }) {
+                        Icon(Icons.Default.Delete, stringResource(R.string.remove_measure))
+                    }
+                }
+            }
+        }
+        item {
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
+                OutlinedTextField(
+                    value = measureLabel,
+                    onValueChange = {
+                        measureLabel = it
+                        selectedCommonMeasureName = null
+                    },
+                    label = { Text(stringResource(R.string.measure_name)) },
+                    placeholder = { Text(stringResource(R.string.measure_name_example)) },
+                    modifier = Modifier.weight(1.35f),
+                    singleLine = true,
+                )
+                NumericField(
+                    measureGrams,
+                    { measureGrams = it },
+                    R.string.grams_per_unit,
+                    Modifier.weight(1f),
+                )
+                IconButton(
+                    enabled = measureLabel.isNotBlank() && measureGrams.toIntOrNull() in 1..5_000 &&
+                        measures.none { measure ->
+                            measure.label.all().any { it.equals(measureLabel.trim(), ignoreCase = true) }
+                        },
+                    onClick = {
+                        val commonMeasure = selectedCommonMeasureName?.let(CommonMeasure::valueOf)
+                        measures = measures + PersonalMeasure(
+                            label = commonMeasure?.label ?: LocalizedText(measureLabel.trim(), measureLabel.trim()),
+                            grams = requireNotNull(measureGrams.toIntOrNull()),
+                        )
+                        measureLabel = ""
+                        measureGrams = ""
+                        selectedCommonMeasureName = null
+                    },
+                ) {
+                    Icon(Icons.Default.Add, stringResource(R.string.add_measure))
+                }
+            }
+        }
         item { SectionTitle(R.string.allergens, horizontalPadding = 0.dp) }
         item {
             Text(stringResource(R.string.allergen_cycle_hint), color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -329,6 +482,20 @@ private fun PersonalFoodEditorScreen(
                                 fiberGrams = if (fiber.isBlank()) null else fiberValue,
                             ),
                             allergens = allergens,
+                            measures = measures + if (isPackaged) {
+                                listOf(
+                                    PersonalMeasure(
+                                        id = initialPackageMeasure?.id,
+                                        label = LocalizedText(packageLabel.trim(), packageLabel.trim()),
+                                        grams = requireNotNull(packageWeightValue),
+                                        suggestedAmounts = packageFractions.toList(),
+                                        isPackage = true,
+                                    ),
+                                )
+                            } else {
+                                emptyList()
+                            },
+                            isPackaged = isPackaged,
                         ),
                     )
                 },

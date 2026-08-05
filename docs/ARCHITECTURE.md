@@ -71,6 +71,10 @@ Record chosen result position and subsequent corrections locally (with opt-in an
 
 Personal-food creation is a search fallback, not a separate primary action. Search checks personal and cached local records first, then the remote canonical catalogue; only after no exact name/barcode match remains does it offer a prefilled private-food editor. This same reviewed editor receives barcode misses and OCR-prefilled labels.
 
+Personal foods may define user-specific measuring units as a label plus verified gram conversion (for example, `teaspoon = 7 g` for a particular honey). Grams always remain available. These measures use the same interaction-ranked quantity memory as catalogue servings; the app never assumes a volume-to-mass conversion without a product-specific value or user confirmation.
+
+Ready-made/prepackaged personal foods additionally retain a package role, total package weight, and user-selected fractional presets. A 400 g package with half and quarter enabled produces neutral quick picks for `1 package`, `½ package`, and `¼ package`; subsequent interaction counts can still reorder remembered quantities. Fractions are explicit presets rather than separate foods or nutrition records.
+
 When search is empty, Today shows recommendations instead: remaining macro needs are the primary ranking signal, foods rich in an already exceeded macro receive a strong penalty, and accumulated food frequency is the secondary preference signal. Food cards expose only projected macro problems, calculated from the declared neutral default serving or 100 g—not the user's remembered quantity—so ranking trade-offs remain visible. The first implementation is deterministic and entirely local.
 
 ## Central catalogue strategy
