@@ -16,6 +16,8 @@ import com.shadow.calorietracker.model.FoodEntry
 import com.shadow.calorietracker.model.Nutrition
 import com.shadow.calorietracker.model.PersonalFoodDraft
 import com.shadow.calorietracker.model.QuantityUsage
+import com.shadow.calorietracker.model.RecipeDraft
+import com.shadow.calorietracker.model.RecipeTemplate
 import com.shadow.calorietracker.model.Serving
 import com.shadow.calorietracker.model.UnitUsage
 import com.shadow.calorietracker.model.UserProfile
@@ -35,10 +37,23 @@ data class AppUiState(
     val entries: List<FoodEntry> = emptyList(),
     val unitUsage: Map<String, List<UnitUsage>> = emptyMap(),
     val quantityUsage: Map<String, List<QuantityUsage>> = emptyMap(),
+    val recipes: Map<String, RecipeTemplate> = emptyMap(),
 ) {
     val totals: Nutrition = entries.fold(Nutrition.Zero) { total, entry -> total + entry.nutrition }
     val fiberIncomplete: Boolean = entries.any { it.nutrition.fiberGrams == null }
 }
+
+private data class CatalogueState(
+    val profile: UserProfile?,
+    val foods: List<Food>,
+    val entries: List<FoodEntry>,
+)
+
+private data class UsageAndRecipeState(
+    val unitUsage: List<UnitUsage>,
+    val quantityUsage: List<QuantityUsage>,
+    val recipes: List<RecipeTemplate>,
+)
 
 enum class FoodLookupStatus { IDLE, SEARCHING, SUCCESS, ERROR, RATE_LIMITED }
 
@@ -68,19 +83,17 @@ class CalorieViewModel(application: Application) : AndroidViewModel(application)
     private var nutritionLabelScanJob: Job? = null
 
     val uiState = combine(
-        repository.profile,
-        repository.foods,
-        repository.todayEntries(),
-        repository.unitUsage,
-        repository.quantityUsage,
-    ) { profile, foods, entries, unitUsage, quantityUsage ->
+        combine(repository.profile, repository.foods, repository.todayEntries(), ::CatalogueState),
+        combine(repository.unitUsage, repository.quantityUsage, repository.recipes, ::UsageAndRecipeState),
+    ) { catalogue, usage ->
         AppUiState(
             loaded = true,
-            profile = profile,
-            foods = foods,
-            entries = entries,
-            unitUsage = unitUsage.groupBy(UnitUsage::foodId),
-            quantityUsage = quantityUsage.groupBy(QuantityUsage::foodId),
+            profile = catalogue.profile,
+            foods = catalogue.foods,
+            entries = catalogue.entries,
+            unitUsage = usage.unitUsage.groupBy(UnitUsage::foodId),
+            quantityUsage = usage.quantityUsage.groupBy(QuantityUsage::foodId),
+            recipes = usage.recipes.associateBy(RecipeTemplate::foodId),
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), AppUiState())
 
@@ -102,6 +115,10 @@ class CalorieViewModel(application: Application) : AndroidViewModel(application)
 
     fun savePersonalFood(draft: PersonalFoodDraft) {
         viewModelScope.launch { repository.savePersonalFood(draft) }
+    }
+
+    fun saveRecipe(draft: RecipeDraft) {
+        viewModelScope.launch { repository.saveRecipe(draft) }
     }
 
     fun archivePersonalFood(foodId: String) {

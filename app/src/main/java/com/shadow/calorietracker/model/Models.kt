@@ -77,9 +77,13 @@ data class Food(
         normalizedFoodIdentity(names.en, this.brand) == normalizedFoodIdentity(name, brand) ||
             normalizedFoodIdentity(names.ro, this.brand) == normalizedFoodIdentity(name, brand)
 
-    fun hasSameCatalogueIdentity(other: Food): Boolean =
-        barcode != null && other.barcode != null && barcode == other.barcode ||
-            hasSameIdentity(other.names.en, other.brand) || hasSameIdentity(other.names.ro, other.brand)
+    fun hasSameCatalogueIdentity(other: Food): Boolean {
+        val barcodeMatches = barcode != null && other.barcode != null && barcode == other.barcode
+        if (provenance.type == FoodSourceType.RECIPE || other.provenance.type == FoodSourceType.RECIPE) {
+            return barcodeMatches
+        }
+        return barcodeMatches || hasSameIdentity(other.names.en, other.brand) || hasSameIdentity(other.names.ro, other.brand)
+    }
 }
 
 enum class FoodSourceType { BUILT_IN, PERSONAL, OPEN_FOOD_FACTS, OCR, RECIPE }
@@ -122,6 +126,83 @@ data class PersonalMeasure(
     val suggestedAmounts: List<Double> = emptyList(),
     val isPackage: Boolean = false,
 )
+
+data class RecipeIngredientDraft(
+    val foodId: String,
+    val foodName: LocalizedText,
+    val nutritionPer100g: Nutrition,
+    val allergens: Map<Allergen, AllergenDeclaration>,
+    val grams: Int,
+)
+
+data class RecipeDraft(
+    val id: String? = null,
+    val name: String,
+    val ingredients: List<RecipeIngredientDraft>,
+    val cookedYieldGrams: Int,
+    val portionCount: Int,
+)
+
+data class RecipeTemplate(
+    val foodId: String,
+    val activeBatchId: String,
+    val name: String,
+    val ingredients: List<RecipeIngredientDraft>,
+    val cookedYieldGrams: Int,
+    val portionCount: Int,
+    val cookedAtEpochMillis: Long,
+)
+
+data class RecipeCalculation(
+    val totalNutrition: Nutrition,
+    val nutritionPer100g: Nutrition,
+    val allergens: Map<Allergen, AllergenDeclaration>,
+    val portionGrams: Int,
+)
+
+object RecipeCalculator {
+    fun calculate(
+        ingredients: List<RecipeIngredientDraft>,
+        cookedYieldGrams: Int,
+        portionCount: Int,
+    ): RecipeCalculation {
+        require(ingredients.isNotEmpty())
+        require(ingredients.all { it.grams > 0 })
+        require(cookedYieldGrams > 0)
+        require(portionCount > 0)
+        val calories = ingredients.sumOf { it.nutritionPer100g.calories * it.grams / 100.0 }
+        val protein = ingredients.sumOf { it.nutritionPer100g.proteinGrams * it.grams / 100.0 }
+        val carbs = ingredients.sumOf { it.nutritionPer100g.carbsGrams * it.grams / 100.0 }
+        val fat = ingredients.sumOf { it.nutritionPer100g.fatGrams * it.grams / 100.0 }
+        val fiber = if (ingredients.all { it.nutritionPer100g.fiberGrams != null }) {
+            ingredients.sumOf { requireNotNull(it.nutritionPer100g.fiberGrams) * it.grams / 100.0 }
+        } else {
+            null
+        }
+        val total = Nutrition(calories.roundToInt(), protein, carbs, fat, fiber)
+        val per100Factor = 100.0 / cookedYieldGrams
+        val allergens = buildMap {
+            ingredients.flatMap { it.allergens.entries }.forEach { (allergen, declaration) ->
+                val current = get(allergen)
+                if (current != AllergenDeclaration.CONTAINS || declaration == AllergenDeclaration.CONTAINS) {
+                    put(allergen, declaration)
+                }
+            }
+        }
+        return RecipeCalculation(
+            totalNutrition = total,
+            nutritionPer100g = Nutrition(
+                (calories * per100Factor).roundToInt(),
+                protein * per100Factor,
+                carbs * per100Factor,
+                fat * per100Factor,
+                fiber?.times(per100Factor),
+            ),
+            allergens = allergens,
+            portionGrams = (cookedYieldGrams / portionCount.toDouble()).roundToInt().coerceAtLeast(1),
+        )
+    }
+}
 
 enum class CommonMeasure(val label: LocalizedText) {
     TEASPOON(LocalizedText("teaspoon", "linguriță")),

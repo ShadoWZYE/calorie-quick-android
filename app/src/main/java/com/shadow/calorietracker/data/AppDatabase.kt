@@ -18,8 +18,12 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         NutrientValueEntity::class,
         AllergenDeclarationEntity::class,
         ServingPresetEntity::class,
+        RecipeEntity::class,
+        RecipeBatchEntity::class,
+        RecipeIngredientEntity::class,
+        RecipeIngredientAllergenEntity::class,
     ],
-    version = 7,
+    version = 8,
     exportSchema = true,
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -28,6 +32,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun profileDao(): ProfileDao
     abstract fun servingUsageDao(): ServingUsageDao
     abstract fun quantityUsageDao(): QuantityUsageDao
+    abstract fun recipeDao(): RecipeDao
 
     companion object {
         @Volatile private var instance: AppDatabase? = null
@@ -44,6 +49,7 @@ abstract class AppDatabase : RoomDatabase() {
                 MIGRATION_4_5,
                 MIGRATION_5_6,
                 MIGRATION_6_7,
+                MIGRATION_7_8,
             ).build().also { instance = it }
         }
 
@@ -164,6 +170,41 @@ abstract class AppDatabase : RoomDatabase() {
                     "UPDATE foods SET sourceType = 'OPEN_FOOD_FACTS', " +
                         "sourceId = COALESCE(barcode, SUBSTR(id, 5)), " +
                         "importedAtEpochMillis = updatedAtEpochMillis WHERE id LIKE 'off-%'",
+                )
+            }
+        }
+
+        private val MIGRATION_7_8 = object : Migration(7, 8) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS recipes (" +
+                        "foodId TEXT NOT NULL, name TEXT NOT NULL, activeBatchId TEXT NOT NULL, createdAtEpochMillis INTEGER NOT NULL, " +
+                        "updatedAtEpochMillis INTEGER NOT NULL, PRIMARY KEY(foodId))",
+                )
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS recipe_batches (" +
+                        "id TEXT NOT NULL, recipeFoodId TEXT NOT NULL, cookedYieldGrams INTEGER NOT NULL, " +
+                        "portionCount INTEGER NOT NULL, cookedAtEpochMillis INTEGER NOT NULL, PRIMARY KEY(id))",
+                )
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_recipe_batches_recipeFoodId ON recipe_batches(recipeFoodId)")
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS recipe_ingredients (" +
+                        "id TEXT NOT NULL, batchId TEXT NOT NULL, foodId TEXT NOT NULL, foodNameEn TEXT NOT NULL, " +
+                        "foodNameRo TEXT NOT NULL, grams INTEGER NOT NULL, caloriesPer100g INTEGER NOT NULL, " +
+                        "proteinMilligramsPer100g INTEGER NOT NULL, carbsMilligramsPer100g INTEGER NOT NULL, " +
+                        "fatMilligramsPer100g INTEGER NOT NULL, fiberMilligramsPer100g INTEGER, " +
+                        "sortOrder INTEGER NOT NULL, PRIMARY KEY(id))",
+                )
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_recipe_ingredients_batchId ON recipe_ingredients(batchId)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_recipe_ingredients_foodId ON recipe_ingredients(foodId)")
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS recipe_ingredient_allergens (" +
+                        "id TEXT NOT NULL, recipeIngredientId TEXT NOT NULL, allergenKey TEXT NOT NULL, " +
+                        "declaration TEXT NOT NULL, PRIMARY KEY(id))",
+                )
+                db.execSQL(
+                    "CREATE INDEX IF NOT EXISTS index_recipe_ingredient_allergens_recipeIngredientId " +
+                        "ON recipe_ingredient_allergens(recipeIngredientId)",
                 )
             }
         }

@@ -60,6 +60,39 @@ interface FoodDao {
 }
 
 @Dao
+interface RecipeDao {
+    @Query("SELECT * FROM recipes")
+    fun observeRecipes(): Flow<List<RecipeEntity>>
+
+    @Query("SELECT * FROM recipe_batches")
+    fun observeBatches(): Flow<List<RecipeBatchEntity>>
+
+    @Query("SELECT * FROM recipe_ingredients")
+    fun observeIngredients(): Flow<List<RecipeIngredientEntity>>
+
+    @Query("SELECT * FROM recipe_ingredient_allergens")
+    fun observeIngredientAllergens(): Flow<List<RecipeIngredientAllergenEntity>>
+
+    @Query("SELECT * FROM recipes WHERE foodId = :foodId LIMIT 1")
+    suspend fun findRecipe(foodId: String): RecipeEntity?
+
+    @Query("SELECT COUNT(*) FROM recipe_batches WHERE recipeFoodId = :foodId")
+    suspend fun countBatches(foodId: String): Int
+
+    @Upsert
+    suspend fun upsertRecipe(recipe: RecipeEntity)
+
+    @Insert
+    suspend fun insertBatch(batch: RecipeBatchEntity)
+
+    @Insert
+    suspend fun insertIngredients(ingredients: List<RecipeIngredientEntity>)
+
+    @Insert
+    suspend fun insertIngredientAllergens(allergens: List<RecipeIngredientAllergenEntity>)
+}
+
+@Dao
 interface DiaryDao {
     @Query(
         "SELECT * FROM diary_entries " +

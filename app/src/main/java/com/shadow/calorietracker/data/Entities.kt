@@ -65,6 +65,48 @@ data class ServingPresetEntity(
     val amountMilliUnits: Long,
 )
 
+@Entity(tableName = "recipes")
+data class RecipeEntity(
+    @PrimaryKey val foodId: String,
+    val name: String,
+    val activeBatchId: String,
+    val createdAtEpochMillis: Long,
+    val updatedAtEpochMillis: Long,
+)
+
+@Entity(tableName = "recipe_batches", indices = [Index("recipeFoodId")])
+data class RecipeBatchEntity(
+    @PrimaryKey val id: String,
+    val recipeFoodId: String,
+    val cookedYieldGrams: Int,
+    val portionCount: Int,
+    val cookedAtEpochMillis: Long,
+)
+
+@Entity(tableName = "recipe_ingredients", indices = [Index("batchId"), Index("foodId")])
+data class RecipeIngredientEntity(
+    @PrimaryKey val id: String,
+    val batchId: String,
+    val foodId: String,
+    val foodNameEn: String,
+    val foodNameRo: String,
+    val grams: Int,
+    val caloriesPer100g: Int,
+    val proteinMilligramsPer100g: Int,
+    val carbsMilligramsPer100g: Int,
+    val fatMilligramsPer100g: Int,
+    val fiberMilligramsPer100g: Int?,
+    val sortOrder: Int,
+)
+
+@Entity(tableName = "recipe_ingredient_allergens", indices = [Index("recipeIngredientId")])
+data class RecipeIngredientAllergenEntity(
+    @PrimaryKey val id: String,
+    val recipeIngredientId: String,
+    val allergenKey: String,
+    val declaration: String,
+)
+
 data class ServingWithPresets(
     @Embedded val serving: ServingEntity,
     @Relation(parentColumn = "id", entityColumn = "servingId")

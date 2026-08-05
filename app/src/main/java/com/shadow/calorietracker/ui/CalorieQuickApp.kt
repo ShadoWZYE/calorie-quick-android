@@ -36,6 +36,7 @@ import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.QrCodeScanner
 import androidx.compose.material.icons.filled.DocumentScanner
+import androidx.compose.material.icons.filled.RestaurantMenu
 import androidx.compose.material3.Button
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
@@ -98,6 +99,10 @@ import com.shadow.calorietracker.model.Nutrition
 import com.shadow.calorietracker.model.PersonalFoodDraft
 import com.shadow.calorietracker.model.PersonalMeasure
 import com.shadow.calorietracker.model.QuantityUsage
+import com.shadow.calorietracker.model.RecipeCalculator
+import com.shadow.calorietracker.model.RecipeDraft
+import com.shadow.calorietracker.model.RecipeIngredientDraft
+import com.shadow.calorietracker.model.RecipeTemplate
 import com.shadow.calorietracker.model.Serving
 import com.shadow.calorietracker.model.TargetMode
 import com.shadow.calorietracker.model.UnitUsage
@@ -117,7 +122,7 @@ import java.util.Date
 import kotlin.math.max
 import kotlin.math.roundToInt
 
-private enum class AppScreen { TODAY, SETTINGS, FOOD_EDITOR }
+private enum class AppScreen { TODAY, SETTINGS, FOOD_EDITOR, RECIPE_EDITOR }
 
 @Composable
 fun CalorieQuickApp(viewModel: CalorieViewModel = viewModel()) {
@@ -130,6 +135,7 @@ fun CalorieQuickApp(viewModel: CalorieViewModel = viewModel()) {
     var newFoodName by rememberSaveable { mutableStateOf("") }
     var newFoodBarcode by rememberSaveable { mutableStateOf("") }
     var nutritionLabelPrefill by remember { mutableStateOf<NutritionLabelPrefill?>(null) }
+    var editingRecipe by remember { mutableStateOf<RecipeTemplate?>(null) }
 
     LaunchedEffect(nutritionLabelScanState.status, nutritionLabelScanState.prefill) {
         if (nutritionLabelScanState.status == NutritionLabelScanStatus.SUCCESS) {
@@ -177,6 +183,19 @@ fun CalorieQuickApp(viewModel: CalorieViewModel = viewModel()) {
                 newFoodBarcode = ""
             },
         )
+        screenName == AppScreen.RECIPE_EDITOR.name -> RecipeEditorScreen(
+            initial = editingRecipe,
+            foods = state.foods,
+            onBack = { screenName = AppScreen.TODAY.name },
+            onSave = {
+                viewModel.saveRecipe(it)
+                screenName = AppScreen.TODAY.name
+            },
+            onArchive = { foodId ->
+                viewModel.archivePersonalFood(foodId)
+                screenName = AppScreen.TODAY.name
+            },
+        )
         else -> TodayScreen(
             state = state,
             onOpenSettings = { screenName = AppScreen.SETTINGS.name },
@@ -190,10 +209,21 @@ fun CalorieQuickApp(viewModel: CalorieViewModel = viewModel()) {
                 screenName = AppScreen.FOOD_EDITOR.name
             },
             onEditFood = {
-                editingFood = it
-                nutritionLabelPrefill = null
-                newFoodBarcode = ""
-                screenName = AppScreen.FOOD_EDITOR.name
+                if (it.provenance.type == FoodSourceType.RECIPE) {
+                    state.recipes[it.id]?.let { recipe ->
+                        editingRecipe = recipe
+                        screenName = AppScreen.RECIPE_EDITOR.name
+                    }
+                } else {
+                    editingFood = it
+                    nutritionLabelPrefill = null
+                    newFoodBarcode = ""
+                    screenName = AppScreen.FOOD_EDITOR.name
+                }
+            },
+            onCreateRecipe = {
+                editingRecipe = null
+                screenName = AppScreen.RECIPE_EDITOR.name
             },
             lookupState = lookupState,
             nutritionLabelScanState = nutritionLabelScanState,
@@ -692,6 +722,293 @@ private fun PersonalFoodEditorScreen(
     }
 }
 
+@Composable
+private fun RecipeEditorScreen(
+    initial: RecipeTemplate?,
+    foods: List<Food>,
+    onBack: () -> Unit,
+    onSave: (RecipeDraft) -> Unit,
+    onArchive: (String) -> Unit,
+) {
+    val locale = LocalLocale.current.platformLocale
+    var name by rememberSaveable(initial?.activeBatchId) { mutableStateOf(initial?.name.orEmpty()) }
+    var ingredientQuery by rememberSaveable(initial?.activeBatchId) { mutableStateOf("") }
+    var ingredients by remember(initial?.activeBatchId) {
+        mutableStateOf(
+            initial?.ingredients.orEmpty().map { snapshot ->
+                foods.firstOrNull { it.id == snapshot.foodId }?.let { current ->
+                    RecipeIngredientDraft(
+                        current.id,
+                        current.names,
+                        current.nutritionPer100g,
+                        current.allergens,
+                        snapshot.grams,
+                    )
+                } ?: snapshot
+            },
+        )
+    }
+    var cookedYield by rememberSaveable(initial?.activeBatchId) {
+        mutableStateOf(initial?.cookedYieldGrams?.toString().orEmpty())
+    }
+    var portionCount by rememberSaveable(initial?.activeBatchId) {
+        mutableStateOf(initial?.portionCount?.toString() ?: "4")
+    }
+    var yieldManuallyEdited by rememberSaveable(initial?.activeBatchId) { mutableStateOf(initial != null) }
+    var confirmArchive by remember { mutableStateOf(false) }
+    val cookedYieldValue = cookedYield.toIntOrNull()
+    val portionCountValue = portionCount.toIntOrNull()
+    val rawIngredientWeight = ingredients.sumOf(RecipeIngredientDraft::grams)
+    val calculation = if (
+        ingredients.isNotEmpty() && ingredients.all { it.grams in 1..100_000 } &&
+        cookedYieldValue in 1..100_000 && portionCountValue in 1..1_000
+    ) {
+        RecipeCalculator.calculate(ingredients, requireNotNull(cookedYieldValue), requireNotNull(portionCountValue))
+    } else {
+        null
+    }
+    val searchResults = if (ingredientQuery.isBlank()) {
+        emptyList()
+    } else {
+        foods.asSequence()
+            .filter { it.provenance.type != FoodSourceType.RECIPE }
+            .filter { food -> ingredients.none { it.foodId == food.id } }
+            .filter { it.matches(ingredientQuery) }
+            .take(6)
+            .toList()
+    }
+    val valid = name.isNotBlank() && calculation != null
+
+    fun updateIngredients(updated: List<RecipeIngredientDraft>) {
+        ingredients = updated
+        if (!yieldManuallyEdited) {
+            cookedYield = updated.sumOf(RecipeIngredientDraft::grams).takeIf { it > 0 }?.toString().orEmpty()
+        }
+    }
+
+    LazyColumn(
+        modifier = Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding().padding(horizontal = 20.dp),
+        verticalArrangement = Arrangement.spacedBy(14.dp),
+    ) {
+        item {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                IconButton(onClick = onBack) {
+                    Icon(Icons.AutoMirrored.Filled.ArrowBack, stringResource(R.string.back))
+                }
+                Column {
+                    Text(
+                        stringResource(if (initial == null) R.string.create_recipe else R.string.cook_recipe_again),
+                        fontSize = 28.sp,
+                        fontWeight = FontWeight.Bold,
+                    )
+                    Text(
+                        stringResource(R.string.recipe_version_explanation),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
+        }
+        item {
+            OutlinedTextField(
+                value = name,
+                onValueChange = { name = it },
+                label = { Text(stringResource(R.string.recipe_name)) },
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true,
+            )
+        }
+        item { SectionTitle(R.string.ingredients, horizontalPadding = 0.dp) }
+        item {
+            Text(stringResource(R.string.recipe_ingredient_hint), color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+        item {
+            OutlinedTextField(
+                value = ingredientQuery,
+                onValueChange = { ingredientQuery = it },
+                label = { Text(stringResource(R.string.search_ingredients)) },
+                leadingIcon = { Icon(Icons.Default.Search, null) },
+                trailingIcon = if (ingredientQuery.isNotEmpty()) {
+                    {
+                        IconButton(onClick = { ingredientQuery = "" }) {
+                            Icon(Icons.Default.Close, stringResource(R.string.close))
+                        }
+                    }
+                } else {
+                    null
+                },
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true,
+            )
+        }
+        items(searchResults, key = { "recipe-search-${it.id}" }) { food ->
+            Card(
+                onClick = {
+                    updateIngredients(
+                        ingredients + RecipeIngredientDraft(
+                            food.id,
+                            food.names,
+                            food.nutritionPer100g,
+                            food.allergens,
+                            100,
+                        ),
+                    )
+                    ingredientQuery = ""
+                },
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer),
+            ) {
+                Row(Modifier.fillMaxWidth().padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Column(Modifier.weight(1f)) {
+                        Text(food.name(locale), fontWeight = FontWeight.SemiBold)
+                        Text(
+                            "${food.nutritionPer100g.calories} ${stringResource(R.string.kcal)} · ${stringResource(R.string.per_100g)}",
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            fontSize = 13.sp,
+                        )
+                    }
+                    Icon(Icons.Default.Add, stringResource(R.string.add_ingredient))
+                }
+            }
+        }
+        if (ingredientQuery.isNotBlank() && searchResults.isEmpty()) {
+            item { Text(stringResource(R.string.no_saved_ingredient), color = MaterialTheme.colorScheme.onSurfaceVariant) }
+        }
+        items(ingredients, key = { "recipe-ingredient-${it.foodId}" }) { ingredient ->
+            Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
+                Row(
+                    Modifier.fillMaxWidth().padding(start = 14.dp, top = 8.dp, bottom = 8.dp, end = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    Column(Modifier.weight(1f)) {
+                        Text(ingredient.foodName.forLocale(locale), fontWeight = FontWeight.SemiBold)
+                        Text(
+                            "${ingredient.nutritionPer100g.forGrams(ingredient.grams).calories} ${stringResource(R.string.kcal)}",
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            fontSize = 12.sp,
+                        )
+                    }
+                    NumericField(
+                        value = ingredient.grams.takeIf { it > 0 }?.toString().orEmpty(),
+                        onChange = { value ->
+                            val grams = value.toIntOrNull() ?: 0
+                            updateIngredients(ingredients.map { if (it.foodId == ingredient.foodId) it.copy(grams = grams) else it })
+                        },
+                        label = R.string.grams_short,
+                        modifier = Modifier.weight(0.55f),
+                    )
+                    IconButton(onClick = { updateIngredients(ingredients - ingredient) }) {
+                        Icon(Icons.Default.Delete, stringResource(R.string.remove_ingredient))
+                    }
+                }
+            }
+        }
+        if (ingredients.isEmpty()) {
+            item { Text(stringResource(R.string.no_recipe_ingredients), color = MaterialTheme.colorScheme.onSurfaceVariant) }
+        }
+        item { SectionTitle(R.string.batch_yield, horizontalPadding = 0.dp) }
+        item {
+            Text(stringResource(R.string.batch_yield_explanation), color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+        item {
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                NumericField(
+                    cookedYield,
+                    {
+                        cookedYield = it
+                        yieldManuallyEdited = true
+                    },
+                    R.string.finished_weight_g,
+                    Modifier.weight(1f),
+                )
+                NumericField(portionCount, { portionCount = it }, R.string.number_of_portions, Modifier.weight(1f))
+            }
+        }
+        if (rawIngredientWeight > 0) {
+            item {
+                Text(
+                    stringResource(R.string.raw_ingredient_weight, rawIngredientWeight),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    fontSize = 13.sp,
+                )
+            }
+        }
+        calculation?.let { result ->
+            item {
+                Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)) {
+                    Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Text(stringResource(R.string.recipe_nutrition_preview), fontWeight = FontWeight.Bold)
+                        Text(
+                            stringResource(
+                                R.string.recipe_batch_summary,
+                                result.totalNutrition.calories,
+                                result.nutritionPer100g.calories,
+                                result.portionGrams,
+                                result.nutritionPer100g.forGrams(result.portionGrams).calories,
+                            ),
+                        )
+                        Text(
+                            stringResource(
+                                R.string.recipe_macro_summary,
+                                result.nutritionPer100g.proteinGrams,
+                                result.nutritionPer100g.carbsGrams,
+                                result.nutritionPer100g.fatGrams,
+                            ),
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            fontSize = 13.sp,
+                        )
+                        if (result.nutritionPer100g.fiberGrams == null) {
+                            Text(
+                                stringResource(R.string.recipe_fiber_incomplete),
+                                color = MaterialTheme.colorScheme.error,
+                                fontSize = 13.sp,
+                            )
+                        }
+                    }
+                }
+            }
+        }
+        item {
+            Button(
+                enabled = valid,
+                onClick = {
+                    onSave(
+                        RecipeDraft(
+                            id = initial?.foodId,
+                            name = name.trim(),
+                            ingredients = ingredients,
+                            cookedYieldGrams = requireNotNull(cookedYieldValue),
+                            portionCount = requireNotNull(portionCountValue),
+                        ),
+                    )
+                },
+                modifier = Modifier.fillMaxWidth(),
+            ) { Text(stringResource(if (initial == null) R.string.save_recipe else R.string.save_new_batch)) }
+        }
+        if (initial != null) {
+            item {
+                OutlinedButton(onClick = { confirmArchive = true }, modifier = Modifier.fillMaxWidth()) {
+                    Text(stringResource(R.string.archive_recipe), color = MaterialTheme.colorScheme.error)
+                }
+            }
+        }
+        item { Spacer(Modifier.height(24.dp)) }
+    }
+
+    if (confirmArchive && initial != null) {
+        AlertDialog(
+            onDismissRequest = { confirmArchive = false },
+            title = { Text(stringResource(R.string.archive_recipe)) },
+            text = { Text(stringResource(R.string.archive_recipe_confirmation)) },
+            confirmButton = {
+                TextButton(onClick = { onArchive(initial.foodId) }) { Text(stringResource(R.string.archive)) }
+            },
+            dismissButton = {
+                TextButton(onClick = { confirmArchive = false }) { Text(stringResource(R.string.cancel)) }
+            },
+        )
+    }
+}
+
 private fun Double.editableValue(): String =
     if (this % 1.0 == 0.0) toInt().toString() else toString().trimEnd('0').trimEnd('.')
 
@@ -1056,6 +1373,7 @@ private fun TodayScreen(
     onAdd: (Food, Double, Serving?) -> Unit,
     onDelete: (FoodEntry) -> Unit,
     onCreateFood: (Pair<String, String?>) -> Unit,
+    onCreateRecipe: () -> Unit,
     onEditFood: (Food) -> Unit,
     onSearchGlobal: (String, String) -> Unit,
     onLookupBarcode: (String, String) -> Unit,
@@ -1222,6 +1540,17 @@ private fun TodayScreen(
                             onClearNutritionLabelScan()
                             showLabelSourceDialog = true
                         }) { Text(stringResource(R.string.retry)) }
+                    }
+                }
+            }
+            if (query.isBlank()) {
+                item {
+                    OutlinedButton(
+                        onClick = onCreateRecipe,
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp),
+                    ) {
+                        Icon(Icons.Default.RestaurantMenu, null)
+                        Text(stringResource(R.string.create_recipe), Modifier.padding(start = 8.dp))
                     }
                 }
             }

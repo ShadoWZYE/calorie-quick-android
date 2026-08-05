@@ -39,4 +39,10 @@ class FoodIdentityTest {
             ),
         )
     }
+
+    @Test
+    fun `recipe names do not hide catalogue foods with the same name`() {
+        val recipe = food.copy(provenance = FoodProvenance(FoodSourceType.RECIPE))
+        assertFalse(recipe.hasSameCatalogueIdentity(food.copy(id = "catalogue")))
+    }
 }
