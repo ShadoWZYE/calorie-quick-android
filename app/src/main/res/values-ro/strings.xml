@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Calorii Rapid</string>
+    <string name="today">Astăzi</string>
+    <string name="daily_summary">Rezumat zilnic</string>
+    <string name="remaining">rămase</string>
+    <string name="kcal">kcal</string>
+    <string name="protein">Proteine</string>
+    <string name="carbs">Carbohidrați</string>
+    <string name="fat">Grăsimi</string>
+    <string name="search_hint">Caută în alimentele tale…</string>
+    <string name="quick_add">Adăugare rapidă</string>
+    <string name="frequent_foods">Alimente frecvente</string>
+    <string name="today_entries">Înregistrările de astăzi</string>
+    <string name="no_entries">Nimic înregistrat. Adaugă un aliment frecvent dintr-o atingere.</string>
+    <string name="no_results">Niciun aliment nu corespunde căutării.</string>
+    <string name="per_100g">per 100 g</string>
+    <string name="amount">Cantitate</string>
+    <string name="grams_short">g</string>
+    <plurals name="add_food">
+        <item quantity="one">Adaugă %1$d kcal</item>
+        <item quantity="few">Adaugă %1$d kcal</item>
+        <item quantity="other">Adaugă %1$d kcal</item>
+    </plurals>
+    <string name="remove_entry">Șterge înregistrarea</string>
+    <string name="close">Închide</string>
+    <plurals name="goal_warning">
+        <item quantity="one">Mai ai doar %1$d kcal astăzi</item>
+        <item quantity="few">Mai ai doar %1$d kcal astăzi</item>
+        <item quantity="other">Mai ai doar %1$d kcal astăzi</item>
+    </plurals>
+</resources>

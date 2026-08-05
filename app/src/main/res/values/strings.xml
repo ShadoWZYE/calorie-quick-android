@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Calorie Quick</string>
+    <string name="today">Today</string>
+    <string name="daily_summary">Daily summary</string>
+    <string name="remaining">remaining</string>
+    <string name="kcal">kcal</string>
+    <string name="protein">Protein</string>
+    <string name="carbs">Carbs</string>
+    <string name="fat">Fat</string>
+    <string name="search_hint">Search your foods…</string>
+    <string name="quick_add">Quick add</string>
+    <string name="frequent_foods">Frequent foods</string>
+    <string name="today_entries">Today’s entries</string>
+    <string name="no_entries">Nothing logged yet. Add a frequent food in one tap.</string>
+    <string name="no_results">No foods match this search.</string>
+    <string name="per_100g">per 100 g</string>
+    <string name="amount">Amount</string>
+    <string name="grams_short">g</string>
+    <plurals name="add_food">
+        <item quantity="one">Add %1$d kcal</item>
+        <item quantity="other">Add %1$d kcal</item>
+    </plurals>
+    <string name="remove_entry">Remove entry</string>
+    <string name="close">Close</string>
+    <plurals name="goal_warning">
+        <item quantity="one">Only %1$d kcal remains today</item>
+        <item quantity="other">Only %1$d kcal remain today</item>
+    </plurals>
+</resources>
