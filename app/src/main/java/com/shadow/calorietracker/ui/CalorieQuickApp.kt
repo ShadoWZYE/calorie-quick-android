@@ -87,6 +87,8 @@ import com.shadow.calorietracker.model.CommonMeasure
 import com.shadow.calorietracker.model.EnergyEstimator
 import com.shadow.calorietracker.model.Food
 import com.shadow.calorietracker.model.FoodEntry
+import com.shadow.calorietracker.model.FoodProvenance
+import com.shadow.calorietracker.model.FoodSourceType
 import com.shadow.calorietracker.model.FormulaSex
 import com.shadow.calorietracker.model.FoodRecommender
 import com.shadow.calorietracker.model.GoalType
@@ -158,6 +160,7 @@ fun CalorieQuickApp(viewModel: CalorieViewModel = viewModel()) {
             initialName = newFoodName,
             initialBarcode = newFoodBarcode,
             nutritionLabelPrefill = nutritionLabelPrefill,
+            existingFoods = state.foods,
             onBack = { screenName = AppScreen.TODAY.name },
             onSave = {
                 viewModel.savePersonalFood(it)
@@ -166,6 +169,12 @@ fun CalorieQuickApp(viewModel: CalorieViewModel = viewModel()) {
             onArchive = { foodId ->
                 viewModel.archivePersonalFood(foodId)
                 screenName = AppScreen.TODAY.name
+            },
+            onOpenExistingFood = {
+                editingFood = it
+                nutritionLabelPrefill = null
+                newFoodName = ""
+                newFoodBarcode = ""
             },
         )
         else -> TodayScreen(
@@ -245,9 +254,11 @@ private fun PersonalFoodEditorScreen(
     initialName: String,
     initialBarcode: String,
     nutritionLabelPrefill: NutritionLabelPrefill?,
+    existingFoods: List<Food>,
     onBack: () -> Unit,
     onSave: (PersonalFoodDraft) -> Unit,
     onArchive: (String) -> Unit,
+    onOpenExistingFood: (Food) -> Unit,
 ) {
     val locale = LocalLocale.current.platformLocale
     val initialPackageMeasure = initial?.takeIf(Food::isPackaged)?.servings?.firstOrNull(Serving::isPackage)
@@ -305,12 +316,24 @@ private fun PersonalFoodEditorScreen(
     val fatValue = fat.localizedDoubleOrNull()
     val fiberValue = fiber.localizedDoubleOrNull()
     val packageWeightValue = packageWeight.toIntOrNull()
+    val provenance = initial?.provenance ?: FoodProvenance(
+        if (nutritionLabelPrefill != null) FoodSourceType.OCR else FoodSourceType.PERSONAL,
+    )
+    val barcodeConflict = barcode.trim().takeIf(String::isNotEmpty)?.let { candidate ->
+        existingFoods.firstOrNull { it.id != initial?.id && it.barcode == candidate }
+    }
+    val identityConflict = name.trim().takeIf(String::isNotEmpty)?.let { candidate ->
+        existingFoods.firstOrNull {
+            it.id != initial?.id && it.id != barcodeConflict?.id && it.hasSameIdentity(candidate, brand)
+        }
+    }
     val valid = name.isNotBlank() && caloriesValue in 0..5_000 &&
         proteinValue != null && proteinValue in 0.0..100.0 &&
         carbsValue != null && carbsValue in 0.0..100.0 &&
         fatValue != null && fatValue in 0.0..100.0 &&
         (fiber.isBlank() || fiberValue != null && fiberValue in 0.0..100.0) &&
-        (!isPackaged || packageLabel.isNotBlank() && packageWeightValue in 1..50_000)
+        (!isPackaged || packageLabel.isNotBlank() && packageWeightValue in 1..50_000) &&
+        barcodeConflict == null
 
     LazyColumn(
         modifier = Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding().padding(horizontal = 20.dp),
@@ -368,6 +391,18 @@ private fun PersonalFoodEditorScreen(
                 }
             }
         }
+        if (provenance.type != FoodSourceType.PERSONAL) {
+            item {
+                Text(
+                    buildString {
+                        append(stringResource(R.string.food_source, stringResource(provenance.type.labelResource())))
+                        if (provenance.locallyModified) append(" · ${stringResource(R.string.edited_locally)}")
+                    },
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    fontSize = 13.sp,
+                )
+            }
+        }
         item {
             OutlinedTextField(
                 value = name,
@@ -394,6 +429,26 @@ private fun PersonalFoodEditorScreen(
                     modifier = Modifier.weight(1f),
                     singleLine = true,
                 )
+            }
+        }
+        barcodeConflict?.let { conflict ->
+            item {
+                DuplicateFoodNotice(
+                    message = stringResource(R.string.barcode_duplicate, conflict.name(locale)),
+                    actionLabel = stringResource(R.string.open_existing_food),
+                    isError = true,
+                ) { onOpenExistingFood(conflict) }
+            }
+        }
+        if (barcodeConflict == null) {
+            identityConflict?.let { conflict ->
+                item {
+                    DuplicateFoodNotice(
+                        message = stringResource(R.string.possible_food_duplicate, conflict.name(locale)),
+                        actionLabel = stringResource(R.string.review_existing_food),
+                        isError = false,
+                    ) { onOpenExistingFood(conflict) }
+                }
             }
         }
         item { SectionTitle(R.string.nutrition_per_100g, horizontalPadding = 0.dp) }
@@ -605,6 +660,7 @@ private fun PersonalFoodEditorScreen(
                                 emptyList()
                             },
                             isPackaged = isPackaged,
+                            provenance = provenance,
                         ),
                     )
                 },
@@ -1047,10 +1103,10 @@ private fun TodayScreen(
     val exactFoodExists = query.isNotBlank() && state.foods.any { it.hasExactName(query) }
     val currentLookup = lookupState.takeIf { it.query.equals(query.trim(), ignoreCase = true) }
     val remoteResults = currentLookup?.results.orEmpty().filterNot { remote ->
-        remote.barcode != null && state.foods.any { local -> local.barcode == remote.barcode }
+        state.foods.any { local -> local.hasSameCatalogueIdentity(remote) }
     }
     val globalResultAlreadySaved = currentLookup?.results.orEmpty().any { remote ->
-        remote.barcode != null && state.foods.any { local -> local.barcode == remote.barcode }
+        state.foods.any { local -> local.hasSameCatalogueIdentity(remote) }
     }
     val exactRemoteFoodExists = remoteResults.any { it.hasExactName(query) }
     val globalMatchExists = exactRemoteFoodExists || currentLookup?.isBarcodeLookup == true && remoteResults.isNotEmpty()
@@ -1436,6 +1492,28 @@ private fun SectionTitle(resource: Int, horizontalPadding: androidx.compose.ui.u
 }
 
 @Composable
+private fun DuplicateFoodNotice(
+    message: String,
+    actionLabel: String,
+    isError: Boolean,
+    onOpen: () -> Unit,
+) {
+    Card(
+        colors = CardDefaults.cardColors(
+            containerColor = if (isError) MaterialTheme.colorScheme.errorContainer else MaterialTheme.colorScheme.secondaryContainer,
+        ),
+    ) {
+        Row(
+            Modifier.fillMaxWidth().padding(start = 14.dp, top = 8.dp, bottom = 8.dp, end = 6.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(message, Modifier.weight(1f), fontSize = 13.sp)
+            TextButton(onClick = onOpen) { Text(actionLabel) }
+        }
+    }
+}
+
+@Composable
 private fun FoodRow(
     food: Food,
     locale: Locale,
@@ -1461,6 +1539,16 @@ private fun FoodRow(
         Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
                 Text(food.name(locale), fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                if (food.provenance.type != FoodSourceType.BUILT_IN) {
+                    Text(
+                        buildString {
+                            append(stringResource(food.provenance.type.labelResource()))
+                            if (food.provenance.locallyModified) append(" · ${stringResource(R.string.edited_locally)}")
+                        },
+                        fontSize = 12.sp,
+                        color = MaterialTheme.colorScheme.primary,
+                    )
+                }
                 Text(
                     detailText,
                     fontSize = 13.sp,
@@ -1534,6 +1622,14 @@ private fun NutritionLabelWarning.labelResource() = when (this) {
     NutritionLabelWarning.MULTIPLE_COLUMNS_UNCLEAR -> R.string.ocr_columns_unclear
     NutritionLabelWarning.NORMALIZED_FROM_SERVING -> R.string.ocr_normalized_serving
     NutritionLabelWarning.CORE_VALUES_MISSING -> R.string.ocr_core_missing
+}
+
+private fun FoodSourceType.labelResource() = when (this) {
+    FoodSourceType.BUILT_IN -> R.string.source_built_in
+    FoodSourceType.PERSONAL -> R.string.source_personal
+    FoodSourceType.OPEN_FOOD_FACTS -> R.string.source_open_food_facts
+    FoodSourceType.OCR -> R.string.source_scanned_label
+    FoodSourceType.RECIPE -> R.string.source_recipe
 }
 
 @Composable

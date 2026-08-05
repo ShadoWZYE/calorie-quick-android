@@ -3,6 +3,8 @@ package com.shadow.calorietracker.data
 import com.shadow.calorietracker.model.Allergen
 import com.shadow.calorietracker.model.AllergenDeclaration
 import com.shadow.calorietracker.model.Food
+import com.shadow.calorietracker.model.FoodProvenance
+import com.shadow.calorietracker.model.FoodSourceType
 import com.shadow.calorietracker.model.LocalizedText
 import com.shadow.calorietracker.model.Nutrition
 import com.shadow.calorietracker.model.Serving
@@ -123,6 +125,7 @@ class OpenFoodFactsClient(
                 barcode = code,
                 isPackaged = packageGrams != null,
                 allergens = allergenDeclarations(product),
+                provenance = FoodProvenance(FoodSourceType.OPEN_FOOD_FACTS, sourceId = code),
             )
         }
 

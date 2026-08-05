@@ -63,6 +63,7 @@ data class Food(
     val isPersonal: Boolean = false,
     val isPackaged: Boolean = false,
     val allergens: Map<Allergen, AllergenDeclaration> = emptyMap(),
+    val provenance: FoodProvenance = FoodProvenance(FoodSourceType.BUILT_IN),
 ) {
     fun name(locale: Locale): String = names.forLocale(locale)
     fun detail(locale: Locale): String = details.forLocale(locale)
@@ -71,7 +72,33 @@ data class Food(
         details.all().any { it.contains(query, ignoreCase = true) }
 
     fun hasExactName(query: String): Boolean = names.all().any { it.trim().equals(query.trim(), ignoreCase = true) }
+
+    fun hasSameIdentity(name: String, brand: String?): Boolean =
+        normalizedFoodIdentity(names.en, this.brand) == normalizedFoodIdentity(name, brand) ||
+            normalizedFoodIdentity(names.ro, this.brand) == normalizedFoodIdentity(name, brand)
+
+    fun hasSameCatalogueIdentity(other: Food): Boolean =
+        barcode != null && other.barcode != null && barcode == other.barcode ||
+            hasSameIdentity(other.names.en, other.brand) || hasSameIdentity(other.names.ro, other.brand)
 }
+
+enum class FoodSourceType { BUILT_IN, PERSONAL, OPEN_FOOD_FACTS, OCR, RECIPE }
+
+data class FoodProvenance(
+    val type: FoodSourceType,
+    val sourceId: String? = null,
+    val importedAtEpochMillis: Long? = null,
+    val locallyModified: Boolean = false,
+)
+
+fun normalizedFoodIdentity(name: String, brand: String?): String = listOf(name, brand.orEmpty())
+    .joinToString("|") { value ->
+        java.text.Normalizer.normalize(value.lowercase(), java.text.Normalizer.Form.NFD)
+            .replace(Regex("\\p{Mn}+"), "")
+            .replace(Regex("['’]"), "")
+            .replace(Regex("[^a-z0-9]+"), " ")
+            .trim()
+    }
 
 enum class Allergen { GLUTEN, CRUSTACEANS, EGGS, FISH, PEANUTS, SOY, MILK, NUTS, CELERY, MUSTARD, SESAME, SULPHITES, LUPIN, MOLLUSCS }
 enum class AllergenDeclaration { CONTAINS, MAY_CONTAIN }
@@ -85,6 +112,7 @@ data class PersonalFoodDraft(
     val allergens: Map<Allergen, AllergenDeclaration>,
     val measures: List<PersonalMeasure>,
     val isPackaged: Boolean,
+    val provenance: FoodProvenance = FoodProvenance(FoodSourceType.PERSONAL),
 )
 
 data class PersonalMeasure(

@@ -96,6 +96,17 @@
     <string name="add_missing_barcode_food">Nu s-a găsit produsul pentru %1$s. Adaugă-l manual</string>
     <string name="edit_personal_food">Editează alimentul personal</string>
     <string name="personal_food_private">Salvat doar pe acest dispozitiv, dacă nu alegi explicit să îl distribui mai târziu.</string>
+    <string name="food_source">Sursă: %1$s</string>
+    <string name="source_built_in">Catalog inclus</string>
+    <string name="source_personal">Aliment personal</string>
+    <string name="source_open_food_facts">Open Food Facts</string>
+    <string name="source_scanned_label">Etichetă scanată</string>
+    <string name="source_recipe">Rețetă</string>
+    <string name="edited_locally">editat local</string>
+    <string name="barcode_duplicate">Acest cod de bare aparține deja alimentului „%1$s”. Un cod de bare poate identifica un singur aliment salvat.</string>
+    <string name="possible_food_duplicate">„%1$s” are același nume și aceeași marcă normalizate. Confirmă că este într-adevăr diferit înainte de salvare.</string>
+    <string name="open_existing_food">Deschide alimentul</string>
+    <string name="review_existing_food">Verifică potrivirea</string>
     <string name="food_name">Numele alimentului</string>
     <string name="brand_optional">Marcă (opțional)</string>
     <string name="barcode_optional">Cod de bare (opțional)</string>

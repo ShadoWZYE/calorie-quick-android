@@ -19,7 +19,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         AllergenDeclarationEntity::class,
         ServingPresetEntity::class,
     ],
-    version = 6,
+    version = 7,
     exportSchema = true,
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -43,6 +43,7 @@ abstract class AppDatabase : RoomDatabase() {
                 MIGRATION_3_4,
                 MIGRATION_4_5,
                 MIGRATION_5_6,
+                MIGRATION_6_7,
             ).build().also { instance = it }
         }
 
@@ -150,6 +151,20 @@ abstract class AppDatabase : RoomDatabase() {
                         "id TEXT NOT NULL, servingId TEXT NOT NULL, amountMilliUnits INTEGER NOT NULL, PRIMARY KEY(id))",
                 )
                 db.execSQL("CREATE INDEX IF NOT EXISTS index_serving_presets_servingId ON serving_presets(servingId)")
+            }
+        }
+
+        private val MIGRATION_6_7 = object : Migration(6, 7) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE foods ADD COLUMN sourceType TEXT NOT NULL DEFAULT 'BUILT_IN'")
+                db.execSQL("ALTER TABLE foods ADD COLUMN sourceId TEXT")
+                db.execSQL("ALTER TABLE foods ADD COLUMN importedAtEpochMillis INTEGER")
+                db.execSQL("UPDATE foods SET sourceType = 'PERSONAL' WHERE isPersonal = 1")
+                db.execSQL(
+                    "UPDATE foods SET sourceType = 'OPEN_FOOD_FACTS', " +
+                        "sourceId = COALESCE(barcode, SUBSTR(id, 5)), " +
+                        "importedAtEpochMillis = updatedAtEpochMillis WHERE id LIKE 'off-%'",
+                )
             }
         }
     }

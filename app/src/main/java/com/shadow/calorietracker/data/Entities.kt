@@ -23,6 +23,9 @@ data class FoodEntity(
     val archived: Boolean = false,
     val updatedAtEpochMillis: Long = 0,
     val isPackaged: Boolean = false,
+    val sourceType: String = "BUILT_IN",
+    val sourceId: String? = null,
+    val importedAtEpochMillis: Long? = null,
 )
 
 @Entity(tableName = "nutrient_values", indices = [Index("foodId")])

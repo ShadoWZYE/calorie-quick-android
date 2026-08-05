@@ -2,6 +2,7 @@ package com.shadow.calorietracker.data
 
 import com.shadow.calorietracker.model.Allergen
 import com.shadow.calorietracker.model.AllergenDeclaration
+import com.shadow.calorietracker.model.FoodSourceType
 import org.json.JSONObject
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -48,6 +49,8 @@ class OpenFoodFactsClientTest {
         assertEquals(AllergenDeclaration.CONTAINS, food.allergens[Allergen.MILK])
         assertEquals(AllergenDeclaration.CONTAINS, food.allergens[Allergen.NUTS])
         assertEquals(AllergenDeclaration.MAY_CONTAIN, food.allergens[Allergen.SOY])
+        assertEquals(FoodSourceType.OPEN_FOOD_FACTS, food.provenance.type)
+        assertEquals("3017620422003", food.provenance.sourceId)
     }
 
     @Test

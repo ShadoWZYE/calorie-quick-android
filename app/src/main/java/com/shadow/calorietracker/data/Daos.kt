@@ -19,6 +19,9 @@ interface FoodDao {
     @Query("SELECT COUNT(*) FROM foods")
     suspend fun count(): Int
 
+    @Query("SELECT * FROM foods WHERE barcode = :barcode AND archived = 0 LIMIT 1")
+    suspend fun findActiveByBarcode(barcode: String): FoodEntity?
+
     @Insert(onConflict = OnConflictStrategy.IGNORE)
     suspend fun insertFoods(foods: List<FoodEntity>)
 

@@ -6,6 +6,8 @@ import com.shadow.calorietracker.model.Allergen
 import com.shadow.calorietracker.model.AllergenDeclaration
 import com.shadow.calorietracker.model.Food
 import com.shadow.calorietracker.model.FoodEntry
+import com.shadow.calorietracker.model.FoodProvenance
+import com.shadow.calorietracker.model.FoodSourceType
 import com.shadow.calorietracker.model.FormulaSex
 import com.shadow.calorietracker.model.GoalType
 import com.shadow.calorietracker.model.LocalizedText
@@ -76,6 +78,15 @@ class CalorieRepository(private val database: AppDatabase) {
         val name = draft.name.trim()
         val brand = draft.brand?.trim()?.takeIf(String::isNotEmpty)
         val barcode = draft.barcode?.trim()?.takeIf(String::isNotEmpty)
+        barcode?.let { normalizedBarcode ->
+            database.foodDao().findActiveByBarcode(normalizedBarcode)?.takeIf { it.id != draft.id }?.let {
+                return it.id
+            }
+        }
+        val importedAt = when (draft.provenance.type) {
+            FoodSourceType.OPEN_FOOD_FACTS, FoodSourceType.OCR -> draft.provenance.importedAtEpochMillis ?: now
+            else -> draft.provenance.importedAtEpochMillis
+        }
         database.withTransaction {
             database.foodDao().upsertFood(
                 FoodEntity(
@@ -94,10 +105,15 @@ class CalorieRepository(private val database: AppDatabase) {
                     archived = false,
                     updatedAtEpochMillis = now,
                     isPackaged = draft.isPackaged,
+                    sourceType = draft.provenance.type.name,
+                    sourceId = draft.provenance.sourceId,
+                    importedAtEpochMillis = importedAt,
                 ),
             )
             database.foodDao().deleteNutrients(foodId)
-            database.foodDao().upsertNutrients(draft.nutritionPer100g.toNutrientEntities(foodId, "user"))
+            database.foodDao().upsertNutrients(
+                draft.nutritionPer100g.toNutrientEntities(foodId, draft.provenance.type.name.lowercase()),
+            )
             database.foodDao().deleteAllergens(foodId)
             database.foodDao().upsertAllergens(
                 draft.allergens.map { (allergen, declaration) ->
@@ -252,6 +268,12 @@ private fun FoodWithServings.toModel() = Food(
     allergens = allergenDeclarations.associate {
         Allergen.valueOf(it.allergenKey) to AllergenDeclaration.valueOf(it.declaration)
     },
+    provenance = FoodProvenance(
+        type = runCatching { FoodSourceType.valueOf(food.sourceType) }.getOrDefault(FoodSourceType.PERSONAL),
+        sourceId = food.sourceId,
+        importedAtEpochMillis = food.importedAtEpochMillis,
+        locallyModified = food.importedAtEpochMillis?.let { food.updatedAtEpochMillis > it } == true,
+    ),
 )
 
 private fun DiaryEntryEntity.toModel() = FoodEntry(

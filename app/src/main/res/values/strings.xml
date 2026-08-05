@@ -94,6 +94,17 @@
     <string name="add_missing_barcode_food">No product found for %1$s. Add it manually</string>
     <string name="edit_personal_food">Edit personal food</string>
     <string name="personal_food_private">Saved only on this device unless you explicitly share it later.</string>
+    <string name="food_source">Source: %1$s</string>
+    <string name="source_built_in">Built-in catalogue</string>
+    <string name="source_personal">Personal food</string>
+    <string name="source_open_food_facts">Open Food Facts</string>
+    <string name="source_scanned_label">Scanned label</string>
+    <string name="source_recipe">Recipe</string>
+    <string name="edited_locally">edited locally</string>
+    <string name="barcode_duplicate">This barcode already belongs to “%1$s”. A barcode can identify only one saved food.</string>
+    <string name="possible_food_duplicate">“%1$s” has the same normalized name and brand. Confirm it is genuinely different before saving.</string>
+    <string name="open_existing_food">Open existing</string>
+    <string name="review_existing_food">Review match</string>
     <string name="food_name">Food name</string>
     <string name="brand_optional">Brand (optional)</string>
     <string name="barcode_optional">Barcode (optional)</string>
