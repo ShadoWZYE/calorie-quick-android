@@ -11,13 +11,14 @@ session. It builds, installs, and opens the latest code in the API 37 emulator.
 4. Search for an English name such as `banana` and a Romanian name such as
    `banană`; both should find the same food.
 5. Open Banana and try **1 medium banana**, **1 small banana**, and an exact gram value.
-6. Open Whole egg, enter `3`, choose **large egg** from the unit suffix, and add it. Reopen Whole egg and confirm that amount/unit is remembered while nutrition still uses 150 g.
-7. Confirm calories and all three macros update immediately.
-8. Add several foods, scroll to today's entries, and remove one.
-9. Add the same food twice within two minutes. Confirm it becomes one timestamped entry whose weight and nutrition are the sum of both additions.
-10. Confirm **Recommended** changes as macro gaps change, then tap the summary card and inspect the macro breakdown.
-11. Rotate the emulator. Confirm the profile, entries, and total remain intact and the screen still fits.
-12. Close and relaunch the app. Confirm the same profile and today's entries remain.
+6. Open Whole egg, enter `3`, choose **large egg** from the unit suffix, and add it. Reopen Whole egg and confirm `3 × large egg · 150 g` appears as a quick-pick chip while the editable field starts at `1 large egg`.
+7. Add a custom gram amount, reopen the food, and confirm that amount appears as its own gram quick-pick chip while choosing `g` starts at `100 g`.
+8. Confirm calories and all three macros update immediately.
+9. Add several foods, scroll to today's entries, and remove one.
+10. Add the same food twice within two minutes. Confirm it becomes one timestamped entry whose weight and nutrition are the sum of both additions.
+11. Confirm **Recommended** changes as macro gaps change, then tap the summary card and inspect the macro breakdown.
+12. Rotate the emulator. Confirm the profile, entries, and total remain intact and the screen still fits.
+13. Close and relaunch the app. Confirm the same profile and today's entries remain.
 
 ## Feedback to capture
 

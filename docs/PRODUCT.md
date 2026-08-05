@@ -12,7 +12,7 @@ Adults tracking calories and macronutrients for general wellness, starting with 
 
 1. Open Today.
 2. Search or tap a frequent/recent food.
-3. Confirm a remembered food-specific unit/amount or enter grams.
+3. Tap a remembered quantity preset, choose a food-specific unit, or enter grams.
 4. See calories and macros update immediately.
 5. Undo or edit without navigating away.
 

@@ -20,7 +20,7 @@ Room persists `UserProfile`, `Food`, `Serving`, `ServingUsage`, and `DiaryEntry`
 
 Each diary row retains a consumption timestamp. Repeated additions of the same food within two minutes are accumulated transactionally into one row; additions outside that window remain separate events for later meal grouping and time-based reports.
 
-Serving choices retain use count, recency, and the last entered amount. The quick-add sheet ranks those choices and restores the preferred amount/unit while always normalizing nutrition to grams.
+Serving choices retain use count, recency, and the last entered amount. The quick-add sheet ranks units and exposes remembered amounts as quick-pick presets; choosing a measurement unit itself starts from a neutral base amount. Nutrition is always normalized to grams.
 
 Planned extensions:
 

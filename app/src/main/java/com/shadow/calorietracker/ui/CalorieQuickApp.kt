@@ -567,19 +567,11 @@ private fun QuickAddSheet(
     onDismiss: () -> Unit,
     onAdd: (Double, Serving?) -> Unit,
 ) {
-    val usageByKey = usage.associateBy(UnitUsage::unitKey)
-    val choices = (food.servings.map { UnitChoice(it.id, it.label.forLocale(locale).removePrefix("1 "), it) } +
-        UnitChoice(GRAMS_UNIT_KEY, stringResource(R.string.grams_short), null))
-        .sortedWith(
-            compareByDescending<UnitChoice> { usageByKey[it.key]?.useCount ?: 0 }
-                .thenByDescending { usageByKey[it.key]?.lastUsedAtEpochMillis ?: 0L },
-        )
+    val gramsLabel = stringResource(R.string.grams_short)
+    val choices = buildUnitChoices(food, usage, locale, gramsLabel)
+    val presets = buildQuantityPresets(choices, usage, locale, gramsLabel)
     var selectedKey by remember(food.id) { mutableStateOf(choices.first().key) }
-    var amountText by remember(food.id) {
-        val preferred = choices.first()
-        val amount = usageByKey[preferred.key]?.lastAmount ?: if (preferred.serving == null) 100.0 else 1.0
-        mutableStateOf(formatEditableAmount(amount))
-    }
+    var amountText by remember(food.id) { mutableStateOf(formatEditableAmount(choices.first().baseAmount)) }
     var unitMenuOpen by remember { mutableStateOf(false) }
     val selected = choices.firstOrNull { it.key == selectedKey } ?: choices.first()
     val amount = amountText.replace(',', '.').toDoubleOrNull()
@@ -598,19 +590,14 @@ private fun QuickAddSheet(
             Text(food.name(locale), fontSize = 24.sp, fontWeight = FontWeight.Bold)
             Text(food.detail(locale), color = MaterialTheme.colorScheme.onSurfaceVariant)
             Text(stringResource(R.string.choose_serving), fontWeight = FontWeight.SemiBold)
-            choices.forEach { choice ->
+            presets.forEach { preset ->
                 FilterChip(
-                    selected = selected.key == choice.key,
+                    selected = selected.key == preset.unitKey && amount == preset.amount,
                     onClick = {
-                        selectedKey = choice.key
-                        val remembered = usageByKey[choice.key]?.lastAmount
-                            ?: if (choice.serving == null) 100.0 else 1.0
-                        amountText = formatEditableAmount(remembered)
+                        selectedKey = preset.unitKey
+                        amountText = formatEditableAmount(preset.amount)
                     },
-                    label = {
-                        val detail = choice.serving?.let { " · ${it.grams} g" }.orEmpty()
-                        Text("${choice.label}$detail")
-                    },
+                    label = { Text(preset.label) },
                 )
             }
             Box(Modifier.fillMaxWidth()) {
@@ -634,9 +621,7 @@ private fun QuickAddSheet(
                             text = { Text(choice.label) },
                             onClick = {
                                 selectedKey = choice.key
-                                val remembered = usageByKey[choice.key]?.lastAmount
-                                    ?: if (choice.serving == null) 100.0 else 1.0
-                                amountText = formatEditableAmount(remembered)
+                                amountText = formatEditableAmount(choice.baseAmount)
                                 unitMenuOpen = false
                             },
                         )
@@ -657,8 +642,6 @@ private fun QuickAddSheet(
         }
     }
 }
-
-private data class UnitChoice(val key: String, val label: String, val serving: Serving?)
 
 private fun formatEditableAmount(value: Double): String =
     if (value % 1.0 == 0.0) value.toInt().toString() else value.toString().trimEnd('0').trimEnd('.')
