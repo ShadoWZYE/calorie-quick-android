@@ -36,7 +36,6 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
-import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.HorizontalDivider
@@ -104,6 +103,7 @@ fun CalorieQuickApp(viewModel: CalorieViewModel = viewModel()) {
     val profile = state.profile
     var screenName by rememberSaveable { mutableStateOf(AppScreen.TODAY.name) }
     var editingFood by remember { mutableStateOf<Food?>(null) }
+    var newFoodName by rememberSaveable { mutableStateOf("") }
 
     when {
         !state.loaded -> LoadingScreen()
@@ -118,6 +118,7 @@ fun CalorieQuickApp(viewModel: CalorieViewModel = viewModel()) {
         )
         screenName == AppScreen.FOOD_EDITOR.name -> PersonalFoodEditorScreen(
             initial = editingFood,
+            initialName = newFoodName,
             onBack = { screenName = AppScreen.TODAY.name },
             onSave = {
                 viewModel.savePersonalFood(it)
@@ -135,6 +136,7 @@ fun CalorieQuickApp(viewModel: CalorieViewModel = viewModel()) {
             onDelete = viewModel::deleteEntry,
             onCreateFood = {
                 editingFood = null
+                newFoodName = it
                 screenName = AppScreen.FOOD_EDITOR.name
             },
             onEditFood = {
@@ -183,11 +185,14 @@ private fun SettingsScreen(profile: UserProfile, onBack: () -> Unit, onSave: (Us
 @Composable
 private fun PersonalFoodEditorScreen(
     initial: Food?,
+    initialName: String,
     onBack: () -> Unit,
     onSave: (PersonalFoodDraft) -> Unit,
     onArchive: (String) -> Unit,
 ) {
-    var name by rememberSaveable(initial?.id) { mutableStateOf(initial?.names?.en.orEmpty()) }
+    var name by rememberSaveable(initial?.id, initialName) {
+        mutableStateOf(initial?.names?.en ?: initialName)
+    }
     var brand by rememberSaveable(initial?.id) { mutableStateOf(initial?.brand.orEmpty()) }
     var barcode by rememberSaveable(initial?.id) { mutableStateOf(initial?.barcode.orEmpty()) }
     var calories by rememberSaveable(initial?.id) { mutableStateOf(initial?.nutritionPer100g?.calories?.toString().orEmpty()) }
@@ -716,7 +721,7 @@ private fun TodayScreen(
     onOpenSettings: () -> Unit,
     onAdd: (Food, Double, Serving?) -> Unit,
     onDelete: (FoodEntry) -> Unit,
-    onCreateFood: () -> Unit,
+    onCreateFood: (String) -> Unit,
     onEditFood: (Food) -> Unit,
 ) {
     val locale = LocalLocale.current.platformLocale
@@ -730,15 +735,9 @@ private fun TodayScreen(
     } else {
         state.foods.filter { it.matches(query) }
     }
+    val exactFoodExists = query.isNotBlank() && state.foods.any { it.hasExactName(query) }
 
-    Scaffold(
-        modifier = Modifier.fillMaxSize(),
-        floatingActionButton = {
-            FloatingActionButton(onClick = onCreateFood) {
-                Icon(Icons.Default.Add, stringResource(R.string.add_personal_food))
-            }
-        },
-    ) { contentPadding ->
+    Scaffold(modifier = Modifier.fillMaxSize()) { contentPadding ->
         LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
@@ -782,6 +781,16 @@ private fun TodayScreen(
             if (displayedFoods.isEmpty()) item { EmptyText(R.string.no_results) }
             else items(displayedFoods, key = { it.id }) {
                 FoodRow(it, locale, state.totals, profile, { selectedFood = it }) { onEditFood(it) }
+            }
+            if (query.isNotBlank() && !exactFoodExists) {
+                item {
+                    OutlinedButton(
+                        onClick = { onCreateFood(query.trim()) },
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp),
+                    ) {
+                        Text(stringResource(R.string.add_missing_personal_food, query.trim()))
+                    }
+                }
             }
             item { SectionTitle(R.string.today_entries) }
             if (state.entries.isEmpty()) item { EmptyText(R.string.no_entries) }

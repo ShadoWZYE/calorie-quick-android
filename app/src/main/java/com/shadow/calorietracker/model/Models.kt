@@ -66,6 +66,8 @@ data class Food(
 
     fun matches(query: String): Boolean = names.all().any { it.contains(query, ignoreCase = true) } ||
         details.all().any { it.contains(query, ignoreCase = true) }
+
+    fun hasExactName(query: String): Boolean = names.all().any { it.trim().equals(query.trim(), ignoreCase = true) }
 }
 
 enum class Allergen { GLUTEN, CRUSTACEANS, EGGS, FISH, PEANUTS, SOY, MILK, NUTS, CELERY, MUSTARD, SESAME, SULPHITES, LUPIN, MOLLUSCS }

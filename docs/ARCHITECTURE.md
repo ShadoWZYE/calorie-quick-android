@@ -69,6 +69,8 @@ Use Room FTS for normalized local search. Normalize diacritics for matching whil
 
 Record chosen result position and subsequent corrections locally (with opt-in analytics later) to improve ranking.
 
+Personal-food creation is a search fallback, not a separate primary action. Search checks personal and cached local records first, then the remote canonical catalogue; only after no exact name/barcode match remains does it offer a prefilled private-food editor. This same reviewed editor receives barcode misses and OCR-prefilled labels.
+
 When search is empty, Today shows recommendations instead: remaining macro needs are the primary ranking signal, foods rich in an already exceeded macro receive a strong penalty, and accumulated food frequency is the secondary preference signal. Food cards expose only projected macro problems, calculated from the declared neutral default serving or 100 g—not the user's remembered quantity—so ranking trade-offs remain visible. The first implementation is deterministic and entirely local.
 
 ## Central catalogue strategy

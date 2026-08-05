@@ -67,6 +67,7 @@
     <string name="nutrient_partial_entries">Partial total: some entries were logged without this nutrient.</string>
     <string name="fiber_g">Fibre (g)</string>
     <string name="add_personal_food">Add personal food</string>
+    <string name="add_missing_personal_food">Can’t find it? Add “%1$s” as a personal food</string>
     <string name="edit_personal_food">Edit personal food</string>
     <string name="personal_food_private">Saved only on this device unless you explicitly share it later.</string>
     <string name="food_name">Food name</string>

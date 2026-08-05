@@ -69,6 +69,7 @@
     <string name="nutrient_partial_entries">Total parțial: unele înregistrări au fost salvate fără acest nutrient.</string>
     <string name="fiber_g">Fibre (g)</string>
     <string name="add_personal_food">Adaugă aliment personal</string>
+    <string name="add_missing_personal_food">Nu îl găsești? Adaugă „%1$s” ca aliment personal</string>
     <string name="edit_personal_food">Editează alimentul personal</string>
     <string name="personal_food_private">Salvat doar pe acest dispozitiv, dacă nu alegi explicit să îl distribui mai târziu.</string>
     <string name="food_name">Numele alimentului</string>
