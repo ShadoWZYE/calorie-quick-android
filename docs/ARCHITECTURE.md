@@ -18,6 +18,8 @@ The local database is the source of truth. Every daily-log mutation commits loca
 
 The first Room schema now persists `UserProfile`, `Food`, `Serving`, and `DiaryEntry`. Diary rows contain food-name and nutrition snapshots so historical totals do not change when catalogue records are edited later. Nutrition is stored as integer milligrams; weight is stored as integer grams.
 
+Each diary row retains a consumption timestamp. Repeated additions of the same food within two minutes are accumulated transactionally into one row; additions outside that window remain separate events for later meal grouping and time-based reports.
+
 Planned extensions:
 
 - `UserProfile`: unit system, locale, measurements, activity assumptions, consent/settings versions.

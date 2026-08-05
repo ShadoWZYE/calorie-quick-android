@@ -6,6 +6,7 @@ import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
 import androidx.room.Transaction
+import androidx.room.Update
 import androidx.room.Upsert
 import kotlinx.coroutines.flow.Flow
 
@@ -37,6 +38,16 @@ interface DiaryDao {
     @Insert
     suspend fun insert(entry: DiaryEntryEntity)
 
+    @Query(
+        "SELECT * FROM diary_entries " +
+            "WHERE foodId = :foodId AND consumedAtEpochMillis >= :cutoff " +
+            "ORDER BY consumedAtEpochMillis DESC LIMIT 1",
+    )
+    suspend fun findRecent(foodId: String, cutoff: Long): DiaryEntryEntity?
+
+    @Update
+    suspend fun update(entry: DiaryEntryEntity)
+
     @Delete
     suspend fun delete(entry: DiaryEntryEntity)
 }
@@ -49,4 +60,3 @@ interface ProfileDao {
     @Upsert
     suspend fun upsert(profile: UserProfileEntity)
 }
-

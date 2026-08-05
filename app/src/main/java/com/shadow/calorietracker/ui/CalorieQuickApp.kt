@@ -70,7 +70,9 @@ import com.shadow.calorietracker.model.FormulaSex
 import com.shadow.calorietracker.model.GoalType
 import com.shadow.calorietracker.model.Nutrition
 import com.shadow.calorietracker.model.UserProfile
+import java.text.DateFormat
 import java.util.Locale
+import java.util.Date
 import kotlin.math.max
 import kotlin.math.roundToInt
 
@@ -482,7 +484,8 @@ private fun EntryRow(entry: FoodEntry, locale: Locale, onRemove: () -> Unit) {
     ) {
         Column(Modifier.weight(1f)) {
             Text(entry.foodName.forLocale(locale), fontWeight = FontWeight.SemiBold)
-            Text("${entry.grams}g", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp)
+            val time = DateFormat.getTimeInstance(DateFormat.SHORT, locale).format(Date(entry.consumedAtEpochMillis))
+            Text("${entry.grams}g · $time", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp)
         }
         Text("${entry.nutrition.calories} ${stringResource(R.string.kcal)}", fontWeight = FontWeight.Bold)
         IconButton(onClick = onRemove) { Icon(Icons.Default.Delete, stringResource(R.string.remove_entry)) }

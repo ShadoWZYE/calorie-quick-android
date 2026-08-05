@@ -42,26 +42,44 @@ class CalorieRepository(private val database: AppDatabase) {
 
     suspend fun addEntry(food: Food, grams: Int) {
         val nutrition = food.nutritionPer100g.forGrams(grams)
-        database.diaryDao().insert(
-            DiaryEntryEntity(
-                id = UUID.randomUUID().toString(),
-                foodId = food.id,
-                foodNameEn = food.names.en,
-                foodNameRo = food.names.ro,
-                grams = grams,
-                consumedAtEpochMillis = System.currentTimeMillis(),
-                calories = nutrition.calories,
-                proteinMilligrams = (nutrition.proteinGrams * 1_000).roundToInt(),
-                carbsMilligrams = (nutrition.carbsGrams * 1_000).roundToInt(),
-                fatMilligrams = (nutrition.fatGrams * 1_000).roundToInt(),
-            ),
-        )
+        val now = System.currentTimeMillis()
+        database.withTransaction {
+            val recent = database.diaryDao().findRecent(food.id, now - ENTRY_MERGE_WINDOW_MILLIS)
+            if (recent == null) {
+                database.diaryDao().insert(
+                    DiaryEntryEntity(
+                        id = UUID.randomUUID().toString(),
+                        foodId = food.id,
+                        foodNameEn = food.names.en,
+                        foodNameRo = food.names.ro,
+                        grams = grams,
+                        consumedAtEpochMillis = now,
+                        calories = nutrition.calories,
+                        proteinMilligrams = (nutrition.proteinGrams * 1_000).roundToInt(),
+                        carbsMilligrams = (nutrition.carbsGrams * 1_000).roundToInt(),
+                        fatMilligrams = (nutrition.fatGrams * 1_000).roundToInt(),
+                    ),
+                )
+            } else {
+                database.diaryDao().update(
+                    recent.copy(
+                        grams = recent.grams + grams,
+                        calories = recent.calories + nutrition.calories,
+                        proteinMilligrams = recent.proteinMilligrams + (nutrition.proteinGrams * 1_000).roundToInt(),
+                        carbsMilligrams = recent.carbsMilligrams + (nutrition.carbsGrams * 1_000).roundToInt(),
+                        fatMilligrams = recent.fatMilligrams + (nutrition.fatGrams * 1_000).roundToInt(),
+                    ),
+                )
+            }
+        }
     }
 
     suspend fun deleteEntry(entry: FoodEntry) {
         database.diaryDao().delete(entry.toEntity())
     }
 }
+
+private const val ENTRY_MERGE_WINDOW_MILLIS = 2 * 60 * 1_000L
 
 private fun FoodWithServings.toModel() = Food(
     id = food.id,
