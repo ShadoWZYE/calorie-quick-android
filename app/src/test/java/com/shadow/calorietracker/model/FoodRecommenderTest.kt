@@ -63,6 +63,21 @@ class FoodRecommenderTest {
         assertEquals("lean", ranked.first().id)
     }
 
+    @Test
+    fun overTargetPenaltyOutweighsASecondaryMacroAdvantage() {
+        val oats = food("oats", Nutrition(379, 13.2, 67.7, 6.5))
+        val rice = food("rice", Nutrition(130, 2.7, 28.2, 0.3))
+
+        val ranked = FoodRecommender.rank(
+            listOf(oats, rice),
+            Nutrition(1_300, 65.0, 99.0, 65.0),
+            profile,
+            emptyMap(),
+        )
+
+        assertEquals("rice", ranked.first().id)
+    }
+
     private fun food(id: String, nutrition: Nutrition) = Food(
         id = id,
         names = LocalizedText(id, id),

@@ -33,6 +33,9 @@ Adults tracking calories and macronutrients for general wellness, starting with 
 
 - Home-screen quick-add widget and Android app shortcuts.
 - Favourite portions ("my bowl", "one scoop") and remembered last amount.
+- Preparation variants (boiled, fried, baked, grilled) with a most-used default and preparation-specific nutrition.
+- Optional private store and timestamped price observations for future shopping-run optimization.
+- Explicit per-item opt-in submission of personal foods to a moderated shared catalogue; private records remain usable regardless of review outcome.
 - Templates for recurring meals and copy day/meal.
 - Streak-free consistency insights so missed days are not punitive.
 - Offline barcode cache and a visible "verified / community / user-entered" confidence marker.

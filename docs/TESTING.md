@@ -13,6 +13,8 @@ session. It builds, installs, and opens the latest code in the API 37 emulator.
 5. Open Banana and try **1 medium banana**, **1 small banana**, and an exact gram value.
 6. Open Whole egg, enter `3`, choose **large egg** from the unit suffix, and add it. Reopen Whole egg and confirm `3 × large egg · 150 g` appears as a quick-pick chip while the editable field starts at `1 large egg`.
 7. Add a custom gram amount, reopen the food, and confirm that amount appears as its own gram quick-pick chip while choosing `g` starts at `100 g`.
+   Confirm serving/custom chips wrap inline to no more than two rows and gram chips stay on one row.
+   When a food's neutral default serving (or 100 g without one) would cross a macro target, confirm only that macro appears in red on the food card as `Macro +x g`.
 8. Confirm calories and all three macros update immediately.
 9. Add several foods, scroll to today's entries, and remove one.
 10. Add the same food twice within two minutes. Confirm it becomes one timestamped entry whose weight and nutrition are the sum of both additions.

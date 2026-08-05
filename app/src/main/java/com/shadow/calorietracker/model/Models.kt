@@ -56,6 +56,28 @@ data class Food(
         details.all().any { it.contains(query, ignoreCase = true) }
 }
 
+enum class MacroKind { PROTEIN, CARBS, FAT }
+
+data class MacroOverage(
+    val kind: MacroKind,
+    val addedGrams: Double,
+    val comparisonGrams: Int,
+)
+
+fun Food.projectedMacroOverages(totals: Nutrition, profile: UserProfile): List<MacroOverage> {
+    val comparisonGrams = servings.firstOrNull()?.grams ?: 100
+    val added = nutritionPer100g.forGrams(comparisonGrams)
+    return listOf(
+        MacroOverage(MacroKind.PROTEIN, added.proteinGrams, comparisonGrams) to
+            (totals.proteinGrams + added.proteinGrams > profile.proteinGoalGrams),
+        MacroOverage(MacroKind.CARBS, added.carbsGrams, comparisonGrams) to
+            (totals.carbsGrams + added.carbsGrams > profile.carbsGoalGrams),
+        MacroOverage(MacroKind.FAT, added.fatGrams, comparisonGrams) to
+            (totals.fatGrams + added.fatGrams > profile.fatGoalGrams),
+    ).filter { (overage, projectedOver) -> projectedOver && overage.addedGrams.roundToInt() > 0 }
+        .map { it.first }
+}
+
 data class FoodEntry(
     val id: String,
     val foodId: String,
@@ -157,7 +179,7 @@ object FoodRecommender {
         return if (gapRatio >= 0.0) {
             gapRatio.coerceAtMost(1.0)
         } else {
-            -(1.0 + (-gapRatio).coerceAtMost(1.0))
+            -(2.0 + (-gapRatio).coerceAtMost(1.0))
         }
     }
 }

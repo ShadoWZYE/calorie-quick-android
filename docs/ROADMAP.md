@@ -18,6 +18,8 @@ Exit: the prototype builds, the happy path is understandable without instruction
 - Recents/frequency ranking, favourite servings, copy meal/day, templates.
 - Extensible nutrient schema; fibre by default; optional total/added sugar and sodium with manual targets; clear unknown-data states.
 - Normalized generic/branded product schema with mass/volume/piece dimensions, packages/barcodes, full nutrient panels, provenance, and immutable diary snapshots.
+- Offline personal-food create/edit/archive, preparation variants with most-used defaults, and optional private store/price history.
+- Opt-in catalogue submissions with immutable review snapshots; no automatic promotion of personal records.
 - EU-14 allergen/intolerance exclusions with `contains`, `may contain`, and `unknown` confidence; recommendation filtering and warnings.
 - Settings, export/delete, reminders, English/Romanian QA, accessibility.
 - Unit/UI/migration tests and measured performance budgets.
@@ -29,6 +31,7 @@ Exit: a user can depend on it offline for four weeks without data loss.
 - Versioned normalization service and cache.
 - Open Food Facts adapter, followed by USDA generic-food enrichment where useful.
 - Barcode scanner, missing-product flow, provenance/confidence UI, image thumbnails.
+- Moderation queue and validation rules for opted-in personal-food submissions.
 - Retry/offline queue, abuse controls, provider attribution/licensing audit.
 
 Exit: Romanian/English barcode lookup has measured coverage and all imported fields remain correctable.

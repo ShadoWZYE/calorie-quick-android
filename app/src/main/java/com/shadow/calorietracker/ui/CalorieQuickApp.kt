@@ -4,6 +4,8 @@ import androidx.appcompat.app.AppCompatDelegate
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -72,11 +74,13 @@ import com.shadow.calorietracker.model.FoodEntry
 import com.shadow.calorietracker.model.FormulaSex
 import com.shadow.calorietracker.model.FoodRecommender
 import com.shadow.calorietracker.model.GoalType
+import com.shadow.calorietracker.model.MacroKind
 import com.shadow.calorietracker.model.Nutrition
 import com.shadow.calorietracker.model.QuantityUsage
 import com.shadow.calorietracker.model.Serving
 import com.shadow.calorietracker.model.UnitUsage
 import com.shadow.calorietracker.model.UserProfile
+import com.shadow.calorietracker.model.projectedMacroOverages
 import com.shadow.calorietracker.data.GRAMS_UNIT_KEY
 import java.text.DateFormat
 import java.text.NumberFormat
@@ -395,7 +399,9 @@ private fun TodayScreen(
             }
             item { SectionTitle(if (query.isBlank()) R.string.recommended_foods else R.string.quick_add) }
             if (displayedFoods.isEmpty()) item { EmptyText(R.string.no_results) }
-            else items(displayedFoods, key = { it.id }) { FoodRow(it, locale) { selectedFood = it } }
+            else items(displayedFoods, key = { it.id }) {
+                FoodRow(it, locale, state.totals, profile) { selectedFood = it }
+            }
             item { SectionTitle(R.string.today_entries) }
             if (state.entries.isEmpty()) item { EmptyText(R.string.no_entries) }
             else items(state.entries, key = { it.id }) { EntryRow(it, locale) { onDelete(it) } }
@@ -529,7 +535,14 @@ private fun SectionTitle(resource: Int, horizontalPadding: androidx.compose.ui.u
 }
 
 @Composable
-private fun FoodRow(food: Food, locale: Locale, onAdd: () -> Unit) {
+private fun FoodRow(
+    food: Food,
+    locale: Locale,
+    currentTotals: Nutrition,
+    profile: UserProfile,
+    onAdd: () -> Unit,
+) {
+    val warnings = food.projectedMacroOverages(currentTotals, profile)
     Card(
         onClick = onAdd,
         modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp),
@@ -546,10 +559,27 @@ private fun FoodRow(food: Food, locale: Locale, onAdd: () -> Unit) {
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
+                if (warnings.isNotEmpty()) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                        warnings.forEach { warning ->
+                            Text(
+                                "${stringResource(warning.kind.labelResource())} +${warning.addedGrams.roundToInt()} g · ${warning.comparisonGrams} g",
+                                fontSize = 12.sp,
+                                color = MaterialTheme.colorScheme.error,
+                            )
+                        }
+                    }
+                }
             }
             Icon(Icons.Default.Add, stringResource(R.string.quick_add), tint = MaterialTheme.colorScheme.primary)
         }
     }
+}
+
+private fun MacroKind.labelResource() = when (this) {
+    MacroKind.PROTEIN -> R.string.protein
+    MacroKind.CARBS -> R.string.carbs
+    MacroKind.FAT -> R.string.fat
 }
 
 @Composable
@@ -574,7 +604,7 @@ private fun EntryRow(entry: FoodEntry, locale: Locale, onRemove: () -> Unit) {
     HorizontalDivider(Modifier.padding(horizontal = 20.dp), color = MaterialTheme.colorScheme.outlineVariant)
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 private fun QuickAddSheet(
     food: Food,
@@ -587,6 +617,8 @@ private fun QuickAddSheet(
     val gramsLabel = stringResource(R.string.grams_short)
     val choices = buildUnitChoices(food, usage, locale, gramsLabel)
     val presets = buildQuantityPresets(choices, quantityUsage, locale, gramsLabel)
+    val servingPresets = presets.filter { it.unitKey != GRAMS_UNIT_KEY }
+    val gramPresets = presets.filter { it.unitKey == GRAMS_UNIT_KEY }
     var selectedKey by remember(food.id) { mutableStateOf(choices.first().key) }
     var amountText by remember(food.id) { mutableStateOf(formatEditableAmount(choices.first().baseAmount)) }
     var unitMenuOpen by remember { mutableStateOf(false) }
@@ -607,15 +639,32 @@ private fun QuickAddSheet(
             Text(food.name(locale), fontSize = 24.sp, fontWeight = FontWeight.Bold)
             Text(food.detail(locale), color = MaterialTheme.colorScheme.onSurfaceVariant)
             Text(stringResource(R.string.choose_serving), fontWeight = FontWeight.SemiBold)
-            presets.forEach { preset ->
-                FilterChip(
-                    selected = selected.key == preset.unitKey && amount == preset.amount,
-                    onClick = {
+            if (servingPresets.isNotEmpty()) {
+                FlowRow(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(4.dp),
+                    maxLines = 2,
+                ) {
+                    servingPresets.forEach { preset ->
+                        QuantityPresetChip(preset, selected.key, amount) {
+                            selectedKey = preset.unitKey
+                            amountText = formatEditableAmount(preset.amount)
+                        }
+                    }
+                }
+            }
+            FlowRow(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                maxLines = 1,
+            ) {
+                gramPresets.forEach { preset ->
+                    QuantityPresetChip(preset, selected.key, amount) {
                         selectedKey = preset.unitKey
                         amountText = formatEditableAmount(preset.amount)
-                    },
-                    label = { Text(preset.label) },
-                )
+                    }
+                }
             }
             Box(Modifier.fillMaxWidth()) {
                 OutlinedTextField(
@@ -658,6 +707,20 @@ private fun QuickAddSheet(
             Spacer(Modifier.height(8.dp))
         }
     }
+}
+
+@Composable
+private fun QuantityPresetChip(
+    preset: QuantityPreset,
+    selectedKey: String,
+    amount: Double?,
+    onClick: () -> Unit,
+) {
+    FilterChip(
+        selected = selectedKey == preset.unitKey && amount == preset.amount,
+        onClick = onClick,
+        label = { Text(preset.label) },
+    )
 }
 
 private fun formatEditableAmount(value: Double): String =
