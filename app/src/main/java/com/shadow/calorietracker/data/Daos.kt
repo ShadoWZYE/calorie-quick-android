@@ -13,7 +13,7 @@ import kotlinx.coroutines.flow.Flow
 @Dao
 interface FoodDao {
     @Transaction
-    @Query("SELECT * FROM foods ORDER BY nameEn")
+    @Query("SELECT * FROM foods WHERE archived = 0 ORDER BY nameEn")
     fun observeFoods(): Flow<List<FoodWithServings>>
 
     @Query("SELECT COUNT(*) FROM foods")
@@ -24,6 +24,24 @@ interface FoodDao {
 
     @Insert(onConflict = OnConflictStrategy.IGNORE)
     suspend fun insertServings(servings: List<ServingEntity>)
+
+    @Upsert
+    suspend fun upsertFood(food: FoodEntity)
+
+    @Upsert
+    suspend fun upsertNutrients(values: List<NutrientValueEntity>)
+
+    @Upsert
+    suspend fun upsertAllergens(values: List<AllergenDeclarationEntity>)
+
+    @Query("DELETE FROM nutrient_values WHERE foodId = :foodId")
+    suspend fun deleteNutrients(foodId: String)
+
+    @Query("DELETE FROM allergen_declarations WHERE foodId = :foodId")
+    suspend fun deleteAllergens(foodId: String)
+
+    @Query("UPDATE foods SET archived = 1, updatedAtEpochMillis = :updatedAt WHERE id = :foodId AND isPersonal = 1")
+    suspend fun archivePersonalFood(foodId: String, updatedAt: Long)
 }
 
 @Dao

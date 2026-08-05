@@ -8,6 +8,7 @@ import com.shadow.calorietracker.data.CalorieRepository
 import com.shadow.calorietracker.model.Food
 import com.shadow.calorietracker.model.FoodEntry
 import com.shadow.calorietracker.model.Nutrition
+import com.shadow.calorietracker.model.PersonalFoodDraft
 import com.shadow.calorietracker.model.QuantityUsage
 import com.shadow.calorietracker.model.Serving
 import com.shadow.calorietracker.model.UnitUsage
@@ -26,6 +27,7 @@ data class AppUiState(
     val quantityUsage: Map<String, List<QuantityUsage>> = emptyMap(),
 ) {
     val totals: Nutrition = entries.fold(Nutrition.Zero) { total, entry -> total + entry.nutrition }
+    val fiberIncomplete: Boolean = entries.any { it.nutrition.fiberGrams == null }
 }
 
 class CalorieViewModel(application: Application) : AndroidViewModel(application) {
@@ -62,5 +64,13 @@ class CalorieViewModel(application: Application) : AndroidViewModel(application)
 
     fun deleteEntry(entry: FoodEntry) {
         viewModelScope.launch { repository.deleteEntry(entry) }
+    }
+
+    fun savePersonalFood(draft: PersonalFoodDraft) {
+        viewModelScope.launch { repository.savePersonalFood(draft) }
+    }
+
+    fun archivePersonalFood(foodId: String) {
+        viewModelScope.launch { repository.archivePersonalFood(foodId) }
     }
 }

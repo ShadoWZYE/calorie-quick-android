@@ -17,6 +17,28 @@ data class FoodEntity(
     val proteinMilligramsPer100g: Int,
     val carbsMilligramsPer100g: Int,
     val fatMilligramsPer100g: Int,
+    val brand: String? = null,
+    val barcode: String? = null,
+    val isPersonal: Boolean = false,
+    val archived: Boolean = false,
+    val updatedAtEpochMillis: Long = 0,
+)
+
+@Entity(tableName = "nutrient_values", indices = [Index("foodId")])
+data class NutrientValueEntity(
+    @PrimaryKey val id: String,
+    val foodId: String,
+    val nutrientKey: String,
+    val amountMilliUnitsPer100g: Int,
+    val source: String,
+)
+
+@Entity(tableName = "allergen_declarations", indices = [Index("foodId")])
+data class AllergenDeclarationEntity(
+    @PrimaryKey val id: String,
+    val foodId: String,
+    val allergenKey: String,
+    val declaration: String,
 )
 
 @Entity(
@@ -35,6 +57,10 @@ data class FoodWithServings(
     @Embedded val food: FoodEntity,
     @Relation(parentColumn = "id", entityColumn = "foodId")
     val servings: List<ServingEntity>,
+    @Relation(parentColumn = "id", entityColumn = "foodId")
+    val nutrientValues: List<NutrientValueEntity>,
+    @Relation(parentColumn = "id", entityColumn = "foodId")
+    val allergenDeclarations: List<AllergenDeclarationEntity>,
 )
 
 @Entity(
@@ -56,6 +82,7 @@ data class DiaryEntryEntity(
     val proteinMilligrams: Int,
     val carbsMilligrams: Int,
     val fatMilligrams: Int,
+    val fiberMilligrams: Int? = null,
 )
 
 @Entity(tableName = "serving_usage", indices = [Index("foodId")])
@@ -93,4 +120,5 @@ data class UserProfileEntity(
     val proteinGoalGrams: Int,
     val carbsGoalGrams: Int,
     val fatGoalGrams: Int,
+    val fiberGoalGrams: Int = 25,
 )

@@ -16,7 +16,7 @@ The local database is the source of truth. Every daily-log mutation commits loca
 
 ## Data model
 
-Room persists `UserProfile`, `Food`, `Serving`, `ServingUsage`, and `DiaryEntry`. Profile targets retain whether they are formula-estimated or user-defined; saving Settings never silently replaces a custom calorie or macro goal. Diary rows contain food-name, entered-unit, normalized-weight, and nutrition snapshots so historical totals do not change when catalogue records are edited later. Nutrition is stored as integer milligrams; weight and decimal entered amounts use scaled integers.
+Room persists `UserProfile`, `Food`, normalized `NutrientValue` rows, `AllergenDeclaration`, `Serving`, `ServingUsage`, and `DiaryEntry`. Profile targets retain whether they are formula-estimated or user-defined; custom calorie and protein/carbohydrate/fat targets remain bidirectionally linked through 4/4/9 kcal-per-gram arithmetic, while fibre remains independent. Diary rows contain food-name, entered-unit, normalized-weight, and nutrition snapshots so historical totals do not change when catalogue records are edited later. Nutrition is stored as integer milligrams; weight and decimal entered amounts use scaled integers.
 
 Each diary row retains a consumption timestamp. Repeated additions of the same food within two minutes are accumulated transactionally into one row; additions outside that window remain separate events for later meal grouping and time-based reports.
 
@@ -35,7 +35,7 @@ Planned extensions:
 
 ### Catalogue schema for generic and packaged foods
 
-The compact fixed columns in the current local seed table are a prototype read model, not the final catalogue contract. Before catalogue import, migrate to normalized records that support:
+The v5 local schema adds normalized nutrient and EU-14 allergen rows while retaining the compact fixed columns as a compatibility read model during migration. Personal foods use normalized rows now; subsequent provider import expands this foundation with panels, packages, and field-level provenance:
 
 - `FoodProduct`: generic/branded kind, localized display names, brand, source/provenance, verification state, image references, ingredients, and region.
 - `Package`: barcode, net quantity and unit, container count, package label, and optional image. A 500 ml bottle is a package, not a hard-coded gram serving.

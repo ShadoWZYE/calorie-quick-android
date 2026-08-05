@@ -19,5 +19,15 @@ class NutritionTest {
 
         assertEquals(Nutrition(150, 13.0, 9.0, 3.0), total)
     }
-}
 
+    @Test
+    fun scalesAndTotalsKnownFiberWithoutInventingUnknownValues() {
+        val serving = Nutrition(100, 1.0, 20.0, 2.0, fiberGrams = 8.0).forGrams(50)
+        assertEquals(4.0, requireNotNull(serving.fiberGrams), 0.001)
+
+        val partialTotal = Nutrition.Zero + Nutrition(100, 1.0, 20.0, 2.0, fiberGrams = 4.0) +
+            Nutrition(100, 1.0, 20.0, 2.0)
+        assertEquals(4.0, requireNotNull(partialTotal.fiberGrams), 0.001)
+        assertEquals(null, (Nutrition.Zero + Nutrition(100, 1.0, 20.0, 2.0)).fiberGrams)
+    }
+}

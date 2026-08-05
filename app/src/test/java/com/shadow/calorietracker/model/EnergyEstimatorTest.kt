@@ -51,4 +51,18 @@ class EnergyEstimatorTest {
             ),
         )
     }
+
+    @Test
+    fun redistributesMacrosProportionallyForACustomCalorieTarget() {
+        assertEquals(
+            MacroTargets(proteinGrams = 87, carbsGrams = 116, fatGrams = 43),
+            EnergyEstimator.redistributeMacros(
+                calorieTarget = 1_200,
+                proteinGrams = 120,
+                carbsGrams = 160,
+                fatGrams = 60,
+            ),
+        )
+        assertEquals(1_660, EnergyEstimator.caloriesForMacros(120, 160, 60))
+    }
 }

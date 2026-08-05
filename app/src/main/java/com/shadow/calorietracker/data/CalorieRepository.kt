@@ -2,12 +2,15 @@ package com.shadow.calorietracker.data
 
 import androidx.room.withTransaction
 import com.shadow.calorietracker.model.ActivityLevel
+import com.shadow.calorietracker.model.Allergen
+import com.shadow.calorietracker.model.AllergenDeclaration
 import com.shadow.calorietracker.model.Food
 import com.shadow.calorietracker.model.FoodEntry
 import com.shadow.calorietracker.model.FormulaSex
 import com.shadow.calorietracker.model.GoalType
 import com.shadow.calorietracker.model.LocalizedText
 import com.shadow.calorietracker.model.Nutrition
+import com.shadow.calorietracker.model.PersonalFoodDraft
 import com.shadow.calorietracker.model.QuantityUsage
 import com.shadow.calorietracker.model.Serving
 import com.shadow.calorietracker.model.TargetMode
@@ -58,11 +61,54 @@ class CalorieRepository(private val database: AppDatabase) {
         database.withTransaction {
             database.foodDao().insertFoods(seedFoodEntities)
             database.foodDao().insertServings(seedServingEntities)
+            database.foodDao().upsertNutrients(seedNutrientEntities)
+            database.foodDao().upsertAllergens(seedAllergenEntities)
         }
     }
 
     suspend fun saveProfile(profile: UserProfile) {
         database.profileDao().upsert(profile.toEntity())
+    }
+
+    suspend fun savePersonalFood(draft: PersonalFoodDraft): String {
+        val foodId = draft.id ?: "personal-${UUID.randomUUID()}"
+        val now = System.currentTimeMillis()
+        val name = draft.name.trim()
+        val brand = draft.brand?.trim()?.takeIf(String::isNotEmpty)
+        val barcode = draft.barcode?.trim()?.takeIf(String::isNotEmpty)
+        database.withTransaction {
+            database.foodDao().upsertFood(
+                FoodEntity(
+                    id = foodId,
+                    nameEn = name,
+                    nameRo = name,
+                    detailEn = brand ?: "Personal food",
+                    detailRo = brand ?: "Aliment personal",
+                    caloriesPer100g = draft.nutritionPer100g.calories,
+                    proteinMilligramsPer100g = (draft.nutritionPer100g.proteinGrams * 1_000).roundToInt(),
+                    carbsMilligramsPer100g = (draft.nutritionPer100g.carbsGrams * 1_000).roundToInt(),
+                    fatMilligramsPer100g = (draft.nutritionPer100g.fatGrams * 1_000).roundToInt(),
+                    brand = brand,
+                    barcode = barcode,
+                    isPersonal = true,
+                    archived = false,
+                    updatedAtEpochMillis = now,
+                ),
+            )
+            database.foodDao().deleteNutrients(foodId)
+            database.foodDao().upsertNutrients(draft.nutritionPer100g.toNutrientEntities(foodId, "user"))
+            database.foodDao().deleteAllergens(foodId)
+            database.foodDao().upsertAllergens(
+                draft.allergens.map { (allergen, declaration) ->
+                    AllergenDeclarationEntity("$foodId|${allergen.name}", foodId, allergen.name, declaration.name)
+                },
+            )
+        }
+        return foodId
+    }
+
+    suspend fun archivePersonalFood(foodId: String) {
+        database.foodDao().archivePersonalFood(foodId, System.currentTimeMillis())
     }
 
     suspend fun addEntry(food: Food, amount: Double, serving: Serving?) {
@@ -91,6 +137,7 @@ class CalorieRepository(private val database: AppDatabase) {
                         proteinMilligrams = (nutrition.proteinGrams * 1_000).roundToInt(),
                         carbsMilligrams = (nutrition.carbsGrams * 1_000).roundToInt(),
                         fatMilligrams = (nutrition.fatGrams * 1_000).roundToInt(),
+                        fiberMilligrams = nutrition.fiberGrams?.let { (it * 1_000).roundToInt() },
                     ),
                 )
             } else {
@@ -110,6 +157,10 @@ class CalorieRepository(private val database: AppDatabase) {
                         proteinMilligrams = recent.proteinMilligrams + (nutrition.proteinGrams * 1_000).roundToInt(),
                         carbsMilligrams = recent.carbsMilligrams + (nutrition.carbsGrams * 1_000).roundToInt(),
                         fatMilligrams = recent.fatMilligrams + (nutrition.fatGrams * 1_000).roundToInt(),
+                        fiberMilligrams = combineMilligrams(
+                            recent.fiberMilligrams,
+                            nutrition.fiberGrams?.let { (it * 1_000).roundToInt() },
+                        ),
                     ),
                 )
             }
@@ -152,14 +203,23 @@ private fun FoodWithServings.toModel() = Food(
     id = food.id,
     names = LocalizedText(food.nameEn, food.nameRo),
     details = LocalizedText(food.detailEn, food.detailRo),
-    nutritionPer100g = Nutrition(
-        calories = food.caloriesPer100g,
-        proteinGrams = food.proteinMilligramsPer100g / 1_000.0,
-        carbsGrams = food.carbsMilligramsPer100g / 1_000.0,
-        fatGrams = food.fatMilligramsPer100g / 1_000.0,
-    ),
+    nutritionPer100g = nutrientValues.associateBy(NutrientValueEntity::nutrientKey).let { nutrients ->
+        Nutrition(
+            calories = nutrients["calories"]?.amountMilliUnitsPer100g ?: food.caloriesPer100g,
+            proteinGrams = (nutrients["protein"]?.amountMilliUnitsPer100g ?: food.proteinMilligramsPer100g) / 1_000.0,
+            carbsGrams = (nutrients["carbs"]?.amountMilliUnitsPer100g ?: food.carbsMilligramsPer100g) / 1_000.0,
+            fatGrams = (nutrients["fat"]?.amountMilliUnitsPer100g ?: food.fatMilligramsPer100g) / 1_000.0,
+            fiberGrams = nutrients["fiber"]?.amountMilliUnitsPer100g?.div(1_000.0),
+        )
+    },
     servings = servings.sortedByDescending { it.grams }.map {
         Serving(it.id, LocalizedText(it.labelEn, it.labelRo), it.grams)
+    },
+    brand = food.brand,
+    barcode = food.barcode,
+    isPersonal = food.isPersonal,
+    allergens = allergenDeclarations.associate {
+        Allergen.valueOf(it.allergenKey) to AllergenDeclaration.valueOf(it.declaration)
     },
 )
 
@@ -177,6 +237,7 @@ private fun DiaryEntryEntity.toModel() = FoodEntry(
         proteinMilligrams / 1_000.0,
         carbsMilligrams / 1_000.0,
         fatMilligrams / 1_000.0,
+        fiberMilligrams?.div(1_000.0),
     ),
 )
 
@@ -195,6 +256,7 @@ private fun FoodEntry.toEntity() = DiaryEntryEntity(
     proteinMilligrams = (nutrition.proteinGrams * 1_000).roundToInt(),
     carbsMilligrams = (nutrition.carbsGrams * 1_000).roundToInt(),
     fatMilligrams = (nutrition.fatGrams * 1_000).roundToInt(),
+    fiberMilligrams = nutrition.fiberGrams?.let { (it * 1_000).roundToInt() },
 )
 
 private fun LocalizedText.withoutLeadingOne() = LocalizedText(en.removePrefix("1 "), ro.removePrefix("1 "))
@@ -211,6 +273,7 @@ private fun UserProfileEntity.toModel() = UserProfile(
     proteinGoalGrams = proteinGoalGrams,
     carbsGoalGrams = carbsGoalGrams,
     fatGoalGrams = fatGoalGrams,
+    fiberGoalGrams = fiberGoalGrams,
     targetMode = TargetMode.valueOf(targetMode),
 )
 
@@ -227,7 +290,21 @@ private fun UserProfile.toEntity() = UserProfileEntity(
     proteinGoalGrams = proteinGoalGrams,
     carbsGoalGrams = carbsGoalGrams,
     fatGoalGrams = fatGoalGrams,
+    fiberGoalGrams = fiberGoalGrams,
 )
+
+private fun combineMilligrams(first: Int?, second: Int?): Int? = when {
+    first == null && second == null -> null
+    else -> (first ?: 0) + (second ?: 0)
+}
+
+private fun Nutrition.toNutrientEntities(foodId: String, source: String): List<NutrientValueEntity> = buildList {
+    add(NutrientValueEntity("$foodId|calories", foodId, "calories", calories, source))
+    add(NutrientValueEntity("$foodId|protein", foodId, "protein", (proteinGrams * 1_000).roundToInt(), source))
+    add(NutrientValueEntity("$foodId|carbs", foodId, "carbs", (carbsGrams * 1_000).roundToInt(), source))
+    add(NutrientValueEntity("$foodId|fat", foodId, "fat", (fatGrams * 1_000).roundToInt(), source))
+    fiberGrams?.let { add(NutrientValueEntity("$foodId|fiber", foodId, "fiber", (it * 1_000).roundToInt(), source)) }
+}
 
 private val seedFoodEntities = listOf(
     FoodEntity("greek-yogurt", "Greek yogurt", "Iaurt grecesc", "2% fat", "2% grăsime", 73, 9_900, 3_900, 2_000),
@@ -245,4 +322,33 @@ private val seedServingEntities = listOf(
     ServingEntity("yogurt-cup", "greek-yogurt", "1 cup", "1 cană", 245),
     ServingEntity("oats-half-cup", "oats", "½ cup dry", "½ cană uscată", 40),
     ServingEntity("rice-cup", "rice", "1 cup cooked", "1 cană gătită", 158),
+)
+
+private val seedFiberMilligrams = mapOf(
+    "greek-yogurt" to 0,
+    "banana" to 2_600,
+    "chicken-breast" to 0,
+    "oats" to 10_100,
+    "eggs" to 0,
+    "rice" to 400,
+)
+
+private val seedNutrientEntities = seedFoodEntities.flatMap { food ->
+    Nutrition(
+        calories = food.caloriesPer100g,
+        proteinGrams = food.proteinMilligramsPer100g / 1_000.0,
+        carbsGrams = food.carbsMilligramsPer100g / 1_000.0,
+        fatGrams = food.fatMilligramsPer100g / 1_000.0,
+        fiberGrams = seedFiberMilligrams[food.id]?.div(1_000.0),
+    ).toNutrientEntities(food.id, "seed")
+}
+
+private val seedAllergenEntities = listOf(
+    AllergenDeclarationEntity("eggs|EGGS", "eggs", Allergen.EGGS.name, AllergenDeclaration.CONTAINS.name),
+    AllergenDeclarationEntity(
+        "greek-yogurt|MILK",
+        "greek-yogurt",
+        Allergen.MILK.name,
+        AllergenDeclaration.CONTAINS.name,
+    ),
 )

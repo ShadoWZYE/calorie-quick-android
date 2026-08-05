@@ -8,6 +8,7 @@ data class Nutrition(
     val proteinGrams: Double,
     val carbsGrams: Double,
     val fatGrams: Double,
+    val fiberGrams: Double? = null,
 ) {
     fun forGrams(grams: Int): Nutrition {
         val factor = grams / 100.0
@@ -16,6 +17,7 @@ data class Nutrition(
             proteinGrams = proteinGrams * factor,
             carbsGrams = carbsGrams * factor,
             fatGrams = fatGrams * factor,
+            fiberGrams = fiberGrams?.times(factor),
         )
     }
 
@@ -24,11 +26,17 @@ data class Nutrition(
         proteinGrams + other.proteinGrams,
         carbsGrams + other.carbsGrams,
         fatGrams + other.fatGrams,
+        combineKnown(fiberGrams, other.fiberGrams),
     )
 
     companion object {
         val Zero = Nutrition(0, 0.0, 0.0, 0.0)
     }
+}
+
+private fun combineKnown(first: Double?, second: Double?): Double? = when {
+    first == null && second == null -> null
+    else -> (first ?: 0.0) + (second ?: 0.0)
 }
 
 data class LocalizedText(val en: String, val ro: String) {
@@ -48,6 +56,10 @@ data class Food(
     val details: LocalizedText,
     val nutritionPer100g: Nutrition,
     val servings: List<Serving>,
+    val brand: String? = null,
+    val barcode: String? = null,
+    val isPersonal: Boolean = false,
+    val allergens: Map<Allergen, AllergenDeclaration> = emptyMap(),
 ) {
     fun name(locale: Locale): String = names.forLocale(locale)
     fun detail(locale: Locale): String = details.forLocale(locale)
@@ -55,6 +67,18 @@ data class Food(
     fun matches(query: String): Boolean = names.all().any { it.contains(query, ignoreCase = true) } ||
         details.all().any { it.contains(query, ignoreCase = true) }
 }
+
+enum class Allergen { GLUTEN, CRUSTACEANS, EGGS, FISH, PEANUTS, SOY, MILK, NUTS, CELERY, MUSTARD, SESAME, SULPHITES, LUPIN, MOLLUSCS }
+enum class AllergenDeclaration { CONTAINS, MAY_CONTAIN }
+
+data class PersonalFoodDraft(
+    val id: String? = null,
+    val name: String,
+    val brand: String?,
+    val barcode: String?,
+    val nutritionPer100g: Nutrition,
+    val allergens: Map<Allergen, AllergenDeclaration>,
+)
 
 enum class MacroKind { PROTEIN, CARBS, FAT }
 
@@ -125,7 +149,10 @@ data class DailyTargets(
     val proteinGrams: Int,
     val carbsGrams: Int,
     val fatGrams: Int,
+    val fiberGrams: Int = 25,
 )
+
+data class MacroTargets(val proteinGrams: Int, val carbsGrams: Int, val fatGrams: Int)
 
 data class UserProfile(
     val onboardingComplete: Boolean,
@@ -139,6 +166,7 @@ data class UserProfile(
     val proteinGoalGrams: Int,
     val carbsGoalGrams: Int,
     val fatGoalGrams: Int,
+    val fiberGoalGrams: Int = 25,
     val targetMode: TargetMode = TargetMode.ESTIMATED,
 )
 
@@ -172,8 +200,27 @@ object EnergyEstimator {
         val protein = (weightKg * 1.6).roundToInt()
         val fat = (weightKg * 0.8).roundToInt()
         val carbs = ((calories - protein * 4 - fat * 9) / 4.0).roundToInt().coerceAtLeast(0)
-        return DailyTargets(calories, protein, carbs, fat)
+        return DailyTargets(calories, protein, carbs, fat, fiberGrams = 25)
     }
+
+    fun redistributeMacros(
+        calorieTarget: Int,
+        proteinGrams: Int,
+        carbsGrams: Int,
+        fatGrams: Int,
+    ): MacroTargets? {
+        val currentMacroCalories = caloriesForMacros(proteinGrams, carbsGrams, fatGrams)
+        if (calorieTarget <= 0 || currentMacroCalories <= 0) return null
+        val factor = calorieTarget.toDouble() / currentMacroCalories
+        return MacroTargets(
+            proteinGrams = (proteinGrams * factor).roundToInt().coerceAtLeast(1),
+            carbsGrams = (carbsGrams * factor).roundToInt().coerceAtLeast(1),
+            fatGrams = (fatGrams * factor).roundToInt().coerceAtLeast(1),
+        )
+    }
+
+    fun caloriesForMacros(proteinGrams: Int, carbsGrams: Int, fatGrams: Int): Int =
+        proteinGrams * 4 + carbsGrams * 4 + fatGrams * 9
 }
 
 object FoodRecommender {

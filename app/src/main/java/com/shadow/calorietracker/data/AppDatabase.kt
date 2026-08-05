@@ -15,8 +15,10 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         UserProfileEntity::class,
         ServingUsageEntity::class,
         QuantityUsageEntity::class,
+        NutrientValueEntity::class,
+        AllergenDeclarationEntity::class,
     ],
-    version = 4,
+    version = 5,
     exportSchema = true,
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -34,7 +36,7 @@ abstract class AppDatabase : RoomDatabase() {
                 context.applicationContext,
                 AppDatabase::class.java,
                 "calorie-quick.db",
-            ).addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4).build().also { instance = it }
+            ).addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5).build().also { instance = it }
         }
 
         private val MIGRATION_1_2 = object : Migration(1, 2) {
@@ -84,6 +86,50 @@ abstract class AppDatabase : RoomDatabase() {
                 db.execSQL(
                     "ALTER TABLE user_profile ADD COLUMN targetMode TEXT NOT NULL DEFAULT 'ESTIMATED'",
                 )
+            }
+        }
+
+
+        private val MIGRATION_4_5 = object : Migration(4, 5) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE foods ADD COLUMN brand TEXT")
+                db.execSQL("ALTER TABLE foods ADD COLUMN barcode TEXT")
+                db.execSQL("ALTER TABLE foods ADD COLUMN isPersonal INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE foods ADD COLUMN archived INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE foods ADD COLUMN updatedAtEpochMillis INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE diary_entries ADD COLUMN fiberMilligrams INTEGER")
+                db.execSQL("ALTER TABLE user_profile ADD COLUMN fiberGoalGrams INTEGER NOT NULL DEFAULT 25")
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS nutrient_values (" +
+                        "id TEXT NOT NULL, foodId TEXT NOT NULL, nutrientKey TEXT NOT NULL, " +
+                        "amountMilliUnitsPer100g INTEGER NOT NULL, source TEXT NOT NULL, PRIMARY KEY(id))",
+                )
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_nutrient_values_foodId ON nutrient_values(foodId)")
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS allergen_declarations (" +
+                        "id TEXT NOT NULL, foodId TEXT NOT NULL, allergenKey TEXT NOT NULL, " +
+                        "declaration TEXT NOT NULL, PRIMARY KEY(id))",
+                )
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_allergen_declarations_foodId ON allergen_declarations(foodId)")
+                listOf(
+                    "calories" to "caloriesPer100g",
+                    "protein" to "proteinMilligramsPer100g",
+                    "carbs" to "carbsMilligramsPer100g",
+                    "fat" to "fatMilligramsPer100g",
+                ).forEach { (key, column) ->
+                    db.execSQL(
+                        "INSERT INTO nutrient_values (id, foodId, nutrientKey, amountMilliUnitsPer100g, source) " +
+                            "SELECT id || '|$key', id, '$key', $column, 'legacy_seed' FROM foods",
+                    )
+                }
+                mapOf("greek-yogurt" to 0, "banana" to 2_600, "chicken-breast" to 0, "oats" to 10_100,
+                    "eggs" to 0, "rice" to 400).forEach { (foodId, amount) ->
+                    db.execSQL(
+                        "INSERT INTO nutrient_values VALUES ('$foodId|fiber', '$foodId', 'fiber', $amount, 'legacy_seed')",
+                    )
+                }
+                db.execSQL("INSERT INTO allergen_declarations VALUES ('eggs|EGGS', 'eggs', 'EGGS', 'CONTAINS')")
+                db.execSQL("INSERT INTO allergen_declarations VALUES ('greek-yogurt|MILK', 'greek-yogurt', 'MILK', 'CONTAINS')")
             }
         }
     }

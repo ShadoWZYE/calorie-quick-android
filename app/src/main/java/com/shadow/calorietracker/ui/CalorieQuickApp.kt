@@ -26,14 +26,17 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Button
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.HorizontalDivider
@@ -68,6 +71,8 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.shadow.calorietracker.R
 import com.shadow.calorietracker.model.ActivityLevel
+import com.shadow.calorietracker.model.Allergen
+import com.shadow.calorietracker.model.AllergenDeclaration
 import com.shadow.calorietracker.model.EnergyEstimator
 import com.shadow.calorietracker.model.Food
 import com.shadow.calorietracker.model.FoodEntry
@@ -76,6 +81,7 @@ import com.shadow.calorietracker.model.FoodRecommender
 import com.shadow.calorietracker.model.GoalType
 import com.shadow.calorietracker.model.MacroKind
 import com.shadow.calorietracker.model.Nutrition
+import com.shadow.calorietracker.model.PersonalFoodDraft
 import com.shadow.calorietracker.model.QuantityUsage
 import com.shadow.calorietracker.model.Serving
 import com.shadow.calorietracker.model.TargetMode
@@ -90,13 +96,14 @@ import java.util.Date
 import kotlin.math.max
 import kotlin.math.roundToInt
 
-private enum class AppScreen { TODAY, SETTINGS }
+private enum class AppScreen { TODAY, SETTINGS, FOOD_EDITOR }
 
 @Composable
 fun CalorieQuickApp(viewModel: CalorieViewModel = viewModel()) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val profile = state.profile
     var screenName by rememberSaveable { mutableStateOf(AppScreen.TODAY.name) }
+    var editingFood by remember { mutableStateOf<Food?>(null) }
 
     when {
         !state.loaded -> LoadingScreen()
@@ -109,11 +116,31 @@ fun CalorieQuickApp(viewModel: CalorieViewModel = viewModel()) {
                 screenName = AppScreen.TODAY.name
             },
         )
+        screenName == AppScreen.FOOD_EDITOR.name -> PersonalFoodEditorScreen(
+            initial = editingFood,
+            onBack = { screenName = AppScreen.TODAY.name },
+            onSave = {
+                viewModel.savePersonalFood(it)
+                screenName = AppScreen.TODAY.name
+            },
+            onArchive = { foodId ->
+                viewModel.archivePersonalFood(foodId)
+                screenName = AppScreen.TODAY.name
+            },
+        )
         else -> TodayScreen(
             state = state,
             onOpenSettings = { screenName = AppScreen.SETTINGS.name },
             onAdd = viewModel::addEntry,
             onDelete = viewModel::deleteEntry,
+            onCreateFood = {
+                editingFood = null
+                screenName = AppScreen.FOOD_EDITOR.name
+            },
+            onEditFood = {
+                editingFood = it
+                screenName = AppScreen.FOOD_EDITOR.name
+            },
         )
     }
 }
@@ -152,6 +179,204 @@ private fun SettingsScreen(profile: UserProfile, onBack: () -> Unit, onSave: (Us
     )
 }
 
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun PersonalFoodEditorScreen(
+    initial: Food?,
+    onBack: () -> Unit,
+    onSave: (PersonalFoodDraft) -> Unit,
+    onArchive: (String) -> Unit,
+) {
+    var name by rememberSaveable(initial?.id) { mutableStateOf(initial?.names?.en.orEmpty()) }
+    var brand by rememberSaveable(initial?.id) { mutableStateOf(initial?.brand.orEmpty()) }
+    var barcode by rememberSaveable(initial?.id) { mutableStateOf(initial?.barcode.orEmpty()) }
+    var calories by rememberSaveable(initial?.id) { mutableStateOf(initial?.nutritionPer100g?.calories?.toString().orEmpty()) }
+    var protein by rememberSaveable(initial?.id) { mutableStateOf(initial?.nutritionPer100g?.proteinGrams?.editableValue().orEmpty()) }
+    var carbs by rememberSaveable(initial?.id) { mutableStateOf(initial?.nutritionPer100g?.carbsGrams?.editableValue().orEmpty()) }
+    var fat by rememberSaveable(initial?.id) { mutableStateOf(initial?.nutritionPer100g?.fatGrams?.editableValue().orEmpty()) }
+    var fiber by rememberSaveable(initial?.id) { mutableStateOf(initial?.nutritionPer100g?.fiberGrams?.editableValue().orEmpty()) }
+    var allergens by remember(initial?.id) { mutableStateOf(initial?.allergens.orEmpty()) }
+    var confirmArchive by remember { mutableStateOf(false) }
+    val caloriesValue = calories.toIntOrNull()
+    val proteinValue = protein.localizedDoubleOrNull()
+    val carbsValue = carbs.localizedDoubleOrNull()
+    val fatValue = fat.localizedDoubleOrNull()
+    val fiberValue = fiber.localizedDoubleOrNull()
+    val valid = name.isNotBlank() && caloriesValue in 0..5_000 &&
+        proteinValue != null && proteinValue in 0.0..100.0 &&
+        carbsValue != null && carbsValue in 0.0..100.0 &&
+        fatValue != null && fatValue in 0.0..100.0 &&
+        (fiber.isBlank() || fiberValue != null && fiberValue in 0.0..100.0)
+
+    LazyColumn(
+        modifier = Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding().padding(horizontal = 20.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp),
+    ) {
+        item {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                IconButton(onClick = onBack) {
+                    Icon(Icons.AutoMirrored.Filled.ArrowBack, stringResource(R.string.back))
+                }
+                Column {
+                    Text(
+                        stringResource(if (initial == null) R.string.add_personal_food else R.string.edit_personal_food),
+                        fontSize = 28.sp,
+                        fontWeight = FontWeight.Bold,
+                    )
+                    Text(stringResource(R.string.personal_food_private), color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            }
+        }
+        item {
+            OutlinedTextField(
+                value = name,
+                onValueChange = { name = it },
+                label = { Text(stringResource(R.string.food_name)) },
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true,
+            )
+        }
+        item {
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                OutlinedTextField(
+                    value = brand,
+                    onValueChange = { brand = it },
+                    label = { Text(stringResource(R.string.brand_optional)) },
+                    modifier = Modifier.weight(1f),
+                    singleLine = true,
+                )
+                OutlinedTextField(
+                    value = barcode,
+                    onValueChange = { barcode = it.filter(Char::isDigit) },
+                    label = { Text(stringResource(R.string.barcode_optional)) },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    modifier = Modifier.weight(1f),
+                    singleLine = true,
+                )
+            }
+        }
+        item { SectionTitle(R.string.nutrition_per_100g, horizontalPadding = 0.dp) }
+        item {
+            NumericField(calories, { calories = it }, R.string.calories, Modifier.fillMaxWidth())
+        }
+        item {
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                NumericField(protein, { protein = it }, R.string.protein_g, Modifier.weight(1f), decimal = true)
+                NumericField(carbs, { carbs = it }, R.string.carbs_g, Modifier.weight(1f), decimal = true)
+                NumericField(fat, { fat = it }, R.string.fat_g, Modifier.weight(1f), decimal = true)
+            }
+        }
+        item {
+            NumericField(fiber, { fiber = it }, R.string.fiber_optional_g, Modifier.fillMaxWidth(), decimal = true)
+        }
+        item { SectionTitle(R.string.allergens, horizontalPadding = 0.dp) }
+        item {
+            Text(stringResource(R.string.allergen_cycle_hint), color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+        item {
+            FlowRow(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(4.dp),
+            ) {
+                Allergen.entries.forEach { allergen ->
+                    val declaration = allergens[allergen]
+                    val allergenName = stringResource(allergen.labelResource())
+                    val declarationLabel = when (declaration) {
+                        AllergenDeclaration.CONTAINS -> stringResource(R.string.contains)
+                        AllergenDeclaration.MAY_CONTAIN -> stringResource(R.string.may_contain)
+                        null -> null
+                    }
+                    FilterChip(
+                        selected = declaration != null,
+                        onClick = {
+                            val next = when (declaration) {
+                                null -> AllergenDeclaration.CONTAINS
+                                AllergenDeclaration.CONTAINS -> AllergenDeclaration.MAY_CONTAIN
+                                AllergenDeclaration.MAY_CONTAIN -> null
+                            }
+                            allergens = allergens.toMutableMap().apply {
+                                if (next == null) remove(allergen) else put(allergen, next)
+                            }
+                        },
+                        label = {
+                            Text(allergenName + declarationLabel?.let { " · $it" }.orEmpty())
+                        },
+                    )
+                }
+            }
+        }
+        item {
+            Button(
+                enabled = valid,
+                onClick = {
+                    onSave(
+                        PersonalFoodDraft(
+                            id = initial?.id,
+                            name = name.trim(),
+                            brand = brand,
+                            barcode = barcode,
+                            nutritionPer100g = Nutrition(
+                                calories = requireNotNull(caloriesValue),
+                                proteinGrams = requireNotNull(proteinValue),
+                                carbsGrams = requireNotNull(carbsValue),
+                                fatGrams = requireNotNull(fatValue),
+                                fiberGrams = if (fiber.isBlank()) null else fiberValue,
+                            ),
+                            allergens = allergens,
+                        ),
+                    )
+                },
+                modifier = Modifier.fillMaxWidth(),
+            ) { Text(stringResource(R.string.save_food)) }
+        }
+        if (initial?.isPersonal == true) {
+            item {
+                OutlinedButton(onClick = { confirmArchive = true }, modifier = Modifier.fillMaxWidth()) {
+                    Text(stringResource(R.string.archive_food), color = MaterialTheme.colorScheme.error)
+                }
+            }
+        }
+        item { Spacer(Modifier.height(24.dp)) }
+    }
+
+    if (confirmArchive && initial != null) {
+        AlertDialog(
+            onDismissRequest = { confirmArchive = false },
+            title = { Text(stringResource(R.string.archive_food)) },
+            text = { Text(stringResource(R.string.archive_food_confirmation)) },
+            confirmButton = {
+                TextButton(onClick = { onArchive(initial.id) }) { Text(stringResource(R.string.archive)) }
+            },
+            dismissButton = {
+                TextButton(onClick = { confirmArchive = false }) { Text(stringResource(R.string.cancel)) }
+            },
+        )
+    }
+}
+
+private fun Double.editableValue(): String =
+    if (this % 1.0 == 0.0) toInt().toString() else toString().trimEnd('0').trimEnd('.')
+
+private fun String.localizedDoubleOrNull(): Double? = replace(',', '.').toDoubleOrNull()
+
+private fun Allergen.labelResource() = when (this) {
+    Allergen.GLUTEN -> R.string.allergen_gluten
+    Allergen.CRUSTACEANS -> R.string.allergen_crustaceans
+    Allergen.EGGS -> R.string.allergen_eggs
+    Allergen.FISH -> R.string.allergen_fish
+    Allergen.PEANUTS -> R.string.allergen_peanuts
+    Allergen.SOY -> R.string.allergen_soy
+    Allergen.MILK -> R.string.allergen_milk
+    Allergen.NUTS -> R.string.allergen_nuts
+    Allergen.CELERY -> R.string.allergen_celery
+    Allergen.MUSTARD -> R.string.allergen_mustard
+    Allergen.SESAME -> R.string.allergen_sesame
+    Allergen.SULPHITES -> R.string.allergen_sulphites
+    Allergen.LUPIN -> R.string.allergen_lupin
+    Allergen.MOLLUSCS -> R.string.allergen_molluscs
+}
+
 @Composable
 private fun ProfileForm(
     title: String,
@@ -187,6 +412,7 @@ private fun ProfileForm(
     var proteinTarget by rememberSaveable { mutableStateOf(defaultTargets.proteinGoalGrams.toString()) }
     var carbsTarget by rememberSaveable { mutableStateOf(defaultTargets.carbsGoalGrams.toString()) }
     var fatTarget by rememberSaveable { mutableStateOf(defaultTargets.fatGoalGrams.toString()) }
+    var fiberTarget by rememberSaveable { mutableStateOf(defaultTargets.fiberGoalGrams.toString()) }
 
     val ageValue = age.toIntOrNull()
     val heightValue = height.toIntOrNull()
@@ -207,9 +433,21 @@ private fun ProfileForm(
     val customProtein = proteinTarget.toIntOrNull()
     val customCarbs = carbsTarget.toIntOrNull()
     val customFat = fatTarget.toIntOrNull()
+    val customFiber = fiberTarget.toIntOrNull()
     val customTargetsValid = customCalories in 500..10_000 && customProtein in 1..1_000 &&
-        customCarbs in 1..1_000 && customFat in 1..1_000
+        customCarbs in 1..1_000 && customFat in 1..1_000 && customFiber in 1..200
     val valid = measurementsValid && (targetMode == TargetMode.ESTIMATED || customTargetsValid)
+    val updateMacrosAndCalories: (String, String, String) -> Unit = { newProtein, newCarbs, newFat ->
+        proteinTarget = newProtein
+        carbsTarget = newCarbs
+        fatTarget = newFat
+        val parsedProtein = newProtein.toIntOrNull()
+        val parsedCarbs = newCarbs.toIntOrNull()
+        val parsedFat = newFat.toIntOrNull()
+        if (parsedProtein != null && parsedCarbs != null && parsedFat != null) {
+            calorieTarget = EnergyEstimator.caloriesForMacros(parsedProtein, parsedCarbs, parsedFat).toString()
+        }
+    }
 
     LazyColumn(
         modifier = Modifier
@@ -296,6 +534,7 @@ private fun ProfileForm(
                                     it.proteinGrams,
                                     it.carbsGrams,
                                     it.fatGrams,
+                                    it.fiberGrams,
                                 ),
                             )
                         }
@@ -307,15 +546,51 @@ private fun ProfileForm(
                         Text(stringResource(R.string.custom_target_explanation), fontWeight = FontWeight.SemiBold)
                         NumericField(
                             calorieTarget,
-                            { calorieTarget = it },
+                            { candidate ->
+                                calorieTarget = candidate
+                                val newCalories = candidate.toIntOrNull()
+                                val currentProtein = proteinTarget.toIntOrNull()
+                                val currentCarbs = carbsTarget.toIntOrNull()
+                                val currentFat = fatTarget.toIntOrNull()
+                                if (newCalories in 500..10_000 && currentProtein != null &&
+                                    currentCarbs != null && currentFat != null
+                                ) {
+                                    EnergyEstimator.redistributeMacros(
+                                        requireNotNull(newCalories),
+                                        currentProtein,
+                                        currentCarbs,
+                                        currentFat,
+                                    )?.let { balanced ->
+                                        proteinTarget = balanced.proteinGrams.toString()
+                                        carbsTarget = balanced.carbsGrams.toString()
+                                        fatTarget = balanced.fatGrams.toString()
+                                    }
+                                }
+                            },
                             R.string.calorie_target,
                             Modifier.fillMaxWidth(),
                         )
                         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                            NumericField(proteinTarget, { proteinTarget = it }, R.string.protein_g, Modifier.weight(1f))
-                            NumericField(carbsTarget, { carbsTarget = it }, R.string.carbs_g, Modifier.weight(1f))
-                            NumericField(fatTarget, { fatTarget = it }, R.string.fat_g, Modifier.weight(1f))
+                            NumericField(
+                                proteinTarget,
+                                { updateMacrosAndCalories(it, carbsTarget, fatTarget) },
+                                R.string.protein_g,
+                                Modifier.weight(1f),
+                            )
+                            NumericField(
+                                carbsTarget,
+                                { updateMacrosAndCalories(proteinTarget, it, fatTarget) },
+                                R.string.carbs_g,
+                                Modifier.weight(1f),
+                            )
+                            NumericField(
+                                fatTarget,
+                                { updateMacrosAndCalories(proteinTarget, carbsTarget, it) },
+                                R.string.fat_g,
+                                Modifier.weight(1f),
+                            )
                         }
+                        NumericField(fiberTarget, { fiberTarget = it }, R.string.fiber_g, Modifier.fillMaxWidth())
                         if (!customTargetsValid) {
                             Text(stringResource(R.string.invalid_custom_targets), color = MaterialTheme.colorScheme.error)
                         }
@@ -335,6 +610,7 @@ private fun ProfileForm(
                             requireNotNull(customProtein),
                             requireNotNull(customCarbs),
                             requireNotNull(customFat),
+                            requireNotNull(customFiber),
                         )
                     }
                     onSave(
@@ -350,6 +626,7 @@ private fun ProfileForm(
                             targets.proteinGrams,
                             targets.carbsGrams,
                             targets.fatGrams,
+                            targets.fiberGrams,
                             targetMode,
                         ),
                     )
@@ -439,6 +716,8 @@ private fun TodayScreen(
     onOpenSettings: () -> Unit,
     onAdd: (Food, Double, Serving?) -> Unit,
     onDelete: (FoodEntry) -> Unit,
+    onCreateFood: () -> Unit,
+    onEditFood: (Food) -> Unit,
 ) {
     val locale = LocalLocale.current.platformLocale
     var query by rememberSaveable { mutableStateOf("") }
@@ -452,7 +731,14 @@ private fun TodayScreen(
         state.foods.filter { it.matches(query) }
     }
 
-    Scaffold(modifier = Modifier.fillMaxSize()) { contentPadding ->
+    Scaffold(
+        modifier = Modifier.fillMaxSize(),
+        floatingActionButton = {
+            FloatingActionButton(onClick = onCreateFood) {
+                Icon(Icons.Default.Add, stringResource(R.string.add_personal_food))
+            }
+        },
+    ) { contentPadding ->
         LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
@@ -475,7 +761,7 @@ private fun TodayScreen(
                     }
                 }
             }
-            item { SummaryCard(state.totals, profile) { showMacroDetails = true } }
+            item { SummaryCard(state.totals, profile, state.fiberIncomplete) { showMacroDetails = true } }
             item {
                 OutlinedTextField(
                     value = query,
@@ -495,7 +781,7 @@ private fun TodayScreen(
             item { SectionTitle(if (query.isBlank()) R.string.recommended_foods else R.string.quick_add) }
             if (displayedFoods.isEmpty()) item { EmptyText(R.string.no_results) }
             else items(displayedFoods, key = { it.id }) {
-                FoodRow(it, locale, state.totals, profile) { selectedFood = it }
+                FoodRow(it, locale, state.totals, profile, { selectedFood = it }) { onEditFood(it) }
             }
             item { SectionTitle(R.string.today_entries) }
             if (state.entries.isEmpty()) item { EmptyText(R.string.no_entries) }
@@ -518,12 +804,12 @@ private fun TodayScreen(
         }
     }
     if (showMacroDetails) {
-        MacroDetailsSheet(state.totals, profile) { showMacroDetails = false }
+        MacroDetailsSheet(state.totals, profile, state.fiberIncomplete) { showMacroDetails = false }
     }
 }
 
 @Composable
-private fun SummaryCard(totals: Nutrition, profile: UserProfile, onOpenDetails: () -> Unit) {
+private fun SummaryCard(totals: Nutrition, profile: UserProfile, fiberIncomplete: Boolean, onOpenDetails: () -> Unit) {
     val remaining = max(0, profile.calorieGoal - totals.calories)
     Card(
         onClick = onOpenDetails,
@@ -549,6 +835,7 @@ private fun SummaryCard(totals: Nutrition, profile: UserProfile, onOpenDetails: 
                 Macro(R.string.protein, totals.proteinGrams, profile.proteinGoalGrams)
                 Macro(R.string.carbs, totals.carbsGrams, profile.carbsGoalGrams)
                 Macro(R.string.fat, totals.fatGrams, profile.fatGoalGrams)
+                OptionalMacro(R.string.fiber, totals.fiberGrams, profile.fiberGoalGrams, fiberIncomplete)
             }
             if (remaining in 1..250) {
                 Text(pluralStringResource(R.plurals.goal_warning, remaining, remaining), color = MaterialTheme.colorScheme.error)
@@ -564,7 +851,12 @@ private fun SummaryCard(totals: Nutrition, profile: UserProfile, onOpenDetails: 
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun MacroDetailsSheet(totals: Nutrition, profile: UserProfile, onDismiss: () -> Unit) {
+private fun MacroDetailsSheet(
+    totals: Nutrition,
+    profile: UserProfile,
+    fiberIncomplete: Boolean,
+    onDismiss: () -> Unit,
+) {
     ModalBottomSheet(onDismissRequest = onDismiss) {
         Column(
             Modifier.fillMaxWidth().navigationBarsPadding().padding(horizontal = 24.dp),
@@ -574,7 +866,23 @@ private fun MacroDetailsSheet(totals: Nutrition, profile: UserProfile, onDismiss
             MacroDetail(R.string.protein, totals.proteinGrams, profile.proteinGoalGrams)
             MacroDetail(R.string.carbs, totals.carbsGrams, profile.carbsGoalGrams)
             MacroDetail(R.string.fat, totals.fatGrams, profile.fatGoalGrams)
+            OptionalMacroDetail(R.string.fiber, totals.fiberGrams, profile.fiberGoalGrams, fiberIncomplete)
             Spacer(Modifier.height(12.dp))
+        }
+    }
+}
+
+@Composable
+private fun OptionalMacroDetail(label: Int, consumed: Double?, goal: Int, incomplete: Boolean) {
+    if (consumed != null) {
+        MacroDetail(label, consumed, goal)
+        if (incomplete) {
+            Text(stringResource(R.string.nutrient_partial_entries), color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+    } else {
+        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Text(stringResource(label), fontWeight = FontWeight.SemiBold)
+            Text(stringResource(R.string.nutrient_unknown_entries), color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
 }
@@ -615,6 +923,16 @@ private fun MacroDetail(label: Int, consumed: Double, goal: Int) {
     }
 }
 
+@Composable private fun OptionalMacro(label: Int, value: Double?, goal: Int, incomplete: Boolean) {
+    if (value != null && !incomplete) Macro(label, value, goal) else Column {
+        Text(stringResource(label), fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(
+            if (value == null) "— / ${goal}g" else "≈ ${value.roundToInt()} / ${goal}g",
+            fontWeight = FontWeight.SemiBold,
+        )
+    }
+}
+
 @Composable
 private fun SectionTitle(resource: Int, horizontalPadding: androidx.compose.ui.unit.Dp = 20.dp) {
     Text(
@@ -636,8 +954,16 @@ private fun FoodRow(
     currentTotals: Nutrition,
     profile: UserProfile,
     onAdd: () -> Unit,
+    onEdit: () -> Unit,
 ) {
     val warnings = food.projectedMacroOverages(currentTotals, profile)
+    val kcalLabel = stringResource(R.string.kcal)
+    val per100gLabel = stringResource(R.string.per_100g)
+    val fiberLabel = stringResource(R.string.fiber).lowercase(locale)
+    val detailText = buildString {
+        append("${food.detail(locale)} · ${food.nutritionPer100g.calories} $kcalLabel $per100gLabel")
+        food.nutritionPer100g.fiberGrams?.let { append(" · ${formatAmount(it, locale)} g $fiberLabel") }
+    }
     Card(
         onClick = onAdd,
         modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp),
@@ -648,7 +974,7 @@ private fun FoodRow(
             Column(Modifier.weight(1f)) {
                 Text(food.name(locale), fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 Text(
-                    "${food.detail(locale)} · ${food.nutritionPer100g.calories} ${stringResource(R.string.kcal)} ${stringResource(R.string.per_100g)}",
+                    detailText,
                     fontSize = 13.sp,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 1,
@@ -664,6 +990,11 @@ private fun FoodRow(
                             )
                         }
                     }
+                }
+            }
+            if (food.isPersonal) {
+                IconButton(onClick = onEdit) {
+                    Icon(Icons.Default.Edit, stringResource(R.string.edit_personal_food))
                 }
             }
             Icon(Icons.Default.Add, stringResource(R.string.quick_add), tint = MaterialTheme.colorScheme.primary)
@@ -693,7 +1024,16 @@ private fun EntryRow(entry: FoodEntry, locale: Locale, onRemove: () -> Unit) {
             }
             Text("$amount · $time", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp)
         }
-        Text("${entry.nutrition.calories} ${stringResource(R.string.kcal)}", fontWeight = FontWeight.Bold)
+        Column(horizontalAlignment = Alignment.End) {
+            Text("${entry.nutrition.calories} ${stringResource(R.string.kcal)}", fontWeight = FontWeight.Bold)
+            entry.nutrition.fiberGrams?.let {
+                Text(
+                    "${formatAmount(it, locale)} g ${stringResource(R.string.fiber).lowercase(locale)}",
+                    fontSize = 12.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
         IconButton(onClick = onRemove) { Icon(Icons.Default.Delete, stringResource(R.string.remove_entry)) }
     }
     HorizontalDivider(Modifier.padding(horizontal = 20.dp), color = MaterialTheme.colorScheme.outlineVariant)
@@ -722,6 +1062,12 @@ private fun QuickAddSheet(
     val grams = amount?.let { (it * (selected.serving?.grams ?: 1)).roundToInt() } ?: 0
     val valid = amount != null && amount > 0.0 && grams in 1..5_000
     val nutrition = food.nutritionPer100g.forGrams(grams.coerceAtLeast(0))
+    val containsAllergens = mutableListOf<String>()
+    val mayContainAllergens = mutableListOf<String>()
+    food.allergens.forEach { (allergen, declaration) ->
+        val label = stringResource(allergen.labelResource())
+        if (declaration == AllergenDeclaration.CONTAINS) containsAllergens += label else mayContainAllergens += label
+    }
     ModalBottomSheet(onDismissRequest = onDismiss) {
         Column(
             Modifier
@@ -733,6 +1079,19 @@ private fun QuickAddSheet(
         ) {
             Text(food.name(locale), fontSize = 24.sp, fontWeight = FontWeight.Bold)
             Text(food.detail(locale), color = MaterialTheme.colorScheme.onSurfaceVariant)
+            if (containsAllergens.isNotEmpty()) {
+                Text(
+                    stringResource(R.string.contains_allergens, containsAllergens.joinToString()),
+                    color = MaterialTheme.colorScheme.error,
+                    fontWeight = FontWeight.SemiBold,
+                )
+            }
+            if (mayContainAllergens.isNotEmpty()) {
+                Text(
+                    stringResource(R.string.may_contain_allergens, mayContainAllergens.joinToString()),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
             Text(stringResource(R.string.choose_serving), fontWeight = FontWeight.SemiBold)
             if (servingPresets.isNotEmpty()) {
                 FlowRow(
@@ -791,6 +1150,12 @@ private fun QuickAddSheet(
             }
             if (selected.serving != null && valid) {
                 Text("≈ $grams ${stringResource(R.string.grams_short)}", color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+            nutrition.fiberGrams?.let {
+                Text(
+                    "${formatAmount(it, locale)} g ${stringResource(R.string.fiber).lowercase(locale)}",
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
             }
             Button(
                 enabled = valid,

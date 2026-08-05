@@ -13,12 +13,12 @@ Exit: the prototype builds, the happy path is understandable without instruction
 
 ## M1 — Local-first private alpha (current)
 
-- Room schemas and non-destructive v1→v2→v3→v4 migrations, seeded local foods, diary/unit snapshots, interaction-ranked quantity presets, and persistence are implemented; personal-food editing, meals, and edit/undo remain.
-- First-run onboarding, profile editing, BMR/TDEE estimate, activity/goal choice, manual calorie/macro targets, and app-language settings are implemented; display units remain.
+- Room schemas and non-destructive v1→v2→v3→v4→v5 migrations, seeded local foods, normalized nutrient/allergen rows, diary/unit snapshots, interaction-ranked quantity presets, and persistence are implemented; meals and diary edit/undo remain.
+- First-run onboarding, profile editing, BMR/TDEE estimate, activity/goal choice, linked manual calorie/macro targets, fibre target, and app-language settings are implemented; display units remain.
 - Recents/frequency ranking, favourite servings, copy meal/day, templates.
-- Extensible nutrient schema; fibre by default; optional total/added sugar and sodium with manual targets; clear unknown-data states.
+- Extensible nutrient schema and fibre tracking with clear unknown-data states are implemented; optional total/added sugar and sodium with manual targets remain.
 - Normalized generic/branded product schema with mass/volume/piece dimensions, packages/barcodes, full nutrient panels, provenance, and immutable diary snapshots.
-- Offline personal-food create/edit/archive, preparation variants with most-used defaults, and optional private store/price history.
+- Offline personal-food create/edit/archive with EU-14 allergen declarations is implemented; preparation variants with most-used defaults and optional private store/price history remain.
 - Opt-in catalogue submissions with immutable review snapshots; no automatic promotion of personal records.
 - EU-14 allergen/intolerance exclusions with `contains`, `may contain`, and `unknown` confidence; recommendation filtering and warnings.
 - Settings, export/delete, reminders, English/Romanian QA, accessibility.
