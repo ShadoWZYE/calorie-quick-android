@@ -20,6 +20,7 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -29,6 +30,7 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.QrCodeScanner
 import androidx.compose.material3.Button
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
@@ -57,11 +59,13 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLocale
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -91,6 +95,9 @@ import com.shadow.calorietracker.model.UnitUsage
 import com.shadow.calorietracker.model.UserProfile
 import com.shadow.calorietracker.model.projectedMacroOverages
 import com.shadow.calorietracker.data.GRAMS_UNIT_KEY
+import com.google.mlkit.vision.barcode.common.Barcode
+import com.google.mlkit.vision.codescanner.GmsBarcodeScannerOptions
+import com.google.mlkit.vision.codescanner.GmsBarcodeScanning
 import java.text.DateFormat
 import java.text.NumberFormat
 import java.util.Locale
@@ -103,10 +110,12 @@ private enum class AppScreen { TODAY, SETTINGS, FOOD_EDITOR }
 @Composable
 fun CalorieQuickApp(viewModel: CalorieViewModel = viewModel()) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
+    val lookupState by viewModel.foodLookupState.collectAsStateWithLifecycle()
     val profile = state.profile
     var screenName by rememberSaveable { mutableStateOf(AppScreen.TODAY.name) }
     var editingFood by remember { mutableStateOf<Food?>(null) }
     var newFoodName by rememberSaveable { mutableStateOf("") }
+    var newFoodBarcode by rememberSaveable { mutableStateOf("") }
 
     when {
         !state.loaded -> LoadingScreen()
@@ -122,6 +131,7 @@ fun CalorieQuickApp(viewModel: CalorieViewModel = viewModel()) {
         screenName == AppScreen.FOOD_EDITOR.name -> PersonalFoodEditorScreen(
             initial = editingFood,
             initialName = newFoodName,
+            initialBarcode = newFoodBarcode,
             onBack = { screenName = AppScreen.TODAY.name },
             onSave = {
                 viewModel.savePersonalFood(it)
@@ -139,11 +149,23 @@ fun CalorieQuickApp(viewModel: CalorieViewModel = viewModel()) {
             onDelete = viewModel::deleteEntry,
             onCreateFood = {
                 editingFood = null
-                newFoodName = it
+                newFoodName = it.first
+                newFoodBarcode = it.second.orEmpty()
                 screenName = AppScreen.FOOD_EDITOR.name
             },
             onEditFood = {
                 editingFood = it
+                newFoodBarcode = ""
+                screenName = AppScreen.FOOD_EDITOR.name
+            },
+            lookupState = lookupState,
+            onSearchGlobal = viewModel::searchOpenFoodFacts,
+            onLookupBarcode = viewModel::lookupBarcode,
+            onClearLookup = viewModel::clearFoodLookup,
+            onImportFood = {
+                editingFood = it
+                newFoodName = ""
+                newFoodBarcode = ""
                 screenName = AppScreen.FOOD_EDITOR.name
             },
         )
@@ -189,6 +211,7 @@ private fun SettingsScreen(profile: UserProfile, onBack: () -> Unit, onSave: (Us
 private fun PersonalFoodEditorScreen(
     initial: Food?,
     initialName: String,
+    initialBarcode: String,
     onBack: () -> Unit,
     onSave: (PersonalFoodDraft) -> Unit,
     onArchive: (String) -> Unit,
@@ -196,10 +219,12 @@ private fun PersonalFoodEditorScreen(
     val locale = LocalLocale.current.platformLocale
     val initialPackageMeasure = initial?.takeIf(Food::isPackaged)?.servings?.firstOrNull(Serving::isPackage)
     var name by rememberSaveable(initial?.id, initialName) {
-        mutableStateOf(initial?.names?.en ?: initialName)
+        mutableStateOf(initial?.name(locale) ?: initialName)
     }
     var brand by rememberSaveable(initial?.id) { mutableStateOf(initial?.brand.orEmpty()) }
-    var barcode by rememberSaveable(initial?.id) { mutableStateOf(initial?.barcode.orEmpty()) }
+    var barcode by rememberSaveable(initial?.id, initialBarcode) {
+        mutableStateOf(initial?.barcode ?: initialBarcode)
+    }
     var calories by rememberSaveable(initial?.id) { mutableStateOf(initial?.nutritionPer100g?.calories?.toString().orEmpty()) }
     var protein by rememberSaveable(initial?.id) { mutableStateOf(initial?.nutritionPer100g?.proteinGrams?.editableValue().orEmpty()) }
     var carbs by rememberSaveable(initial?.id) { mutableStateOf(initial?.nutritionPer100g?.carbsGrams?.editableValue().orEmpty()) }
@@ -209,7 +234,7 @@ private fun PersonalFoodEditorScreen(
     var measures by remember(initial?.id) {
         mutableStateOf(
             initial?.servings.orEmpty().filterNot { it.id == initialPackageMeasure?.id }.map {
-                PersonalMeasure(it.id, it.label, it.grams)
+                PersonalMeasure(it.id, it.label, it.grams, it.suggestedAmounts)
             },
         )
     }
@@ -251,11 +276,26 @@ private fun PersonalFoodEditorScreen(
                 }
                 Column {
                     Text(
-                        stringResource(if (initial == null) R.string.add_personal_food else R.string.edit_personal_food),
+                        stringResource(
+                            when {
+                                initial == null -> R.string.add_personal_food
+                                initial.isPersonal -> R.string.edit_personal_food
+                                else -> R.string.review_imported_food
+                            },
+                        ),
                         fontSize = 28.sp,
                         fontWeight = FontWeight.Bold,
                     )
-                    Text(stringResource(R.string.personal_food_private), color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(
+                        stringResource(
+                            if (initial != null && !initial.isPersonal) {
+                                R.string.open_food_facts_review_notice
+                            } else {
+                                R.string.personal_food_private
+                            },
+                        ),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
                 }
             }
         }
@@ -885,13 +925,31 @@ private fun GoalType.labelResource() = when (this) {
 @Composable
 private fun TodayScreen(
     state: AppUiState,
+    lookupState: FoodLookupState,
     onOpenSettings: () -> Unit,
     onAdd: (Food, Double, Serving?) -> Unit,
     onDelete: (FoodEntry) -> Unit,
-    onCreateFood: (String) -> Unit,
+    onCreateFood: (Pair<String, String?>) -> Unit,
     onEditFood: (Food) -> Unit,
+    onSearchGlobal: (String, String) -> Unit,
+    onLookupBarcode: (String, String) -> Unit,
+    onClearLookup: () -> Unit,
+    onImportFood: (Food) -> Unit,
 ) {
+    val context = LocalContext.current
     val locale = LocalLocale.current.platformLocale
+    val barcodeScanner = remember {
+        val options = GmsBarcodeScannerOptions.Builder()
+            .setBarcodeFormats(
+                Barcode.FORMAT_EAN_13,
+                Barcode.FORMAT_EAN_8,
+                Barcode.FORMAT_UPC_A,
+                Barcode.FORMAT_UPC_E,
+            )
+            .enableAutoZoom()
+            .build()
+        GmsBarcodeScanning.getClient(context, options)
+    }
     var query by rememberSaveable { mutableStateOf("") }
     var selectedFood by remember { mutableStateOf<Food?>(null) }
     var showMacroDetails by rememberSaveable { mutableStateOf(false) }
@@ -903,6 +961,24 @@ private fun TodayScreen(
         state.foods.filter { it.matches(query) }
     }
     val exactFoodExists = query.isNotBlank() && state.foods.any { it.hasExactName(query) }
+    val currentLookup = lookupState.takeIf { it.query.equals(query.trim(), ignoreCase = true) }
+    val remoteResults = currentLookup?.results.orEmpty().filterNot { remote ->
+        remote.barcode != null && state.foods.any { local -> local.barcode == remote.barcode }
+    }
+    val globalResultAlreadySaved = currentLookup?.results.orEmpty().any { remote ->
+        remote.barcode != null && state.foods.any { local -> local.barcode == remote.barcode }
+    }
+    val exactRemoteFoodExists = remoteResults.any { it.hasExactName(query) }
+    val globalMatchExists = exactRemoteFoodExists || currentLookup?.isBarcodeLookup == true && remoteResults.isNotEmpty()
+
+    fun runGlobalSearch() {
+        val normalized = query.trim()
+        if (normalized.all(Char::isDigit) && normalized.length in 8..14) {
+            onLookupBarcode(normalized, locale.language)
+        } else if (normalized.length >= 2) {
+            onSearchGlobal(normalized, locale.language)
+        }
+    }
 
     Scaffold(modifier = Modifier.fillMaxSize()) { contentPadding ->
         LazyColumn(
@@ -931,31 +1007,122 @@ private fun TodayScreen(
             item {
                 OutlinedTextField(
                     value = query,
-                    onValueChange = { query = it },
+                    onValueChange = {
+                        query = it
+                        onClearLookup()
+                    },
                     modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp),
                     placeholder = { Text(stringResource(R.string.search_hint)) },
                     leadingIcon = { Icon(Icons.Default.Search, null) },
                     trailingIcon = {
-                        if (query.isNotEmpty()) IconButton(onClick = { query = "" }) {
-                            Icon(Icons.Default.Close, stringResource(R.string.close))
+                        if (query.isNotEmpty()) {
+                            IconButton(onClick = {
+                                query = ""
+                                onClearLookup()
+                            }) {
+                                Icon(Icons.Default.Close, stringResource(R.string.close))
+                            }
+                        } else {
+                            IconButton(
+                                onClick = {
+                                    barcodeScanner.startScan().addOnSuccessListener { barcode ->
+                                        barcode.rawValue?.filter(Char::isDigit)?.takeIf(String::isNotEmpty)?.let { code ->
+                                            val localFood = state.foods.firstOrNull { it.barcode == code }
+                                            if (localFood != null) {
+                                                selectedFood = localFood
+                                            } else {
+                                                query = code
+                                                onLookupBarcode(code, locale.language)
+                                            }
+                                        }
+                                    }
+                                },
+                            ) {
+                                Icon(Icons.Default.QrCodeScanner, stringResource(R.string.scan_barcode))
+                            }
                         }
                     },
+                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+                    keyboardActions = KeyboardActions(onSearch = { runGlobalSearch() }),
                     singleLine = true,
                     shape = RoundedCornerShape(18.dp),
                 )
+            }
+            if (query.isNotBlank()) {
+                item {
+                    OutlinedButton(
+                        enabled = query.trim().length >= 2 && currentLookup?.status != FoodLookupStatus.SEARCHING,
+                        onClick = { runGlobalSearch() },
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp),
+                    ) {
+                        if (currentLookup?.status == FoodLookupStatus.SEARCHING) {
+                            CircularProgressIndicator(Modifier.height(18.dp), strokeWidth = 2.dp)
+                        } else {
+                            Icon(Icons.Default.Search, null)
+                        }
+                        Text(
+                            stringResource(
+                                if (query.trim().all(Char::isDigit) && query.trim().length in 8..14) {
+                                    R.string.lookup_barcode
+                                } else {
+                                    R.string.search_open_food_facts
+                                },
+                            ),
+                            Modifier.padding(start = 8.dp),
+                        )
+                    }
+                }
             }
             item { SectionTitle(if (query.isBlank()) R.string.recommended_foods else R.string.quick_add) }
             if (displayedFoods.isEmpty()) item { EmptyText(R.string.no_results) }
             else items(displayedFoods, key = { it.id }) {
                 FoodRow(it, locale, state.totals, profile, { selectedFood = it }) { onEditFood(it) }
             }
-            if (query.isNotBlank() && !exactFoodExists) {
+            if (currentLookup?.status == FoodLookupStatus.SUCCESS && remoteResults.isNotEmpty()) {
+                item { SectionTitle(R.string.open_food_facts_results) }
+                items(remoteResults, key = { it.id }) { food ->
+                    OpenFoodFactsRow(food, locale) { onImportFood(food) }
+                }
+            }
+            if (currentLookup?.status == FoodLookupStatus.ERROR || currentLookup?.status == FoodLookupStatus.RATE_LIMITED) {
+                item {
+                    Text(
+                        stringResource(
+                            if (currentLookup.status == FoodLookupStatus.RATE_LIMITED) {
+                                R.string.open_food_facts_rate_limited
+                            } else {
+                                R.string.open_food_facts_error
+                            },
+                        ),
+                        Modifier.padding(horizontal = 20.dp),
+                        color = MaterialTheme.colorScheme.error,
+                    )
+                }
+            }
+            if (query.isNotBlank() && !exactFoodExists && !globalMatchExists && !globalResultAlreadySaved &&
+                currentLookup?.status == FoodLookupStatus.SUCCESS
+            ) {
                 item {
                     OutlinedButton(
-                        onClick = { onCreateFood(query.trim()) },
+                        onClick = {
+                            if (currentLookup.isBarcodeLookup) {
+                                onCreateFood("" to query.trim())
+                            } else {
+                                onCreateFood(query.trim() to null)
+                            }
+                        },
                         modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp),
                     ) {
-                        Text(stringResource(R.string.add_missing_personal_food, query.trim()))
+                        Text(
+                            stringResource(
+                                if (currentLookup.isBarcodeLookup) {
+                                    R.string.add_missing_barcode_food
+                                } else {
+                                    R.string.add_missing_personal_food
+                                },
+                                query.trim(),
+                            ),
+                        )
                     }
                 }
             }
@@ -1174,6 +1341,39 @@ private fun FoodRow(
                 }
             }
             Icon(Icons.Default.Add, stringResource(R.string.quick_add), tint = MaterialTheme.colorScheme.primary)
+        }
+    }
+}
+
+@Composable
+private fun OpenFoodFactsRow(food: Food, locale: Locale, onReview: () -> Unit) {
+    Card(
+        onClick = onReview,
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer),
+        shape = RoundedCornerShape(18.dp),
+    ) {
+        Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f)) {
+                Text(food.name(locale), fontWeight = FontWeight.SemiBold, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                Text(
+                    buildString {
+                        food.brand?.let { append("$it · ") }
+                        append("${food.nutritionPer100g.calories} ${stringResource(R.string.kcal)} · ")
+                        append(stringResource(R.string.per_100g))
+                    },
+                    fontSize = 13.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                Text(
+                    stringResource(R.string.review_before_saving),
+                    fontSize = 12.sp,
+                    color = MaterialTheme.colorScheme.primary,
+                )
+            }
+            Icon(Icons.Default.Edit, stringResource(R.string.review_imported_food), tint = MaterialTheme.colorScheme.primary)
         }
     }
 }
