@@ -2,6 +2,7 @@ package com.shadow.calorietracker.ui
 
 import com.shadow.calorietracker.data.GRAMS_UNIT_KEY
 import com.shadow.calorietracker.model.Food
+import com.shadow.calorietracker.model.QuantityUsage
 import com.shadow.calorietracker.model.Serving
 import com.shadow.calorietracker.model.UnitUsage
 import java.text.NumberFormat
@@ -37,20 +38,30 @@ fun buildUnitChoices(
 
 fun buildQuantityPresets(
     choices: List<UnitChoice>,
-    usage: List<UnitUsage>,
+    usage: List<QuantityUsage>,
     locale: Locale,
     gramsLabel: String,
 ): List<QuantityPreset> {
-    val usageByKey = usage.associateBy(UnitUsage::unitKey)
+    val choiceOrder = choices.mapIndexed { index, choice -> choice.key to index }.toMap()
+    val usageByPreset = usage.associateBy { it.unitKey to it.amount }
     return choices.flatMap { choice ->
-        val base = choice.toPreset(choice.baseAmount, locale, gramsLabel)
-        val rememberedAmount = usageByKey[choice.key]?.lastAmount
-        if (rememberedAmount != null && abs(rememberedAmount - choice.baseAmount) > 0.000_001) {
-            listOf(choice.toPreset(rememberedAmount, locale, gramsLabel), base)
-        } else {
-            listOf(base)
+        val usedAmounts = usage.asSequence()
+            .filter { it.unitKey == choice.key }
+            .map(QuantityUsage::amount)
+            .filter { abs(it - choice.baseAmount) > 0.000_001 }
+            .toList()
+        (usedAmounts + choice.baseAmount).distinct().map { amount ->
+            choice.toPreset(amount, locale, gramsLabel)
         }
-    }
+    }.sortedWith(
+        compareByDescending<QuantityPreset> {
+            usageByPreset[it.unitKey to it.amount]?.useCount ?: 0
+        }.thenByDescending {
+            usageByPreset[it.unitKey to it.amount]?.lastUsedAtEpochMillis ?: 0L
+        }.thenBy {
+            choiceOrder[it.unitKey] ?: Int.MAX_VALUE
+        }.thenBy { it.amount },
+    )
 }
 
 private fun UnitChoice.toPreset(amount: Double, locale: Locale, gramsLabel: String): QuantityPreset {

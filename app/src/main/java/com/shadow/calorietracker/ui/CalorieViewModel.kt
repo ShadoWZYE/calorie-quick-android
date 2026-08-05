@@ -8,6 +8,7 @@ import com.shadow.calorietracker.data.CalorieRepository
 import com.shadow.calorietracker.model.Food
 import com.shadow.calorietracker.model.FoodEntry
 import com.shadow.calorietracker.model.Nutrition
+import com.shadow.calorietracker.model.QuantityUsage
 import com.shadow.calorietracker.model.Serving
 import com.shadow.calorietracker.model.UnitUsage
 import com.shadow.calorietracker.model.UserProfile
@@ -22,6 +23,7 @@ data class AppUiState(
     val foods: List<Food> = emptyList(),
     val entries: List<FoodEntry> = emptyList(),
     val unitUsage: Map<String, List<UnitUsage>> = emptyMap(),
+    val quantityUsage: Map<String, List<QuantityUsage>> = emptyMap(),
 ) {
     val totals: Nutrition = entries.fold(Nutrition.Zero) { total, entry -> total + entry.nutrition }
 }
@@ -34,13 +36,15 @@ class CalorieViewModel(application: Application) : AndroidViewModel(application)
         repository.foods,
         repository.todayEntries(),
         repository.unitUsage,
-    ) { profile, foods, entries, unitUsage ->
+        repository.quantityUsage,
+    ) { profile, foods, entries, unitUsage, quantityUsage ->
         AppUiState(
             loaded = true,
             profile = profile,
             foods = foods,
             entries = entries,
             unitUsage = unitUsage.groupBy(UnitUsage::foodId),
+            quantityUsage = quantityUsage.groupBy(QuantityUsage::foodId),
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), AppUiState())
 

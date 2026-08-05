@@ -16,7 +16,7 @@ session. It builds, installs, and opens the latest code in the API 37 emulator.
 8. Confirm calories and all three macros update immediately.
 9. Add several foods, scroll to today's entries, and remove one.
 10. Add the same food twice within two minutes. Confirm it becomes one timestamped entry whose weight and nutrition are the sum of both additions.
-11. Confirm **Recommended** changes as macro gaps change, then tap the summary card and inspect the macro breakdown.
+11. Confirm a macro turns red after exceeding its target. Confirm **Recommended** avoids foods rich in that macro, then tap the summary card and inspect the macro breakdown.
 12. Rotate the emulator. Confirm the profile, entries, and total remain intact and the screen still fits.
 13. Close and relaunch the app. Confirm the same profile and today's entries remain.
 

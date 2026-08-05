@@ -73,6 +73,7 @@ import com.shadow.calorietracker.model.FormulaSex
 import com.shadow.calorietracker.model.FoodRecommender
 import com.shadow.calorietracker.model.GoalType
 import com.shadow.calorietracker.model.Nutrition
+import com.shadow.calorietracker.model.QuantityUsage
 import com.shadow.calorietracker.model.Serving
 import com.shadow.calorietracker.model.UnitUsage
 import com.shadow.calorietracker.model.UserProfile
@@ -403,7 +404,13 @@ private fun TodayScreen(
     }
 
     selectedFood?.let { food ->
-        QuickAddSheet(food, state.unitUsage[food.id].orEmpty(), locale, { selectedFood = null }) { amount, serving ->
+        QuickAddSheet(
+            food,
+            state.unitUsage[food.id].orEmpty(),
+            state.quantityUsage[food.id].orEmpty(),
+            locale,
+            { selectedFood = null },
+        ) { amount, serving ->
             onAdd(food, amount, serving)
             selectedFood = null
             query = ""
@@ -474,14 +481,17 @@ private fun MacroDetailsSheet(totals: Nutrition, profile: UserProfile, onDismiss
 @Composable
 private fun MacroDetail(label: Int, consumed: Double, goal: Int) {
     val remaining = max(0, goal - consumed.roundToInt())
+    val overTarget = consumed > goal
+    val emphasisColor = if (overTarget) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface
     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-            Text(stringResource(label), fontWeight = FontWeight.SemiBold)
-            Text("${consumed.roundToInt()} / ${goal}g")
+            Text(stringResource(label), fontWeight = FontWeight.SemiBold, color = emphasisColor)
+            Text("${consumed.roundToInt()} / ${goal}g", color = emphasisColor)
         }
         LinearProgressIndicator(
             progress = { (consumed / goal.coerceAtLeast(1)).toFloat().coerceIn(0f, 1f) },
             modifier = Modifier.fillMaxWidth().height(8.dp),
+            color = if (overTarget) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
         )
         Text(
             "$remaining g ${stringResource(R.string.remaining)}",
@@ -492,9 +502,15 @@ private fun MacroDetail(label: Int, consumed: Double, goal: Int) {
 }
 
 @Composable private fun Macro(label: Int, value: Double, goal: Int) {
+    val overTarget = value > goal
+    val color = if (overTarget) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant
     Column {
-        Text(stringResource(label), fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        Text("${value.roundToInt()} / ${goal}g", fontWeight = FontWeight.SemiBold)
+        Text(stringResource(label), fontSize = 12.sp, color = color)
+        Text(
+            "${value.roundToInt()} / ${goal}g",
+            fontWeight = FontWeight.SemiBold,
+            color = if (overTarget) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface,
+        )
     }
 }
 
@@ -563,13 +579,14 @@ private fun EntryRow(entry: FoodEntry, locale: Locale, onRemove: () -> Unit) {
 private fun QuickAddSheet(
     food: Food,
     usage: List<UnitUsage>,
+    quantityUsage: List<QuantityUsage>,
     locale: Locale,
     onDismiss: () -> Unit,
     onAdd: (Double, Serving?) -> Unit,
 ) {
     val gramsLabel = stringResource(R.string.grams_short)
     val choices = buildUnitChoices(food, usage, locale, gramsLabel)
-    val presets = buildQuantityPresets(choices, usage, locale, gramsLabel)
+    val presets = buildQuantityPresets(choices, quantityUsage, locale, gramsLabel)
     var selectedKey by remember(food.id) { mutableStateOf(choices.first().key) }
     var amountText by remember(food.id) { mutableStateOf(formatEditableAmount(choices.first().baseAmount)) }
     var unitMenuOpen by remember { mutableStateOf(false) }

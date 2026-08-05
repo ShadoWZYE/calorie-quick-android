@@ -8,6 +8,7 @@ import com.shadow.calorietracker.model.FormulaSex
 import com.shadow.calorietracker.model.GoalType
 import com.shadow.calorietracker.model.LocalizedText
 import com.shadow.calorietracker.model.Nutrition
+import com.shadow.calorietracker.model.QuantityUsage
 import com.shadow.calorietracker.model.Serving
 import com.shadow.calorietracker.model.UserProfile
 import com.shadow.calorietracker.model.UnitUsage
@@ -29,6 +30,17 @@ class CalorieRepository(private val database: AppDatabase) {
                 useCount = it.useCount,
                 lastUsedAtEpochMillis = it.lastUsedAtEpochMillis,
                 lastAmount = it.lastAmountMilliUnits / 1_000.0,
+            )
+        }
+    }
+    val quantityUsage: Flow<List<QuantityUsage>> = database.quantityUsageDao().observeAll().map { rows ->
+        rows.map {
+            QuantityUsage(
+                foodId = it.foodId,
+                unitKey = it.unitKey,
+                amount = it.amountMilliUnits / 1_000.0,
+                useCount = it.useCount,
+                lastUsedAtEpochMillis = it.lastUsedAtEpochMillis,
             )
         }
     }
@@ -104,6 +116,19 @@ class CalorieRepository(private val database: AppDatabase) {
             if (database.servingUsageDao().increment(usageId, now, amountMilliUnits) == 0) {
                 database.servingUsageDao().insert(
                     ServingUsageEntity(usageId, food.id, unitKey, 1, now, amountMilliUnits),
+                )
+            }
+            val quantityUsageId = "$usageId|$amountMilliUnits"
+            if (database.quantityUsageDao().increment(quantityUsageId, now) == 0) {
+                database.quantityUsageDao().insert(
+                    QuantityUsageEntity(
+                        quantityUsageId,
+                        food.id,
+                        unitKey,
+                        amountMilliUnits,
+                        1,
+                        now,
+                    ),
                 )
             }
         }

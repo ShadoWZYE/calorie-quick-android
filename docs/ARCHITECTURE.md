@@ -20,7 +20,7 @@ Room persists `UserProfile`, `Food`, `Serving`, `ServingUsage`, and `DiaryEntry`
 
 Each diary row retains a consumption timestamp. Repeated additions of the same food within two minutes are accumulated transactionally into one row; additions outside that window remain separate events for later meal grouping and time-based reports.
 
-Serving choices retain use count, recency, and the last entered amount. The quick-add sheet ranks units and exposes remembered amounts as quick-pick presets; choosing a measurement unit itself starts from a neutral base amount. Nutrition is always normalized to grams.
+Serving choices retain unit-level use count and recency. Exact food + unit + amount combinations have separate preference records, allowing multiple reusable quick-pick presets to be ranked by interaction count with recency only as a tie-breaker. Choosing a measurement unit itself starts from a neutral base amount. Nutrition is always normalized to grams.
 
 Planned extensions:
 
@@ -63,7 +63,7 @@ Use Room FTS for normalized local search. Normalize diacritics for matching whil
 
 Record chosen result position and subsequent corrections locally (with opt-in analytics later) to improve ranking.
 
-When search is empty, Today shows recommendations instead: remaining macro needs are the primary ranking signal, and accumulated food frequency is the secondary preference signal. The first implementation is deterministic and entirely local.
+When search is empty, Today shows recommendations instead: remaining macro needs are the primary ranking signal, foods rich in an already exceeded macro are penalized, and accumulated food frequency is the secondary preference signal. The first implementation is deterministic and entirely local.
 
 ## Central catalogue strategy
 

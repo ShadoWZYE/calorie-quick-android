@@ -81,3 +81,18 @@ interface ServingUsageDao {
     @Query("DELETE FROM serving_usage WHERE id = :id AND useCount <= 0")
     suspend fun deleteIfUnused(id: String)
 }
+
+@Dao
+interface QuantityUsageDao {
+    @Query("SELECT * FROM quantity_usage")
+    fun observeAll(): Flow<List<QuantityUsageEntity>>
+
+    @Query(
+        "UPDATE quantity_usage SET useCount = useCount + 1, " +
+            "lastUsedAtEpochMillis = :usedAt WHERE id = :id",
+    )
+    suspend fun increment(id: String, usedAt: Long): Int
+
+    @Insert(onConflict = OnConflictStrategy.IGNORE)
+    suspend fun insert(usage: QuantityUsageEntity)
+}

@@ -76,6 +76,14 @@ data class UnitUsage(
     val lastAmount: Double,
 )
 
+data class QuantityUsage(
+    val foodId: String,
+    val unitKey: String,
+    val amount: Double,
+    val useCount: Int,
+    val lastUsedAtEpochMillis: Long,
+)
+
 enum class FormulaSex { FEMALE, MALE }
 enum class ActivityLevel(val multiplier: Double) {
     SEDENTARY(1.2),
@@ -129,20 +137,27 @@ object FoodRecommender {
         profile: UserProfile,
         frequencyByFoodId: Map<String, Int>,
     ): List<Food> {
-        val proteinNeed = needRatio(totals.proteinGrams, profile.proteinGoalGrams)
-        val carbsNeed = needRatio(totals.carbsGrams, profile.carbsGoalGrams)
-        val fatNeed = needRatio(totals.fatGrams, profile.fatGoalGrams)
+        val proteinWeight = macroWeight(totals.proteinGrams, profile.proteinGoalGrams)
+        val carbsWeight = macroWeight(totals.carbsGrams, profile.carbsGoalGrams)
+        val fatWeight = macroWeight(totals.fatGrams, profile.fatGoalGrams)
 
         return foods.sortedWith(
             compareByDescending<Food> { food ->
-                food.nutritionPer100g.proteinGrams / profile.proteinGoalGrams.coerceAtLeast(1) * proteinNeed +
-                    food.nutritionPer100g.carbsGrams / profile.carbsGoalGrams.coerceAtLeast(1) * carbsNeed +
-                    food.nutritionPer100g.fatGrams / profile.fatGoalGrams.coerceAtLeast(1) * fatNeed
+                food.nutritionPer100g.proteinGrams / profile.proteinGoalGrams.coerceAtLeast(1) * proteinWeight +
+                    food.nutritionPer100g.carbsGrams / profile.carbsGoalGrams.coerceAtLeast(1) * carbsWeight +
+                    food.nutritionPer100g.fatGrams / profile.fatGoalGrams.coerceAtLeast(1) * fatWeight
             }.thenByDescending { frequencyByFoodId[it.id] ?: 0 }
                 .thenBy { it.names.en },
         )
     }
 
-    private fun needRatio(consumed: Double, goal: Int): Double =
-        ((goal - consumed) / goal.coerceAtLeast(1)).coerceIn(0.0, 1.0)
+    private fun macroWeight(consumed: Double, goal: Int): Double {
+        val safeGoal = goal.coerceAtLeast(1)
+        val gapRatio = (goal - consumed) / safeGoal
+        return if (gapRatio >= 0.0) {
+            gapRatio.coerceAtMost(1.0)
+        } else {
+            -(1.0 + (-gapRatio).coerceAtMost(1.0))
+        }
+    }
 }

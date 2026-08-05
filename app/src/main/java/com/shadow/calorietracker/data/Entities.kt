@@ -68,6 +68,16 @@ data class ServingUsageEntity(
     val lastAmountMilliUnits: Long,
 )
 
+@Entity(tableName = "quantity_usage", indices = [Index("foodId")])
+data class QuantityUsageEntity(
+    @PrimaryKey val id: String,
+    val foodId: String,
+    val unitKey: String,
+    val amountMilliUnits: Long,
+    val useCount: Int,
+    val lastUsedAtEpochMillis: Long,
+)
+
 @Entity(tableName = "user_profile")
 data class UserProfileEntity(
     @PrimaryKey val id: Int = 1,

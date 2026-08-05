@@ -48,6 +48,21 @@ class FoodRecommenderTest {
         assertEquals("favourite", ranked.first().id)
     }
 
+    @Test
+    fun penalizesFoodsRichInAnAlreadyExceededMacro() {
+        val fattyProtein = food("fatty", Nutrition(300, 30.0, 0.0, 30.0))
+        val leanProtein = food("lean", Nutrition(150, 25.0, 0.0, 2.0))
+
+        val ranked = FoodRecommender.rank(
+            listOf(fattyProtein, leanProtein),
+            Nutrition(1_000, 50.0, 200.0, 65.0),
+            profile,
+            emptyMap(),
+        )
+
+        assertEquals("lean", ranked.first().id)
+    }
+
     private fun food(id: String, nutrition: Nutrition) = Food(
         id = id,
         names = LocalizedText(id, id),
