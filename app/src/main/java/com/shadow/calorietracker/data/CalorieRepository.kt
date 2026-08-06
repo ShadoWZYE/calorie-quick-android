@@ -37,7 +37,10 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
 import kotlin.math.roundToInt
 
-class CalorieRepository(private val database: AppDatabase) {
+class CalorieRepository(
+    private val database: AppDatabase,
+    private val builtInCatalogueImporter: BuiltInCatalogueImporter? = null,
+) {
     val profile: Flow<UserProfile?> = database.profileDao().observe().map { it?.toModel() }
     val foods: Flow<List<Food>> = database.foodDao().observeFoods().map { rows -> rows.map { it.toModel() } }
     val unitUsage: Flow<List<UnitUsage>> = database.servingUsageDao().observeAll().map { rows ->
@@ -140,6 +143,10 @@ class CalorieRepository(private val database: AppDatabase) {
     }
 
     suspend fun seedFoods() {
+        builtInCatalogueImporter?.let {
+            it.import()
+            return
+        }
         if (database.foodDao().count() > 0) return
         database.withTransaction {
             database.foodDao().insertFoods(seedFoodEntities)
@@ -560,6 +567,8 @@ private fun FoodWithServings.toModel() = Food(
         )
     },
     defaultPreparationId = food.defaultPreparationId,
+    categoryKey = food.categoryKey,
+    aliases = aliases.map(FoodAliasEntity::value),
 )
 
 private fun FoodEntity.toImage(): FoodImage? = imageSource?.let { source ->

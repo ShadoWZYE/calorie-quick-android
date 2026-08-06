@@ -78,6 +78,17 @@ class FoodRecommenderTest {
         assertEquals("rice", ranked.first().id)
     }
 
+    @Test
+    fun pureCookingIngredientsAreNotDefaultMealRecommendations() {
+        val oil = food("oil", Nutrition(884, 0.0, 0.0, 100.0)).copy(categoryKey = "fats")
+        val oats = food("oats", Nutrition(379, 13.2, 67.7, 6.5)).copy(categoryKey = "grains")
+        val chicken = food("chicken", Nutrition(165, 31.0, 0.0, 3.6)).copy(categoryKey = "meat")
+
+        val ranked = FoodRecommender.rank(listOf(oil, oats, chicken), Nutrition.Zero, profile, emptyMap())
+
+        assertEquals(setOf("chicken", "oats"), ranked.take(2).map(Food::id).toSet())
+    }
+
     private fun food(id: String, nutrition: Nutrition) = Food(
         id = id,
         names = LocalizedText(id, id),

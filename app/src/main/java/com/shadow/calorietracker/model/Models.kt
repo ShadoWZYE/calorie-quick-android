@@ -88,12 +88,16 @@ data class Food(
     val preparations: List<FoodPreparation> = emptyList(),
     val defaultPreparationId: String? = null,
     val activePreparationId: String? = null,
+    val categoryKey: String? = null,
+    val aliases: List<String> = emptyList(),
 ) {
     fun name(locale: Locale): String = names.forLocale(locale)
     fun detail(locale: Locale): String = details.forLocale(locale)
 
-    fun matches(query: String): Boolean = names.all().any { it.contains(query, ignoreCase = true) } ||
-        details.all().any { it.contains(query, ignoreCase = true) }
+    fun matches(query: String): Boolean {
+        val normalizedQuery = query.normalizedFoodText()
+        return (names.all() + details.all() + aliases).any { it.normalizedFoodText().contains(normalizedQuery) }
+    }
 
     fun hasExactName(query: String): Boolean = names.all().any { it.trim().equals(query.trim(), ignoreCase = true) }
 
@@ -128,13 +132,14 @@ data class FoodProvenance(
 )
 
 fun normalizedFoodIdentity(name: String, brand: String?): String = listOf(name, brand.orEmpty())
-    .joinToString("|") { value ->
-        java.text.Normalizer.normalize(value.lowercase(), java.text.Normalizer.Form.NFD)
-            .replace(Regex("\\p{Mn}+"), "")
-            .replace(Regex("['’]"), "")
-            .replace(Regex("[^a-z0-9]+"), " ")
-            .trim()
-    }
+    .joinToString("|") { it.normalizedFoodText() }
+
+private fun String.normalizedFoodText(): String = java.text.Normalizer
+    .normalize(lowercase(), java.text.Normalizer.Form.NFD)
+    .replace(Regex("\\p{Mn}+"), "")
+    .replace(Regex("['’]"), "")
+    .replace(Regex("[^a-z0-9]+"), " ")
+    .trim()
 
 enum class Allergen { GLUTEN, CRUSTACEANS, EGGS, FISH, PEANUTS, SOY, MILK, NUTS, CELERY, MUSTARD, SESAME, SULPHITES, LUPIN, MOLLUSCS }
 enum class AllergenDeclaration { CONTAINS, MAY_CONTAIN }
@@ -479,9 +484,17 @@ object FoodRecommender {
 
         return foods.sortedWith(
             compareByDescending<Food> { food ->
-                food.nutritionPer100g.proteinGrams / profile.proteinGoalGrams.coerceAtLeast(1) * proteinWeight +
-                    food.nutritionPer100g.carbsGrams / profile.carbsGoalGrams.coerceAtLeast(1) * carbsWeight +
-                    food.nutritionPer100g.fatGrams / profile.fatGoalGrams.coerceAtLeast(1) * fatWeight
+                val frequency = frequencyByFoodId[food.id] ?: 0
+                val ingredientPenalty = if (food.categoryKey in ingredientOnlyCategories) {
+                    if (frequency > 0) -0.5 else -2.0
+                } else {
+                    0.0
+                }
+                macroContribution(food.nutritionPer100g.proteinGrams, profile.proteinGoalGrams, proteinWeight) +
+                    macroContribution(food.nutritionPer100g.carbsGrams, profile.carbsGoalGrams, carbsWeight) +
+                    macroContribution(food.nutritionPer100g.fatGrams, profile.fatGoalGrams, fatWeight) +
+                    frequency.coerceAtMost(10) * 0.05 + ingredientPenalty -
+                    ((food.nutritionPer100g.calories - 400).coerceAtLeast(0) / 500.0)
             }.thenByDescending { frequencyByFoodId[it.id] ?: 0 }
                 .thenBy { it.names.en },
         )
@@ -496,4 +509,11 @@ object FoodRecommender {
             -(2.0 + (-gapRatio).coerceAtMost(1.0))
         }
     }
+
+    private fun macroContribution(amount: Double, goal: Int, weight: Double): Double {
+        val contribution = amount / goal.coerceAtLeast(1) * weight
+        return if (weight >= 0.0) contribution.coerceAtMost(0.35) else contribution
+    }
+
+    private val ingredientOnlyCategories = setOf("fats", "pantry")
 }

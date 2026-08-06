@@ -25,8 +25,9 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         BodyMeasurementEntity::class,
         FoodPreparationEntity::class,
         PreparationUsageEntity::class,
+        FoodAliasEntity::class,
     ],
-    version = 13,
+    version = 14,
     exportSchema = true,
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -60,6 +61,7 @@ abstract class AppDatabase : RoomDatabase() {
                 MIGRATION_10_11,
                 MIGRATION_11_12,
                 MIGRATION_12_13,
+                MIGRATION_13_14,
             ).build().also { instance = it }
         }
 
@@ -321,6 +323,17 @@ abstract class AppDatabase : RoomDatabase() {
                         "NULL, NULL, NULL, NULL, NULL, 1)",
                 )
                 db.execSQL("UPDATE foods SET defaultPreparationId = 'eggs|boiled' WHERE id = 'eggs'")
+            }
+        }
+
+        private val MIGRATION_13_14 = object : Migration(13, 14) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE foods ADD COLUMN categoryKey TEXT")
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS food_aliases (" +
+                        "id TEXT NOT NULL, foodId TEXT NOT NULL, value TEXT NOT NULL, PRIMARY KEY(id))",
+                )
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_food_aliases_foodId ON food_aliases(foodId)")
             }
         }
     }

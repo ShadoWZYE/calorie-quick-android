@@ -20,4 +20,14 @@ class FoodSearchTest {
         assertTrue(food.hasExactName("IAURT GRECESC"))
         assertFalse(food.hasExactName("Greek yogurt 2%"))
     }
+
+    @Test
+    fun searchMatchesNormalizedAliases() {
+        val aliased = food.copy(aliases = listOf("aubergine", "vânătă"))
+
+        assertTrue(aliased.matches("auberg"))
+        assertTrue(aliased.matches("vânăt"))
+        assertTrue(aliased.matches("vanata"))
+        assertTrue(food.matches("marca exemplu"))
+    }
 }

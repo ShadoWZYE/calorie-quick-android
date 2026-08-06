@@ -40,6 +40,8 @@ class CatalogueExporter(
                         .put("sourceType", food.sourceType)
                         .put("sourceId", food.sourceId ?: JSONObject.NULL)
                         .put("isPackaged", food.isPackaged)
+                        .put("category", food.categoryKey ?: JSONObject.NULL)
+                        .put("aliases", JSONArray(row.aliases.map(FoodAliasEntity::value)))
                         .put("reviewStatus", food.reviewStatus)
                         .put("image", imageJson(food, imageEntry))
                         .put("nutritionPer100g", nutritionJson(row))

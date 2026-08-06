@@ -49,3 +49,5 @@ and see the prototype's known limitations.
 - Ask for camera, health, and notification permissions only at the moment their feature is used.
 
 See [docs/PRODUCT.md](docs/PRODUCT.md), [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md), [docs/ROADMAP.md](docs/ROADMAP.md), and [docs/RESEARCH.md](docs/RESEARCH.md).
+
+The offline food-data contract, licensing, and update workflow are documented in [docs/CATALOGUE.md](docs/CATALOGUE.md).

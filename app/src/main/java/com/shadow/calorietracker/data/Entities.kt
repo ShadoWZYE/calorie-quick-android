@@ -33,6 +33,14 @@ data class FoodEntity(
     val imageLicense: String? = null,
     val reviewStatus: String = "PRIVATE",
     val defaultPreparationId: String? = null,
+    val categoryKey: String? = null,
+)
+
+@Entity(tableName = "food_aliases", indices = [Index("foodId")])
+data class FoodAliasEntity(
+    @PrimaryKey val id: String,
+    val foodId: String,
+    val value: String,
 )
 
 @Entity(tableName = "food_preparations", indices = [Index("foodId")])
@@ -160,6 +168,8 @@ data class FoodWithServings(
     val allergenDeclarations: List<AllergenDeclarationEntity>,
     @Relation(parentColumn = "id", entityColumn = "foodId")
     val preparations: List<FoodPreparationEntity>,
+    @Relation(parentColumn = "id", entityColumn = "foodId")
+    val aliases: List<FoodAliasEntity>,
 )
 
 @Entity(

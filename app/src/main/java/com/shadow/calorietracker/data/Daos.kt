@@ -22,6 +22,9 @@ interface FoodDao {
     @Query("SELECT * FROM foods WHERE barcode = :barcode AND archived = 0 LIMIT 1")
     suspend fun findActiveByBarcode(barcode: String): FoodEntity?
 
+    @Query("SELECT * FROM foods WHERE id = :foodId LIMIT 1")
+    suspend fun findFood(foodId: String): FoodEntity?
+
     @Insert(onConflict = OnConflictStrategy.IGNORE)
     suspend fun insertFoods(foods: List<FoodEntity>)
 
@@ -52,8 +55,14 @@ interface FoodDao {
     @Upsert
     suspend fun upsertPreparations(values: List<FoodPreparationEntity>)
 
+    @Upsert
+    suspend fun upsertAliases(values: List<FoodAliasEntity>)
+
     @Query("DELETE FROM food_preparations WHERE foodId = :foodId")
     suspend fun deletePreparations(foodId: String)
+
+    @Query("DELETE FROM food_aliases WHERE foodId = :foodId")
+    suspend fun deleteAliases(foodId: String)
 
     @Transaction
     @Query("SELECT * FROM foods WHERE isPersonal = 1 AND archived = 0 AND reviewStatus = 'READY_FOR_REVIEW'")

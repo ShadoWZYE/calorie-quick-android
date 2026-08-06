@@ -16,6 +16,7 @@ import com.shadow.calorietracker.data.NutritionLabelOcr
 import com.shadow.calorietracker.data.NutritionLabelPrefill
 import com.shadow.calorietracker.data.BodyScaleOcr
 import com.shadow.calorietracker.data.BodyScalePrefill
+import com.shadow.calorietracker.data.BuiltInCatalogueImporter
 import com.shadow.calorietracker.model.Food
 import com.shadow.calorietracker.model.BodyMeasurement
 import com.shadow.calorietracker.model.FoodEntry
@@ -105,10 +106,11 @@ data class CatalogueExportState(
 )
 
 class CalorieViewModel(application: Application) : AndroidViewModel(application) {
-    private val repository = CalorieRepository(AppDatabase.get(application))
+    private val database = AppDatabase.get(application)
+    private val repository = CalorieRepository(database, BuiltInCatalogueImporter(application, database))
     private val openFoodFacts = OpenFoodFactsClient()
     private val foodImageStore = FoodImageStore(application)
-    private val catalogueExporter = CatalogueExporter(application, AppDatabase.get(application))
+    private val catalogueExporter = CatalogueExporter(application, database)
     private val _catalogueExportState = MutableStateFlow(CatalogueExportState())
     val catalogueExportState: StateFlow<CatalogueExportState> = _catalogueExportState.asStateFlow()
     private val _foodLookupState = MutableStateFlow(FoodLookupState())
