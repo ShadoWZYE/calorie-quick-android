@@ -216,7 +216,9 @@
     <string name="choose_serving">Alege cum vrei să măsori acest aliment</string>
     <string name="amount">Cantitate</string>
     <string name="summary_hint">Atinge pentru detaliile nutriționale de astăzi</string>
-    <string name="macro_breakdown">Nutriția de astăzi</string>
+    <string name="macro_breakdown">Detalierea nutriției</string>
+    <string name="daily_total">Totalul zilei</string>
+    <string name="macro_contribution">%1$s g proteine · %2$s g carbohidrați · %3$s g grăsimi · %4$s g fibre</string>
     <string name="display_name_optional">Nume (opțional)</string>
     <string name="display_name_private">Folosit pentru profilul și rapoartele locale; nu este dedus din imaginea importată de la cântar.</string>
     <string name="meal_prep">Mâncare pregătită</string>
@@ -377,7 +379,7 @@
     <string name="catalogue_export_success">Au fost exportate %1$d înregistrări și %2$d imagini.</string>
     <string name="catalogue_export_empty">Exportul a fost creat, dar niciun element nu a fost selectat. Activează „Include în exportul pentru verificare” când editezi un aliment sau o rețetă.</string>
     <string name="catalogue_export_error">Exportul nu a putut fi creat. Alege altă locație și încearcă din nou.</string>
-    <string name="review_bundle_export_success">Au fost exportate %1$d înregistrări de catalog, %2$d imagini de catalog, %3$d scanări marcate și %4$d rapoarte de blocare UI.</string>
+    <string name="review_bundle_export_success">Au fost exportate %1$d înregistrări de catalog, %2$d imagini de catalog, %3$d scanări marcate, %4$d rapoarte de blocare UI și %5$d rapoarte de eroare.</string>
     <string name="feedback_optional">Feedback (opțional)</string>
     <string name="feedback">Feedback</string>
     <string name="feedback_message">Scrie un mesaj</string>
@@ -413,10 +415,14 @@
     </plurals>
     <string name="saved_scan_diagnostics">%1$d imagini scanate marcate sunt salvate pe acest dispozitiv</string>
     <string name="saved_freeze_diagnostics">%1$d rapoarte de blocare UI sunt salvate pe acest dispozitiv</string>
+    <string name="saved_crash_diagnostics">%1$d rapoarte de eroare sunt salvate pe acest dispozitiv</string>
     <string name="delete_saved_diagnostics">Șterge scanările marcate</string>
     <string name="delete_saved_diagnostics_confirm">Ștergi definitiv toate imaginile scanate marcate acum pentru verificare?</string>
     <string name="delete_saved_freezes">Șterge rapoartele de blocare UI</string>
     <string name="delete_saved_freezes_confirm">Ștergi definitiv toate rapoartele de blocare UI înregistrate?</string>
+    <string name="crash_reports">Rapoarte de eroare</string>
+    <string name="delete_saved_crashes">Șterge rapoartele de eroare</string>
+    <string name="delete_saved_crashes_confirm">Ștergi definitiv toate rapoartele de eroare înregistrate?</string>
     <string name="delete">Șterge</string>
     <string name="flag_failed_scan">Marchează imaginea pentru export</string>
     <string name="scan_saved_for_support">Imagine marcată. Va fi inclusă în următorul export pentru verificare.</string>

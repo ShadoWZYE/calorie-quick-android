@@ -14,6 +14,7 @@ import org.json.JSONObject
 data class SupportExportResult(
     val diagnosticCount: Int,
     val freezeCount: Int,
+    val crashCount: Int,
     val hasFeedback: Boolean,
 )
 
@@ -27,6 +28,7 @@ class SupportDiagnosticStore(private val context: Context) {
     private val stagingDirectory = File(context.cacheDir, "diagnostic-staging")
     private val flaggedDirectory = File(context.filesDir, "flagged-scan-diagnostics")
     private val freezeDirectory = File(context.filesDir, "ui-freeze-diagnostics")
+    private val crashDirectory = File(context.filesDir, "crash-diagnostics")
     private val feedbackPreferences = context.getSharedPreferences("support-feedback", Context.MODE_PRIVATE)
 
     fun feedbackMessages(): List<FeedbackMessage> = runCatching {
@@ -140,11 +142,38 @@ class SupportDiagnosticStore(private val context: Context) {
         freezeDirectory.listFiles()?.forEach(File::delete)
     }
 
+    @Synchronized
+    fun recordCrash(threadName: String, throwable: Throwable) {
+        crashDirectory.mkdirs()
+        val detectedAt = System.currentTimeMillis()
+        val id = "$detectedAt-${UUID.randomUUID()}"
+        val report = JSONObject()
+            .put("id", id)
+            .put("detectedAtEpochMillis", detectedAt)
+            .put("threadName", threadName.take(200))
+            .put("exceptionType", throwable.javaClass.name)
+            .put("message", throwable.message?.take(2_000) ?: JSONObject.NULL)
+            .put("stackTrace", throwable.stackTraceToString().take(64_000))
+        File(crashDirectory, "$id.json").writeText(report.toString(2))
+        crashDirectory.listFiles { file -> file.extension == "json" }
+            .orEmpty()
+            .sortedByDescending(File::lastModified)
+            .drop(MAX_CRASH_REPORTS)
+            .forEach(File::delete)
+    }
+
+    fun crashCount(): Int = crashDirectory.listFiles { file -> file.extension == "json" }?.size ?: 0
+
+    fun clearCrashes() {
+        crashDirectory.listFiles()?.forEach(File::delete)
+    }
+
     fun appendTo(
         zip: ZipOutputStream,
         feedback: String = "",
         includeDiagnostics: Boolean = true,
         includeFreezeReports: Boolean = true,
+        includeCrashReports: Boolean = true,
         includeFeedback: Boolean = true,
     ): SupportExportResult {
         val reports = if (includeDiagnostics) flaggedDirectory.listFiles { file -> file.extension == "json" }
@@ -161,6 +190,11 @@ class SupportDiagnosticStore(private val context: Context) {
             .sortedBy(File::getName)
             .mapNotNull { file -> runCatching { JSONObject(file.readText()) }.getOrNull() }
         else emptyList()
+        val crashReports = if (includeCrashReports) crashDirectory.listFiles { file -> file.extension == "json" }
+            .orEmpty()
+            .sortedBy(File::getName)
+            .mapNotNull { file -> runCatching { JSONObject(file.readText()) }.getOrNull() }
+        else emptyList()
         val trimmedFeedback = feedback.trim()
         val feedbackThread = if (includeFeedback) feedbackMessages().let { messages ->
             if (trimmedFeedback.isEmpty()) messages else messages + FeedbackMessage(
@@ -171,7 +205,7 @@ class SupportDiagnosticStore(private val context: Context) {
         } else emptyList()
         val manifest = JSONObject()
             .put("schema", "calorie-quick-support-bundle")
-            .put("schemaVersion", 3)
+            .put("schemaVersion", 4)
             .put("generatedAtEpochMillis", System.currentTimeMillis())
             .put("appVersion", BuildConfig.VERSION_NAME)
             .put("appVersionCode", BuildConfig.VERSION_CODE)
@@ -195,6 +229,7 @@ class SupportDiagnosticStore(private val context: Context) {
                 }
             })
             .put("uiFreezes", JSONArray(freezeReports))
+            .put("crashes", JSONArray(crashReports))
         zip.putNextEntry(ZipEntry("support/support.json"))
         zip.write(manifest.toString(2).toByteArray())
         zip.closeEntry()
@@ -203,11 +238,12 @@ class SupportDiagnosticStore(private val context: Context) {
             image.inputStream().use { it.copyTo(zip) }
             zip.closeEntry()
         }
-        return SupportExportResult(reports.size, freezeReports.size, feedbackThread.isNotEmpty())
+        return SupportExportResult(reports.size, freezeReports.size, crashReports.size, feedbackThread.isNotEmpty())
     }
 
     private companion object {
         const val MAX_FREEZE_REPORTS = 20
+        const val MAX_CRASH_REPORTS = 20
     }
 }
 

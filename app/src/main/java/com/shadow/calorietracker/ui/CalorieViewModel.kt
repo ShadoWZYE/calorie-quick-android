@@ -114,6 +114,7 @@ data class CatalogueExportState(
 data class SupportExportState(
     val savedDiagnosticCount: Int = 0,
     val savedFreezeCount: Int = 0,
+    val savedCrashCount: Int = 0,
 )
 
 class CalorieViewModel(application: Application) : AndroidViewModel(application) {
@@ -129,6 +130,7 @@ class CalorieViewModel(application: Application) : AndroidViewModel(application)
         SupportExportState(
             savedDiagnosticCount = supportDiagnostics.count(),
             savedFreezeCount = supportDiagnostics.freezeCount(),
+            savedCrashCount = supportDiagnostics.crashCount(),
         ),
     )
     val supportExportState: StateFlow<SupportExportState> = _supportExportState.asStateFlow()
@@ -274,6 +276,7 @@ class CalorieViewModel(application: Application) : AndroidViewModel(application)
         selectedRecipeIds: Set<String>? = null,
         includeDiagnostics: Boolean = true,
         includeFreezeReports: Boolean = true,
+        includeCrashReports: Boolean = true,
         includeFeedback: Boolean = true,
     ) {
         _catalogueExportState.value = CatalogueExportState(CatalogueExportStatus.EXPORTING)
@@ -287,6 +290,7 @@ class CalorieViewModel(application: Application) : AndroidViewModel(application)
                         selectedRecipeIds = selectedRecipeIds,
                         includeDiagnostics = includeDiagnostics,
                         includeFreezeReports = includeFreezeReports,
+                        includeCrashReports = includeCrashReports,
                         includeFeedback = includeFeedback,
                     ),
                 )
@@ -415,10 +419,16 @@ class CalorieViewModel(application: Application) : AndroidViewModel(application)
         refreshSupportState()
     }
 
+    fun clearSavedCrashReports() {
+        supportDiagnostics.clearCrashes()
+        refreshSupportState()
+    }
+
     fun refreshSupportState() {
         _supportExportState.value = SupportExportState(
             savedDiagnosticCount = supportDiagnostics.count(),
             savedFreezeCount = supportDiagnostics.freezeCount(),
+            savedCrashCount = supportDiagnostics.crashCount(),
         )
     }
 

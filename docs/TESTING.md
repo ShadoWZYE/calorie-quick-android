@@ -33,8 +33,9 @@ The checked-in catalogue test validates its schema, bilingual names, nutrition b
 15. Manually add a body check-in with tape measurements, import a scale screenshot, and review an adaptive-goal suggestion without accepting it.
 16. Rotate, background, kill, and relaunch the app. Verify profile, foods, recipes, photos, history, and totals remain intact.
 17. Enter coffee, milk, juice, and cooking oil in millilitres; verify the displayed gram equivalents use each food's density and survive relaunch.
-18. Flag a failed scan, add optional feedback, export the combined review ZIP, and inspect its separate `catalogue/` and `support/` folders. Review the independent selections for scans, UI-freeze reports, and feedback. Confirm private/non-opted-in foods and unflagged scans are absent.
+18. Flag a failed scan, add optional feedback, export the combined review ZIP, and inspect its separate `catalogue/` and `support/` folders. Review the independent selections for scans, UI-freeze reports, crash reports, and feedback. Confirm private/non-opted-in foods and unflagged scans are absent.
 19. Install the next APK with `adb install -r`; verify schema migration preserves profile, diary, personal foods, recipes, images, and feedback. Follow [UPDATES.md](UPDATES.md).
+20. Tap the daily summary for today and a past day. Confirm the sheet lists each logged item with quantity, time, calories, macro contribution, and an accurate daily total rather than repeating goal progress.
 
 ## Field feedback to capture
 

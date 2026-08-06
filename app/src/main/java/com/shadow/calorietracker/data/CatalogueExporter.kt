@@ -13,6 +13,7 @@ data class CatalogueExportResult(
     val imageCount: Int,
     val diagnosticCount: Int = 0,
     val freezeCount: Int = 0,
+    val crashCount: Int = 0,
     val hasFeedback: Boolean = false,
 )
 
@@ -27,6 +28,7 @@ class CatalogueExporter(
         selectedRecipeIds: Set<String>? = null,
         includeDiagnostics: Boolean = true,
         includeFreezeReports: Boolean = true,
+        includeCrashReports: Boolean = true,
         includeFeedback: Boolean = true,
         feedback: String = "",
     ): CatalogueExportResult {
@@ -152,7 +154,7 @@ class CatalogueExporter(
             .put("foods", foodJson)
             .put("recipes", recipeJson)
 
-        var supportResult = SupportExportResult(0, 0, false)
+        var supportResult = SupportExportResult(0, 0, 0, false)
         requireNotNull(context.contentResolver.openOutputStream(destination)).use { output ->
             ZipOutputStream(output).use { zip ->
                 zip.putNextEntry(ZipEntry("catalogue/catalogue.json"))
@@ -168,6 +170,7 @@ class CatalogueExporter(
                     feedback = feedback,
                     includeDiagnostics = includeDiagnostics,
                     includeFreezeReports = includeFreezeReports,
+                    includeCrashReports = includeCrashReports,
                     includeFeedback = includeFeedback,
                 )
             }
@@ -181,6 +184,7 @@ class CatalogueExporter(
             imageCount = imageEntries.size,
             diagnosticCount = supportResult.diagnosticCount,
             freezeCount = supportResult.freezeCount,
+            crashCount = supportResult.crashCount,
             hasFeedback = supportResult.hasFeedback,
         )
     }

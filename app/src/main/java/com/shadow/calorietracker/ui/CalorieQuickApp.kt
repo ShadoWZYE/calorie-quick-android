@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -177,6 +178,7 @@ private data class ExportSelection(
     val recipeIds: Set<String>,
     val includeScanDiagnostics: Boolean,
     val includeFreezeReports: Boolean,
+    val includeCrashReports: Boolean,
     val includeFeedback: Boolean,
 )
 
@@ -230,11 +232,13 @@ fun CalorieQuickApp(viewModel: CalorieViewModel = viewModel()) {
                     selectedRecipeIds = selection.recipeIds,
                     includeDiagnostics = selection.includeScanDiagnostics,
                     includeFreezeReports = selection.includeFreezeReports,
+                    includeCrashReports = selection.includeCrashReports,
                     includeFeedback = selection.includeFeedback,
                 )
             },
             onClearSavedDiagnostics = viewModel::clearSavedDiagnostics,
             onClearSavedFreezeReports = viewModel::clearSavedFreezeReports,
+            onClearSavedCrashReports = viewModel::clearSavedCrashReports,
         )
         screenName == AppScreen.FEEDBACK.name -> FeedbackScreen(
             messages = feedbackMessages,
@@ -415,6 +419,7 @@ private fun SettingsScreen(
     onExport: (Uri, ExportSelection) -> Unit,
     onClearSavedDiagnostics: () -> Unit,
     onClearSavedFreezeReports: () -> Unit,
+    onClearSavedCrashReports: () -> Unit,
 ) {
     var showExportReview by rememberSaveable { mutableStateOf(false) }
     var pendingSelection by remember { mutableStateOf<ExportSelection?>(null) }
@@ -441,6 +446,7 @@ private fun SettingsScreen(
         },
         onClearSavedDiagnostics = onClearSavedDiagnostics,
         onClearSavedFreezeReports = onClearSavedFreezeReports,
+        onClearSavedCrashReports = onClearSavedCrashReports,
     )
     if (showExportReview) {
         ExportReviewDialog(
@@ -449,6 +455,7 @@ private fun SettingsScreen(
             recipeFoods = foods.associateBy(Food::id),
             diagnosticCount = supportExportState.savedDiagnosticCount,
             freezeCount = supportExportState.savedFreezeCount,
+            crashCount = supportExportState.savedCrashCount,
             feedbackCount = feedbackCount,
             onDismiss = { showExportReview = false },
             onContinue = { selection ->
@@ -467,6 +474,7 @@ private fun ExportReviewDialog(
     recipeFoods: Map<String, Food>,
     diagnosticCount: Int,
     freezeCount: Int,
+    crashCount: Int,
     feedbackCount: Int,
     onDismiss: () -> Unit,
     onContinue: (ExportSelection) -> Unit,
@@ -480,9 +488,11 @@ private fun ExportReviewDialog(
     }
     var includeDiagnostics by remember(diagnosticCount) { mutableStateOf(diagnosticCount > 0) }
     var includeFreezeReports by remember(freezeCount) { mutableStateOf(freezeCount > 0) }
+    var includeCrashReports by remember(crashCount) { mutableStateOf(crashCount > 0) }
     var includeFeedback by remember(feedbackCount) { mutableStateOf(feedbackCount > 0) }
     val anythingSelected = selectedFoodIds.isNotEmpty() || selectedRecipeIds.isNotEmpty() ||
         includeDiagnostics && diagnosticCount > 0 || includeFreezeReports && freezeCount > 0 ||
+        includeCrashReports && crashCount > 0 ||
         includeFeedback && feedbackCount > 0
 
     AlertDialog(
@@ -556,6 +566,15 @@ private fun ExportReviewDialog(
                 }
                 item {
                     ExportReviewRow(
+                        title = stringResource(R.string.crash_reports),
+                        subtitle = stringResource(R.string.item_count, crashCount),
+                        selected = includeCrashReports && crashCount > 0,
+                        enabled = crashCount > 0,
+                        onToggle = { includeCrashReports = it },
+                    )
+                }
+                item {
+                    ExportReviewRow(
                         title = stringResource(R.string.feedback_thread),
                         subtitle = stringResource(R.string.message_count, feedbackCount),
                         selected = includeFeedback && feedbackCount > 0,
@@ -575,6 +594,7 @@ private fun ExportReviewDialog(
                             selectedRecipeIds,
                             includeDiagnostics && diagnosticCount > 0,
                             includeFreezeReports && freezeCount > 0,
+                            includeCrashReports && crashCount > 0,
                             includeFeedback && feedbackCount > 0,
                         ),
                     )
@@ -1669,6 +1689,7 @@ private fun ProfileForm(
     supportExportState: SupportExportState? = null,
     onClearSavedDiagnostics: (() -> Unit)? = null,
     onClearSavedFreezeReports: (() -> Unit)? = null,
+    onClearSavedCrashReports: (() -> Unit)? = null,
 ) {
     var displayName by rememberSaveable { mutableStateOf(initial?.displayName.orEmpty()) }
     var age by rememberSaveable { mutableStateOf((initial?.age ?: 30).toString()) }
@@ -1703,6 +1724,7 @@ private fun ProfileForm(
     var fiberTarget by rememberSaveable { mutableStateOf(defaultTargets.fiberGoalGrams.toString()) }
     var confirmClearDiagnostics by rememberSaveable { mutableStateOf(false) }
     var confirmClearFreezeReports by rememberSaveable { mutableStateOf(false) }
+    var confirmClearCrashReports by rememberSaveable { mutableStateOf(false) }
 
     val ageValue = age.toIntOrNull()
     val heightValue = height.toIntOrNull()
@@ -2045,6 +2067,21 @@ private fun ProfileForm(
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     fontSize = 13.sp,
                 )
+                Text(
+                    stringResource(
+                        R.string.saved_crash_diagnostics,
+                        supportExportState?.savedCrashCount ?: 0,
+                    ),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    fontSize = 13.sp,
+                )
+            }
+            if ((supportExportState?.savedCrashCount ?: 0) > 0 && onClearSavedCrashReports != null) {
+                item {
+                    TextButton(onClick = { confirmClearCrashReports = true }) {
+                        Text(stringResource(R.string.delete_saved_crashes))
+                    }
+                }
             }
             if ((supportExportState?.savedFreezeCount ?: 0) > 0 && onClearSavedFreezeReports != null) {
                 item {
@@ -2083,7 +2120,7 @@ private fun ProfileForm(
                     Text(
                         if (result == null ||
                             result.itemCount == 0 && result.diagnosticCount == 0 &&
-                                result.freezeCount == 0 && !result.hasFeedback
+                                result.freezeCount == 0 && result.crashCount == 0 && !result.hasFeedback
                         ) {
                             stringResource(R.string.catalogue_export_empty)
                         } else {
@@ -2093,6 +2130,7 @@ private fun ProfileForm(
                                 result.imageCount,
                                 result.diagnosticCount,
                                 result.freezeCount,
+                                result.crashCount,
                             )
                         },
                         color = MaterialTheme.colorScheme.primary,
@@ -2151,6 +2189,24 @@ private fun ProfileForm(
             },
             dismissButton = {
                 TextButton(onClick = { confirmClearFreezeReports = false }) {
+                    Text(stringResource(R.string.cancel))
+                }
+            },
+        )
+    }
+    if (confirmClearCrashReports && onClearSavedCrashReports != null) {
+        AlertDialog(
+            onDismissRequest = { confirmClearCrashReports = false },
+            title = { Text(stringResource(R.string.delete_saved_crashes)) },
+            text = { Text(stringResource(R.string.delete_saved_crashes_confirm)) },
+            confirmButton = {
+                TextButton(onClick = {
+                    onClearSavedCrashReports()
+                    confirmClearCrashReports = false
+                }) { Text(stringResource(R.string.delete)) }
+            },
+            dismissButton = {
+                TextButton(onClick = { confirmClearCrashReports = false }) {
                     Text(stringResource(R.string.cancel))
                 }
             },
@@ -3920,7 +3976,14 @@ private fun TodayScreen(
         )
     }
     if (showMacroDetails) {
-        MacroDetailsSheet(selectedTotals, profile, selectedFiberIncomplete) { showMacroDetails = false }
+        NutritionBreakdownSheet(
+            entries = selectedEntries,
+            totals = selectedTotals,
+            date = selectedDate,
+            locale = locale,
+            fiberIncomplete = selectedFiberIncomplete,
+            onDismiss = { showMacroDetails = false },
+        )
     }
     if (showLabelSourceDialog) {
         AlertDialog(
@@ -4107,61 +4170,89 @@ private fun LeftoverCard(recipe: RecipeTemplate, locale: Locale, onAdd: () -> Un
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun MacroDetailsSheet(
+private fun NutritionBreakdownSheet(
+    entries: List<FoodEntry>,
     totals: Nutrition,
-    profile: UserProfile,
+    date: LocalDate,
+    locale: Locale,
     fiberIncomplete: Boolean,
     onDismiss: () -> Unit,
 ) {
     ModalBottomSheet(onDismissRequest = onDismiss) {
-        Column(
-            Modifier.fillMaxWidth().navigationBarsPadding().padding(horizontal = 24.dp),
-            verticalArrangement = Arrangement.spacedBy(18.dp),
+        LazyColumn(
+            modifier = Modifier.fillMaxWidth().navigationBarsPadding(),
+            contentPadding = PaddingValues(start = 24.dp, end = 24.dp, bottom = 24.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            Text(stringResource(R.string.macro_breakdown), fontSize = 24.sp, fontWeight = FontWeight.Bold)
-            MacroDetail(R.string.protein, totals.proteinGrams, profile.proteinGoalGrams)
-            MacroDetail(R.string.carbs, totals.carbsGrams, profile.carbsGoalGrams)
-            MacroDetail(R.string.fat, totals.fatGrams, profile.fatGoalGrams)
-            OptionalMacroDetail(R.string.fiber, totals.fiberGrams, profile.fiberGoalGrams, fiberIncomplete)
-            Spacer(Modifier.height(12.dp))
+            item {
+                Text(stringResource(R.string.macro_breakdown), fontSize = 24.sp, fontWeight = FontWeight.Bold)
+                Text(
+                    date.format(DateTimeFormatter.ofPattern("EEEE, d MMMM yyyy", locale)),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            if (entries.isEmpty()) {
+                item { Text(stringResource(R.string.no_entries), color = MaterialTheme.colorScheme.onSurfaceVariant) }
+            } else {
+                items(entries.sortedBy(FoodEntry::consumedAtEpochMillis), key = { "breakdown-${it.id}" }) { entry ->
+                    NutritionBreakdownRow(entry, locale)
+                }
+                item {
+                    HorizontalDivider()
+                    Column(Modifier.padding(top = 4.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
+                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                            Text(stringResource(R.string.daily_total), fontWeight = FontWeight.Bold)
+                            Text(
+                                "${totals.calories} ${stringResource(R.string.kcal)}",
+                                fontWeight = FontWeight.Bold,
+                            )
+                        }
+                        NutritionContributionText(totals, locale, fiberIncomplete)
+                    }
+                }
+            }
         }
     }
 }
 
 @Composable
-private fun OptionalMacroDetail(label: Int, consumed: Double?, goal: Int, incomplete: Boolean) {
-    if (consumed != null) {
-        MacroDetail(label, consumed, goal)
-        if (incomplete) {
-            Text(stringResource(R.string.nutrient_partial_entries), color = MaterialTheme.colorScheme.onSurfaceVariant)
-        }
-    } else {
-        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            Text(stringResource(label), fontWeight = FontWeight.SemiBold)
-            Text(stringResource(R.string.nutrient_unknown_entries), color = MaterialTheme.colorScheme.onSurfaceVariant)
-        }
-    }
-}
-
-@Composable
-private fun MacroDetail(label: Int, consumed: Double, goal: Int) {
-    val remaining = max(0, goal - consumed.roundToInt())
-    val overTarget = consumed > goal
-    val emphasisColor = if (overTarget) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface
-    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+private fun NutritionBreakdownRow(entry: FoodEntry, locale: Locale) {
+    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-            Text(stringResource(label), fontWeight = FontWeight.SemiBold, color = emphasisColor)
-            Text("${consumed.roundToInt()} / ${goal}g", color = emphasisColor)
+            Text(entry.foodName.forLocale(locale), Modifier.weight(1f), fontWeight = FontWeight.SemiBold)
+            Text("${entry.nutrition.calories} ${stringResource(R.string.kcal)}", fontWeight = FontWeight.SemiBold)
         }
-        LinearProgressIndicator(
-            progress = { (consumed / goal.coerceAtLeast(1)).toFloat().coerceIn(0f, 1f) },
-            modifier = Modifier.fillMaxWidth().height(8.dp),
-            color = if (overTarget) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
-        )
+        val amount = when {
+            entry.unitKey == GRAMS_UNIT_KEY -> "${entry.grams} g"
+            entry.unitLabel.en.equals("ml", ignoreCase = true) ->
+                "${formatAmount(entry.enteredAmount, locale)} ml · ${entry.grams} g"
+            else -> "${formatAmount(entry.enteredAmount, locale)} × ${entry.unitLabel.forLocale(locale)} · ${entry.grams} g"
+        }
+        val time = DateFormat.getTimeInstance(DateFormat.SHORT, locale).format(Date(entry.consumedAtEpochMillis))
+        Text("$amount · $time", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp)
+        NutritionContributionText(entry.nutrition, locale, fiberIncomplete = false)
+    }
+}
+
+@Composable
+private fun NutritionContributionText(nutrition: Nutrition, locale: Locale, fiberIncomplete: Boolean) {
+    val unknown = "—"
+    Text(
+        stringResource(
+            R.string.macro_contribution,
+            formatAmount(nutrition.proteinGrams, locale),
+            formatAmount(nutrition.carbsGrams, locale),
+            formatAmount(nutrition.fatGrams, locale),
+            nutrition.fiberGrams?.let { formatAmount(it, locale) } ?: unknown,
+        ),
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        fontSize = 12.sp,
+    )
+    if (fiberIncomplete) {
         Text(
-            "$remaining g ${stringResource(R.string.remaining)}",
+            stringResource(R.string.nutrient_partial_entries),
             color = MaterialTheme.colorScheme.onSurfaceVariant,
-            fontSize = 13.sp,
+            fontSize = 12.sp,
         )
     }
 }

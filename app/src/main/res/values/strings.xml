@@ -214,7 +214,9 @@
     <string name="choose_serving">Choose how you want to measure this food</string>
     <string name="amount">Amount</string>
     <string name="summary_hint">Tap for today’s nutrition breakdown</string>
-    <string name="macro_breakdown">Today’s nutrition</string>
+    <string name="macro_breakdown">Nutrition breakdown</string>
+    <string name="daily_total">Daily total</string>
+    <string name="macro_contribution">%1$s g protein · %2$s g carbs · %3$s g fat · %4$s g fiber</string>
     <string name="display_name_optional">Name (optional)</string>
     <string name="display_name_private">Used for your local profile and reports; never inferred from an imported scale image.</string>
     <string name="meal_prep">Meal prep</string>
@@ -373,7 +375,7 @@
     <string name="catalogue_export_success">Exported %1$d records and %2$d images.</string>
     <string name="catalogue_export_empty">Export created, but no items were opted in. Enable “Include in review export” while editing a food or recipe.</string>
     <string name="catalogue_export_error">The export could not be created. Choose another location and try again.</string>
-    <string name="review_bundle_export_success">Exported %1$d catalogue records, %2$d catalogue images, %3$d flagged scans, and %4$d UI freeze reports.</string>
+    <string name="review_bundle_export_success">Exported %1$d catalogue records, %2$d catalogue images, %3$d flagged scans, %4$d UI freeze reports, and %5$d crash reports.</string>
     <string name="feedback_optional">Feedback (optional)</string>
     <string name="feedback">Feedback</string>
     <string name="feedback_message">Write a message</string>
@@ -408,10 +410,14 @@
     </plurals>
     <string name="saved_scan_diagnostics">%1$d flagged scan images saved on this device</string>
     <string name="saved_freeze_diagnostics">%1$d UI freeze reports saved on this device</string>
+    <string name="saved_crash_diagnostics">%1$d crash reports saved on this device</string>
     <string name="delete_saved_diagnostics">Delete flagged scans</string>
     <string name="delete_saved_diagnostics_confirm">Permanently delete all scan images currently flagged for review?</string>
     <string name="delete_saved_freezes">Delete UI freeze reports</string>
     <string name="delete_saved_freezes_confirm">Permanently delete all recorded UI freeze reports?</string>
+    <string name="crash_reports">Crash reports</string>
+    <string name="delete_saved_crashes">Delete crash reports</string>
+    <string name="delete_saved_crashes_confirm">Permanently delete all recorded crash reports?</string>
     <string name="delete">Delete</string>
     <string name="flag_failed_scan">Flag image for review export</string>
     <string name="scan_saved_for_support">Image flagged. It will be included in the next review export.</string>

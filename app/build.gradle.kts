@@ -12,8 +12,8 @@ android {
         applicationId = "com.shadow.calorietracker"
         minSdk = 23
         targetSdk = 37
-        versionCode = 3
-        versionName = "0.2.0-alpha02"
+        versionCode = 4
+        versionName = "0.2.0-alpha03"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -44,7 +44,7 @@ android {
 dependencies {
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.5")
 
-    val composeBom = platform("androidx.compose:compose-bom:2026.06.00")
+    val composeBom = platform("androidx.compose:compose-bom:2026.06.01")
     implementation(composeBom)
     androidTestImplementation(composeBom)
 

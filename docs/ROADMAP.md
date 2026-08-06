@@ -22,7 +22,7 @@ Implemented:
 - Manual and scale-OCR body check-ins, optional guided tape measurements, trends, and non-medical adaptive review language.
 - Versioned offline catalogue of 191 English/Romanian generic foods across 15 categories, with aliases, fibre, allergens, measures, cooking ingredients, and common Romanian foods.
 - Density-aware millilitre input for common bundled liquids without treating cooking oil as water.
-- One offline review ZIP with explicitly opted-in foods/recipes, explicitly flagged failed-scan images, optional feedback, capped UI-freeze reports, and separate machine-readable catalogue/support manifests.
+- One offline review ZIP with explicitly opted-in foods/recipes, explicitly flagged failed-scan images, optional feedback, capped UI-freeze/crash reports, and separate machine-readable catalogue/support manifests.
 
 Private-alpha exit gate:
 
