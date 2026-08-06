@@ -1,8 +1,10 @@
 package com.shadow.calorietracker.ui
 
 import android.net.Uri
+import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.content.Context
+import android.util.LruCache
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatDelegate
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -87,6 +89,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
@@ -174,6 +177,8 @@ import kotlin.math.max
 import kotlin.math.abs
 import kotlin.math.roundToInt
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 private enum class AppScreen {
     TODAY, HISTORY, PROGRESS, SETTINGS, FEEDBACK, WHATS_NEW, FOOD_EDITOR, RECIPE_EDITOR,
@@ -583,7 +588,12 @@ private fun ReleaseSummaryDialog(
         icon = { Icon(Icons.Default.NewReleases, null) },
         title = { Text(stringResource(R.string.whats_new)) },
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Column(
+                modifier = Modifier
+                    .heightIn(max = 360.dp)
+                    .verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
                 Text(
                     stringResource(R.string.version_label, release.versionName),
                     color = MaterialTheme.colorScheme.primary,
@@ -4860,35 +4870,123 @@ private fun FoodVisual(food: Food, modifier: Modifier = Modifier) {
     }
     when {
         food.image?.localPath != null -> FoodImagePreview(requireNotNull(food.image.localPath), modifier)
-        bundledResource != 0 -> Image(
-            painter = painterResource(bundledResource),
+        bundledResource != 0 -> BundledFoodImage(
+            resourceId = bundledResource,
             contentDescription = food.name(locale),
-            contentScale = ContentScale.Crop,
             modifier = modifier,
         )
         else -> CategoryFoodImage(food.categoryKey, modifier)
     }
 }
 
-@Composable
-private fun FoodImagePreview(source: String, modifier: Modifier = Modifier) {
-    val context = LocalContext.current
-    val bitmap = remember(source) {
+private const val PREVIEW_CACHE_KILOBYTES = 24 * 1024
+private const val MAX_LOCAL_PREVIEW_DIMENSION = 768
+
+private object PreviewBitmapCache {
+    private val cache = object : LruCache<String, Bitmap>(PREVIEW_CACHE_KILOBYTES) {
+        override fun sizeOf(key: String, value: Bitmap): Int = value.allocationByteCount / 1024
+    }
+
+    fun resourceKey(resourceId: Int) = "resource:$resourceId"
+
+    fun sourceKey(source: String): String = if (source.startsWith("content:")) {
+        "content:$source"
+    } else {
+        "file:$source:${File(source).lastModified()}"
+    }
+
+    fun get(key: String): Bitmap? = cache.get(key)
+
+    fun loadResource(context: Context, resourceId: Int): Bitmap? {
+        val key = resourceKey(resourceId)
+        cache.get(key)?.let { return it }
+        return BitmapFactory.decodeResource(context.resources, resourceId)?.also { cache.put(key, it) }
+    }
+
+    fun loadSource(context: Context, source: String): Bitmap? {
+        val key = sourceKey(source)
+        cache.get(key)?.let { return it }
+        val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+        decodeSource(context, source, bounds)
+        if (bounds.outWidth <= 0 || bounds.outHeight <= 0) return null
+        val options = BitmapFactory.Options().apply {
+            inSampleSize = previewSampleSize(bounds.outWidth, bounds.outHeight)
+            inPreferredConfig = Bitmap.Config.ARGB_8888
+        }
+        val decoded = decodeSource(context, source, options) ?: return null
+        val maximum = max(decoded.width, decoded.height)
+        val preview = if (maximum > MAX_LOCAL_PREVIEW_DIMENSION) {
+            val scale = MAX_LOCAL_PREVIEW_DIMENSION.toFloat() / maximum
+            Bitmap.createScaledBitmap(
+                decoded,
+                (decoded.width * scale).roundToInt().coerceAtLeast(1),
+                (decoded.height * scale).roundToInt().coerceAtLeast(1),
+                true,
+            ).also { if (it !== decoded) decoded.recycle() }
+        } else {
+            decoded
+        }
+        cache.put(key, preview)
+        return preview
+    }
+
+    private fun previewSampleSize(width: Int, height: Int): Int {
+        var sample = 1
+        while (max(width / sample, height / sample) > MAX_LOCAL_PREVIEW_DIMENSION * 2) sample *= 2
+        return sample
+    }
+
+    private fun decodeSource(context: Context, source: String, options: BitmapFactory.Options): Bitmap? =
         runCatching {
             if (source.startsWith("content:")) {
-                context.contentResolver.openInputStream(Uri.parse(source)).use { BitmapFactory.decodeStream(it) }
+                context.contentResolver.openInputStream(Uri.parse(source)).use {
+                    BitmapFactory.decodeStream(it, null, options)
+                }
             } else {
-                BitmapFactory.decodeFile(source)
+                BitmapFactory.decodeFile(source, options)
             }
         }.getOrNull()
+}
+
+@Composable
+private fun BundledFoodImage(resourceId: Int, contentDescription: String, modifier: Modifier = Modifier) {
+    val context = LocalContext.current.applicationContext
+    val key = PreviewBitmapCache.resourceKey(resourceId)
+    val bitmap by produceState<Bitmap?>(PreviewBitmapCache.get(key), key) {
+        if (value == null) {
+            value = withContext(Dispatchers.IO) { PreviewBitmapCache.loadResource(context, resourceId) }
+        }
     }
-    if (bitmap != null) {
-        Image(
-            bitmap = bitmap.asImageBitmap(),
-            contentDescription = stringResource(R.string.food_photo),
-            contentScale = ContentScale.Crop,
-            modifier = modifier,
-        )
+    Box(modifier) {
+        bitmap?.let {
+            Image(
+                bitmap = it.asImageBitmap(),
+                contentDescription = contentDescription,
+                contentScale = ContentScale.Crop,
+                modifier = Modifier.fillMaxSize(),
+            )
+        }
+    }
+}
+
+@Composable
+private fun FoodImagePreview(source: String, modifier: Modifier = Modifier) {
+    val context = LocalContext.current.applicationContext
+    val key = PreviewBitmapCache.sourceKey(source)
+    val bitmap by produceState<Bitmap?>(PreviewBitmapCache.get(key), key) {
+        if (value == null) {
+            value = withContext(Dispatchers.IO) { PreviewBitmapCache.loadSource(context, source) }
+        }
+    }
+    Box(modifier) {
+        bitmap?.let {
+            Image(
+                bitmap = it.asImageBitmap(),
+                contentDescription = stringResource(R.string.food_photo),
+                contentScale = ContentScale.Crop,
+                modifier = Modifier.fillMaxSize(),
+            )
+        }
     }
 }
 

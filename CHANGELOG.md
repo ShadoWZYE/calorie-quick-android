@@ -23,6 +23,11 @@ All notable user-facing changes to Calorie Quick are recorded here. The app is c
 - Consolidated the deployment notes for the backup, feedback-image, diagnostics, and layout work included in the preceding test builds.
 - Added an explicit white background to adaptive and legacy launcher icons so launchers do not replace transparency with black.
 
+### Fixed
+
+- Made the one-time release summary scrollable while keeping its actions reachable on smaller screens and with larger text.
+- Moved food-photo and catalogue-image decoding off the main thread, downsampled large local photos, and retained a bounded preview cache to reduce stutter when cards re-enter the screen.
+
 ## [0.2.0-alpha04] - 2026-08-06
 
 ### Added
