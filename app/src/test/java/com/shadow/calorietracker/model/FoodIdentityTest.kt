@@ -1,6 +1,7 @@
 package com.shadow.calorietracker.model
 
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -44,5 +45,26 @@ class FoodIdentityTest {
     fun `recipe names do not hide catalogue foods with the same name`() {
         val recipe = food.copy(provenance = FoodProvenance(FoodSourceType.RECIPE))
         assertFalse(recipe.hasSameCatalogueIdentity(food.copy(id = "catalogue")))
+    }
+
+    @Test
+    fun `preparation changes nutrition and detail without changing catalogue identity`() {
+        val fried = FoodPreparation(
+            id = "fried",
+            names = LocalizedText("Fried", "Prăjit"),
+            nutritionPer100g = Nutrition(196, 13.6, 0.8, 14.8),
+        )
+
+        val prepared = food.copy(
+            preparations = listOf(fried),
+            defaultPreparationId = fried.id,
+        ).withPreparation(fried)
+
+        assertEquals(food.id, prepared.id)
+        assertEquals(food.names, prepared.names)
+        assertEquals("Fried", prepared.details.en)
+        assertEquals(196, prepared.nutritionPer100g.calories)
+        assertEquals(fried.id, prepared.activePreparationId)
+        assertEquals(fried.id, prepared.defaultPreparationId)
     }
 }

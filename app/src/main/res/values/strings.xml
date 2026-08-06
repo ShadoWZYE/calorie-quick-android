@@ -13,7 +13,6 @@
     <string name="scan_nutrition_label">Scan nutrition label</string>
     <string name="scan_label_explanation">Use a clear, straight photo containing the per-100 g nutrition table. Nothing is saved until you review the editor.</string>
     <string name="take_photo">Take photo</string>
-    <string name="choose_photo">Choose photo</string>
     <string name="reading_nutrition_label">Reading nutrition label…</string>
     <string name="ocr_scan_error">The label could not be read. Try a sharper, straighter photo.</string>
     <string name="retry">Retry</string>
@@ -313,4 +312,22 @@
     <string name="apply_adaptive_targets">Apply proposed targets</string>
     <string name="adaptive_review_waiting">The last proposal was applied. Add at least one new check-in after a week before reviewing again.</string>
     <string name="adaptive_review_safety">Small, capped adjustments reduce overreaction to water-weight noise. Unexplained or rapid weight changes should be discussed with a qualified clinician.</string>
+    <string name="choose_cooking_method">Choose cooking method</string>
+    <string name="most_used">Most used</string>
+    <string name="default_method">Default</string>
+    <string name="change_cooking_method">Change cooking method</string>
+    <string name="food_photo">Food photo</string>
+    <string name="choose_photo">Choose photo</string>
+    <string name="replace_photo">Replace photo</string>
+    <string name="remove_photo">Remove photo</string>
+    <string name="food_photo_private_hint">Stored only on this device unless you explicitly include this item in a review export.</string>
+    <string name="include_in_review_export">Include in review export</string>
+    <string name="review_export_opt_in_hint">Opt in only if you are comfortable sharing this item’s nutrition, measures, ingredients, and attached image for catalogue review.</string>
+    <string name="personal_catalogue_export">Personal catalogue export</string>
+    <string name="personal_catalogue_export_explanation">Creates a versioned ZIP containing only foods and recipes you opted in for review. It can be shared manually while no hosted catalogue exists.</string>
+    <string name="export_review_items">Export opted-in items</string>
+    <string name="exporting_review_items">Exporting…</string>
+    <string name="catalogue_export_success">Exported %1$d records and %2$d images.</string>
+    <string name="catalogue_export_empty">Export created, but no items were opted in. Enable “Include in review export” while editing a food or recipe.</string>
+    <string name="catalogue_export_error">The export could not be created. Choose another location and try again.</string>
 </resources>

@@ -13,7 +13,6 @@
     <string name="scan_nutrition_label">Scanează eticheta nutrițională</string>
     <string name="scan_label_explanation">Folosește o fotografie clară și dreaptă care conține tabelul nutrițional per 100 g. Nimic nu este salvat înainte să verifici editorul.</string>
     <string name="take_photo">Fotografiază</string>
-    <string name="choose_photo">Alege fotografia</string>
     <string name="reading_nutrition_label">Se citește eticheta nutrițională…</string>
     <string name="ocr_scan_error">Eticheta nu a putut fi citită. Încearcă o fotografie mai clară și mai dreaptă.</string>
     <string name="retry">Reîncearcă</string>
@@ -316,4 +315,22 @@
     <string name="apply_adaptive_targets">Aplică țintele propuse</string>
     <string name="adaptive_review_waiting">Ultima propunere a fost aplicată. Adaugă o măsurare nouă după cel puțin o săptămână.</string>
     <string name="adaptive_review_safety">Ajustările mici și limitate reduc reacția la fluctuațiile apei. Schimbările rapide sau inexplicabile trebuie discutate cu un clinician.</string>
+    <string name="choose_cooking_method">Alege metoda de preparare</string>
+    <string name="most_used">Cea mai folosită</string>
+    <string name="default_method">Implicită</string>
+    <string name="change_cooking_method">Schimbă metoda de preparare</string>
+    <string name="food_photo">Fotografia alimentului</string>
+    <string name="choose_photo">Alege fotografia</string>
+    <string name="replace_photo">Înlocuiește fotografia</string>
+    <string name="remove_photo">Elimină fotografia</string>
+    <string name="food_photo_private_hint">Este păstrată numai pe acest dispozitiv, dacă nu incluzi explicit alimentul într-un export pentru verificare.</string>
+    <string name="include_in_review_export">Include în exportul pentru verificare</string>
+    <string name="review_export_opt_in_hint">Activează numai dacă dorești să distribui datele nutriționale, unitățile, ingredientele și fotografia atașată pentru verificarea catalogului.</string>
+    <string name="personal_catalogue_export">Exportul catalogului personal</string>
+    <string name="personal_catalogue_export_explanation">Creează o arhivă ZIP versionată doar cu alimentele și rețetele pe care le-ai inclus pentru verificare. Poate fi distribuită manual până când va exista un catalog găzduit.</string>
+    <string name="export_review_items">Exportă elementele selectate</string>
+    <string name="exporting_review_items">Se exportă…</string>
+    <string name="catalogue_export_success">Au fost exportate %1$d înregistrări și %2$d imagini.</string>
+    <string name="catalogue_export_empty">Exportul a fost creat, dar niciun element nu a fost selectat. Activează „Include în exportul pentru verificare” când editezi un aliment sau o rețetă.</string>
+    <string name="catalogue_export_error">Exportul nu a putut fi creat. Alege altă locație și încearcă din nou.</string>
 </resources>

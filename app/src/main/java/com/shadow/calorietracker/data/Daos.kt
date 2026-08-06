@@ -49,6 +49,19 @@ interface FoodDao {
     @Upsert
     suspend fun upsertAllergens(values: List<AllergenDeclarationEntity>)
 
+    @Upsert
+    suspend fun upsertPreparations(values: List<FoodPreparationEntity>)
+
+    @Query("DELETE FROM food_preparations WHERE foodId = :foodId")
+    suspend fun deletePreparations(foodId: String)
+
+    @Transaction
+    @Query("SELECT * FROM foods WHERE isPersonal = 1 AND archived = 0 AND reviewStatus = 'READY_FOR_REVIEW'")
+    suspend fun listReviewableFoods(): List<FoodWithServings>
+
+    @Query("UPDATE foods SET reviewStatus = 'EXPORTED' WHERE id IN (:foodIds)")
+    suspend fun markExported(foodIds: List<String>)
+
     @Query("DELETE FROM nutrient_values WHERE foodId = :foodId")
     suspend fun deleteNutrients(foodId: String)
 
@@ -57,6 +70,21 @@ interface FoodDao {
 
     @Query("UPDATE foods SET archived = 1, updatedAtEpochMillis = :updatedAt WHERE id = :foodId AND isPersonal = 1")
     suspend fun archivePersonalFood(foodId: String, updatedAt: Long)
+}
+
+@Dao
+interface PreparationUsageDao {
+    @Query("SELECT * FROM preparation_usage")
+    fun observeAll(): Flow<List<PreparationUsageEntity>>
+
+    @Query(
+        "UPDATE preparation_usage SET useCount = useCount + 1, lastUsedAtEpochMillis = :usedAt " +
+            "WHERE id = :id",
+    )
+    suspend fun increment(id: String, usedAt: Long): Int
+
+    @Insert(onConflict = OnConflictStrategy.IGNORE)
+    suspend fun insert(usage: PreparationUsageEntity)
 }
 
 @Dao
@@ -75,6 +103,21 @@ interface RecipeDao {
 
     @Query("SELECT * FROM recipes WHERE foodId = :foodId LIMIT 1")
     suspend fun findRecipe(foodId: String): RecipeEntity?
+
+    @Query("SELECT * FROM recipes WHERE reviewStatus = 'READY_FOR_REVIEW'")
+    suspend fun listReviewableRecipes(): List<RecipeEntity>
+
+    @Query("SELECT * FROM recipe_batches")
+    suspend fun listAllBatches(): List<RecipeBatchEntity>
+
+    @Query("SELECT * FROM recipe_ingredients")
+    suspend fun listAllIngredients(): List<RecipeIngredientEntity>
+
+    @Query("SELECT * FROM recipe_ingredient_allergens")
+    suspend fun listAllIngredientAllergens(): List<RecipeIngredientAllergenEntity>
+
+    @Query("UPDATE recipes SET reviewStatus = 'EXPORTED' WHERE foodId IN (:foodIds)")
+    suspend fun markExported(foodIds: List<String>)
 
     @Query("SELECT COUNT(*) FROM recipe_batches WHERE recipeFoodId = :foodId")
     suspend fun countBatches(foodId: String): Int

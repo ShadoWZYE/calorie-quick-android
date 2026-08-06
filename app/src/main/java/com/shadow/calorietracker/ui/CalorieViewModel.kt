@@ -7,6 +7,9 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.shadow.calorietracker.data.AppDatabase
 import com.shadow.calorietracker.data.CalorieRepository
+import com.shadow.calorietracker.data.CatalogueExporter
+import com.shadow.calorietracker.data.CatalogueExportResult
+import com.shadow.calorietracker.data.FoodImageStore
 import com.shadow.calorietracker.data.OpenFoodFactsClient
 import com.shadow.calorietracker.data.OpenFoodFactsException
 import com.shadow.calorietracker.data.NutritionLabelOcr
@@ -21,6 +24,7 @@ import com.shadow.calorietracker.model.HistoryReportCalculator
 import com.shadow.calorietracker.model.Nutrition
 import com.shadow.calorietracker.model.PersonalFoodDraft
 import com.shadow.calorietracker.model.QuantityUsage
+import com.shadow.calorietracker.model.PreparationUsage
 import com.shadow.calorietracker.model.RecipeDraft
 import com.shadow.calorietracker.model.RecipeTemplate
 import com.shadow.calorietracker.model.Serving
@@ -50,6 +54,7 @@ data class AppUiState(
     val recipes: Map<String, RecipeTemplate> = emptyMap(),
     val ingredientUsage: Map<String, Int> = emptyMap(),
     val bodyMeasurements: List<BodyMeasurement> = emptyList(),
+    val preparationUsage: Map<String, List<PreparationUsage>> = emptyMap(),
 ) {
     val totals: Nutrition = entries.fold(Nutrition.Zero) { total, entry -> total + entry.nutrition }
     val fiberIncomplete: Boolean = entries.any { it.nutrition.fiberGrams == null }
@@ -67,6 +72,7 @@ private data class UsageAndRecipeState(
     val quantityUsage: List<QuantityUsage>,
     val recipes: List<RecipeTemplate>,
     val ingredientUsage: Map<String, Int>,
+    val preparationUsage: List<PreparationUsage>,
 )
 
 enum class FoodLookupStatus { IDLE, SEARCHING, SUCCESS, ERROR, RATE_LIMITED }
@@ -92,9 +98,19 @@ data class BodyScaleScanState(
     val prefill: BodyScalePrefill? = null,
 )
 
+enum class CatalogueExportStatus { IDLE, EXPORTING, SUCCESS, ERROR }
+data class CatalogueExportState(
+    val status: CatalogueExportStatus = CatalogueExportStatus.IDLE,
+    val result: CatalogueExportResult? = null,
+)
+
 class CalorieViewModel(application: Application) : AndroidViewModel(application) {
     private val repository = CalorieRepository(AppDatabase.get(application))
     private val openFoodFacts = OpenFoodFactsClient()
+    private val foodImageStore = FoodImageStore(application)
+    private val catalogueExporter = CatalogueExporter(application, AppDatabase.get(application))
+    private val _catalogueExportState = MutableStateFlow(CatalogueExportState())
+    val catalogueExportState: StateFlow<CatalogueExportState> = _catalogueExportState.asStateFlow()
     private val _foodLookupState = MutableStateFlow(FoodLookupState())
     val foodLookupState: StateFlow<FoodLookupState> = _foodLookupState.asStateFlow()
     private var lookupJob: Job? = null
@@ -114,6 +130,7 @@ class CalorieViewModel(application: Application) : AndroidViewModel(application)
             repository.quantityUsage,
             repository.recipes,
             repository.ingredientUsage,
+            repository.preparationUsage,
             ::UsageAndRecipeState,
         ),
     ) { catalogue, usage ->
@@ -134,6 +151,7 @@ class CalorieViewModel(application: Application) : AndroidViewModel(application)
             recipes = usage.recipes.associateBy(RecipeTemplate::foodId),
             ingredientUsage = usage.ingredientUsage,
             bodyMeasurements = catalogue.bodyMeasurements,
+            preparationUsage = usage.preparationUsage.groupBy(PreparationUsage::foodId),
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), AppUiState())
 
@@ -190,7 +208,10 @@ class CalorieViewModel(application: Application) : AndroidViewModel(application)
     }
 
     fun savePersonalFood(draft: PersonalFoodDraft) {
-        viewModelScope.launch { repository.savePersonalFood(draft) }
+        viewModelScope.launch {
+            val image = draft.pendingImageUri?.let { foodImageStore.import(Uri.parse(it)) } ?: draft.image
+            repository.savePersonalFood(draft.copy(image = image, pendingImageUri = null))
+        }
     }
 
     fun saveRecipe(draft: RecipeDraft) {
@@ -199,6 +220,22 @@ class CalorieViewModel(application: Application) : AndroidViewModel(application)
 
     fun archivePersonalFood(foodId: String) {
         viewModelScope.launch { repository.archivePersonalFood(foodId) }
+    }
+
+    fun exportReviewCatalogue(uri: Uri) {
+        _catalogueExportState.value = CatalogueExportState(CatalogueExportStatus.EXPORTING)
+        viewModelScope.launch {
+            _catalogueExportState.value = try {
+                CatalogueExportState(CatalogueExportStatus.SUCCESS, catalogueExporter.exportTo(uri))
+            } catch (error: Exception) {
+                Log.w("CatalogueExport", "Catalogue export failed", error)
+                CatalogueExportState(CatalogueExportStatus.ERROR)
+            }
+        }
+    }
+
+    fun clearCatalogueExportStatus() {
+        _catalogueExportState.value = CatalogueExportState()
     }
 
     fun clearFoodLookup() {

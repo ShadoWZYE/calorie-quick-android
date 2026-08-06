@@ -23,8 +23,10 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         RecipeIngredientEntity::class,
         RecipeIngredientAllergenEntity::class,
         BodyMeasurementEntity::class,
+        FoodPreparationEntity::class,
+        PreparationUsageEntity::class,
     ],
-    version = 12,
+    version = 13,
     exportSchema = true,
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -35,6 +37,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun quantityUsageDao(): QuantityUsageDao
     abstract fun recipeDao(): RecipeDao
     abstract fun bodyMeasurementDao(): BodyMeasurementDao
+    abstract fun preparationUsageDao(): PreparationUsageDao
 
     companion object {
         @Volatile private var instance: AppDatabase? = null
@@ -56,6 +59,7 @@ abstract class AppDatabase : RoomDatabase() {
                 MIGRATION_9_10,
                 MIGRATION_10_11,
                 MIGRATION_11_12,
+                MIGRATION_12_13,
             ).build().also { instance = it }
         }
 
@@ -269,6 +273,54 @@ abstract class AppDatabase : RoomDatabase() {
                 db.execSQL(
                     "ALTER TABLE user_profile ADD COLUMN bodyLengthUnit TEXT NOT NULL DEFAULT 'CENTIMETERS'",
                 )
+            }
+        }
+
+        private val MIGRATION_12_13 = object : Migration(12, 13) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                listOf(
+                    "imageLocalPath TEXT",
+                    "imageRemoteUrl TEXT",
+                    "imageSource TEXT",
+                    "imageAttribution TEXT",
+                    "imageLicense TEXT",
+                    "reviewStatus TEXT NOT NULL DEFAULT 'PRIVATE'",
+                    "defaultPreparationId TEXT",
+                ).forEach { definition -> db.execSQL("ALTER TABLE foods ADD COLUMN $definition") }
+                db.execSQL("ALTER TABLE diary_entries ADD COLUMN preparationId TEXT")
+                db.execSQL("ALTER TABLE diary_entries ADD COLUMN preparationNameEn TEXT")
+                db.execSQL("ALTER TABLE diary_entries ADD COLUMN preparationNameRo TEXT")
+                db.execSQL("ALTER TABLE recipes ADD COLUMN reviewStatus TEXT NOT NULL DEFAULT 'PRIVATE'")
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS food_preparations (" +
+                        "id TEXT NOT NULL, foodId TEXT NOT NULL, nameEn TEXT NOT NULL, nameRo TEXT NOT NULL, " +
+                        "caloriesPer100g INTEGER NOT NULL, proteinMilligramsPer100g INTEGER NOT NULL, " +
+                        "carbsMilligramsPer100g INTEGER NOT NULL, fatMilligramsPer100g INTEGER NOT NULL, " +
+                        "fiberMilligramsPer100g INTEGER, imageLocalPath TEXT, imageRemoteUrl TEXT, imageSource TEXT, " +
+                        "imageAttribution TEXT, imageLicense TEXT, sortOrder INTEGER NOT NULL, PRIMARY KEY(id))",
+                )
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_food_preparations_foodId ON food_preparations(foodId)")
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS preparation_usage (" +
+                        "id TEXT NOT NULL, foodId TEXT NOT NULL, preparationId TEXT NOT NULL, useCount INTEGER NOT NULL, " +
+                        "lastUsedAtEpochMillis INTEGER NOT NULL, PRIMARY KEY(id))",
+                )
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_preparation_usage_foodId ON preparation_usage(foodId)")
+                db.execSQL(
+                    "INSERT OR IGNORE INTO food_preparations " +
+                        "(id, foodId, nameEn, nameRo, caloriesPer100g, proteinMilligramsPer100g, " +
+                        "carbsMilligramsPer100g, fatMilligramsPer100g, fiberMilligramsPer100g, sortOrder) " +
+                        "SELECT 'eggs|boiled', id, 'Boiled', 'Fiert', caloriesPer100g, proteinMilligramsPer100g, " +
+                        "carbsMilligramsPer100g, fatMilligramsPer100g, " +
+                        "(SELECT amountMilliUnitsPer100g FROM nutrient_values WHERE foodId = foods.id AND nutrientKey = 'fiber'), 0 " +
+                        "FROM foods WHERE id = 'eggs'",
+                )
+                db.execSQL(
+                    "INSERT OR IGNORE INTO food_preparations VALUES " +
+                        "('eggs|fried', 'eggs', 'Fried', 'Prăjit', 196, 13600, 800, 14800, 0, " +
+                        "NULL, NULL, NULL, NULL, NULL, 1)",
+                )
+                db.execSQL("UPDATE foods SET defaultPreparationId = 'eggs|boiled' WHERE id = 'eggs'")
             }
         }
     }

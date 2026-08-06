@@ -8,6 +8,9 @@ import com.shadow.calorietracker.model.BodyMeasurement
 import com.shadow.calorietracker.model.BodyMeasurementSource
 import com.shadow.calorietracker.model.BodyLengthUnit
 import com.shadow.calorietracker.model.Food
+import com.shadow.calorietracker.model.FoodImage
+import com.shadow.calorietracker.model.FoodImageSource
+import com.shadow.calorietracker.model.FoodPreparation
 import com.shadow.calorietracker.model.FoodEntry
 import com.shadow.calorietracker.model.FoodProvenance
 import com.shadow.calorietracker.model.FoodSourceType
@@ -16,12 +19,14 @@ import com.shadow.calorietracker.model.GoalType
 import com.shadow.calorietracker.model.LocalizedText
 import com.shadow.calorietracker.model.Nutrition
 import com.shadow.calorietracker.model.PersonalFoodDraft
+import com.shadow.calorietracker.model.PreparationUsage
 import com.shadow.calorietracker.model.QuantityUsage
 import com.shadow.calorietracker.model.RecipeCalculator
 import com.shadow.calorietracker.model.RecipeDraft
 import com.shadow.calorietracker.model.RecipeIngredientDraft
 import com.shadow.calorietracker.model.RecipeBatchSummary
 import com.shadow.calorietracker.model.RecipeTemplate
+import com.shadow.calorietracker.model.ReviewStatus
 import com.shadow.calorietracker.model.Serving
 import com.shadow.calorietracker.model.TargetMode
 import com.shadow.calorietracker.model.UserProfile
@@ -65,6 +70,9 @@ class CalorieRepository(private val database: AppDatabase) {
     }
     val bodyMeasurements: Flow<List<BodyMeasurement>> = database.bodyMeasurementDao().observeAll().map { rows ->
         rows.map(BodyMeasurementEntity::toModel)
+    }
+    val preparationUsage: Flow<List<PreparationUsage>> = database.preparationUsageDao().observeAll().map { rows ->
+        rows.map { PreparationUsage(it.foodId, it.preparationId, it.useCount, it.lastUsedAtEpochMillis) }
     }
     val recipes: Flow<List<RecipeTemplate>> = combine(
         database.recipeDao().observeRecipes(),
@@ -125,6 +133,8 @@ class CalorieRepository(private val database: AppDatabase) {
                 cookedAtEpochMillis = batch.cookedAtEpochMillis,
                 remainingGrams = batch.remainingGrams,
                 batches = batchHistory,
+                reviewStatus = runCatching { ReviewStatus.valueOf(recipe.reviewStatus) }
+                    .getOrDefault(ReviewStatus.PRIVATE),
             )
         }
     }
@@ -136,6 +146,7 @@ class CalorieRepository(private val database: AppDatabase) {
             database.foodDao().insertServings(seedServingEntities)
             database.foodDao().upsertNutrients(seedNutrientEntities)
             database.foodDao().upsertAllergens(seedAllergenEntities)
+            database.foodDao().upsertPreparations(seedPreparationEntities)
         }
     }
 
@@ -187,6 +198,12 @@ class CalorieRepository(private val database: AppDatabase) {
                     sourceType = draft.provenance.type.name,
                     sourceId = draft.provenance.sourceId,
                     importedAtEpochMillis = importedAt,
+                    imageLocalPath = draft.image?.localPath,
+                    imageRemoteUrl = draft.image?.remoteUrl,
+                    imageSource = draft.image?.source?.name,
+                    imageAttribution = draft.image?.attribution,
+                    imageLicense = draft.image?.license,
+                    reviewStatus = draft.reviewStatus.name,
                 ),
             )
             database.foodDao().deleteNutrients(foodId)
@@ -250,6 +267,7 @@ class CalorieRepository(private val database: AppDatabase) {
                     updatedAtEpochMillis = now,
                     sourceType = FoodSourceType.RECIPE.name,
                     sourceId = foodId,
+                    reviewStatus = draft.reviewStatus.name,
                 ),
             )
             database.foodDao().deleteNutrients(foodId)
@@ -319,6 +337,7 @@ class CalorieRepository(private val database: AppDatabase) {
                     activeBatchId = batchId,
                     createdAtEpochMillis = existingRecipe?.createdAtEpochMillis ?: now,
                     updatedAtEpochMillis = now,
+                    reviewStatus = draft.reviewStatus.name,
                 ),
             )
         }
@@ -359,7 +378,8 @@ class CalorieRepository(private val database: AppDatabase) {
                 consumedAtEpochMillis - ENTRY_MERGE_WINDOW_MILLIS,
                 consumedAtEpochMillis + ENTRY_MERGE_WINDOW_MILLIS,
             )
-            if (recent == null || recent.recipeBatchId != recipeBatch?.id) {
+            if (recent == null || recent.recipeBatchId != recipeBatch?.id || recent.preparationId != food.activePreparationId) {
+                val preparation = food.preparations.firstOrNull { it.id == food.activePreparationId }
                 database.diaryDao().insert(
                     DiaryEntryEntity(
                         id = UUID.randomUUID().toString(),
@@ -379,6 +399,9 @@ class CalorieRepository(private val database: AppDatabase) {
                         fiberMilligrams = nutrition.fiberGrams?.let { (it * 1_000).roundToInt() },
                         recipeBatchId = recipeBatch?.id,
                         recipeBatchGrams = if (recipeBatch == null) 0 else grams,
+                        preparationId = preparation?.id,
+                        preparationNameEn = preparation?.names?.en,
+                        preparationNameRo = preparation?.names?.ro,
                     ),
                 )
             } else {
@@ -424,6 +447,14 @@ class CalorieRepository(private val database: AppDatabase) {
                         interactionAt,
                     ),
                 )
+            }
+            food.activePreparationId?.let { preparationId ->
+                val preparationUsageId = "${food.id}|$preparationId"
+                if (database.preparationUsageDao().increment(preparationUsageId, interactionAt) == 0) {
+                    database.preparationUsageDao().insert(
+                        PreparationUsageEntity(preparationUsageId, food.id, preparationId, 1, interactionAt),
+                    )
+                }
             }
         }
     }
@@ -511,7 +542,45 @@ private fun FoodWithServings.toModel() = Food(
         importedAtEpochMillis = food.importedAtEpochMillis,
         locallyModified = food.importedAtEpochMillis?.let { food.updatedAtEpochMillis > it } == true,
     ),
+    image = food.toImage(),
+    reviewStatus = runCatching { ReviewStatus.valueOf(food.reviewStatus) }.getOrDefault(ReviewStatus.PRIVATE),
+    preparations = preparations.sortedBy(FoodPreparationEntity::sortOrder).map { preparation ->
+        FoodPreparation(
+            id = preparation.id,
+            names = LocalizedText(preparation.nameEn, preparation.nameRo),
+            nutritionPer100g = Nutrition(
+                preparation.caloriesPer100g,
+                preparation.proteinMilligramsPer100g / 1_000.0,
+                preparation.carbsMilligramsPer100g / 1_000.0,
+                preparation.fatMilligramsPer100g / 1_000.0,
+                preparation.fiberMilligramsPer100g?.div(1_000.0),
+            ),
+            image = preparation.toImage(),
+            sortOrder = preparation.sortOrder,
+        )
+    },
+    defaultPreparationId = food.defaultPreparationId,
 )
+
+private fun FoodEntity.toImage(): FoodImage? = imageSource?.let { source ->
+    FoodImage(
+        source = runCatching { FoodImageSource.valueOf(source) }.getOrDefault(FoodImageSource.LOCAL),
+        localPath = imageLocalPath,
+        remoteUrl = imageRemoteUrl,
+        attribution = imageAttribution,
+        license = imageLicense,
+    )
+}
+
+private fun FoodPreparationEntity.toImage(): FoodImage? = imageSource?.let { source ->
+    FoodImage(
+        source = runCatching { FoodImageSource.valueOf(source) }.getOrDefault(FoodImageSource.LOCAL),
+        localPath = imageLocalPath,
+        remoteUrl = imageRemoteUrl,
+        attribution = imageAttribution,
+        license = imageLicense,
+    )
+}
 
 private fun DiaryEntryEntity.toModel() = FoodEntry(
     id = id,
@@ -531,6 +600,8 @@ private fun DiaryEntryEntity.toModel() = FoodEntry(
     ),
     recipeBatchId = recipeBatchId,
     recipeBatchGrams = recipeBatchGrams,
+    preparationId = preparationId,
+    preparationName = preparationNameEn?.let { LocalizedText(it, preparationNameRo ?: it) },
 )
 
 private fun FoodEntry.toEntity() = DiaryEntryEntity(
@@ -551,6 +622,9 @@ private fun FoodEntry.toEntity() = DiaryEntryEntity(
     fiberMilligrams = nutrition.fiberGrams?.let { (it * 1_000).roundToInt() },
     recipeBatchId = recipeBatchId,
     recipeBatchGrams = recipeBatchGrams,
+    preparationId = preparationId,
+    preparationNameEn = preparationName?.en,
+    preparationNameRo = preparationName?.ro,
 )
 
 private fun LocalizedText.withoutLeadingOne() = LocalizedText(en.removePrefix("1 "), ro.removePrefix("1 "))
@@ -671,8 +745,38 @@ private val seedFoodEntities = listOf(
     FoodEntity("banana", "Banana", "Banană", "Fresh", "Proaspătă", 89, 1_100, 22_800, 300),
     FoodEntity("chicken-breast", "Chicken breast", "Piept de pui", "Cooked, skinless", "Gătit, fără piele", 165, 31_000, 0, 3_600),
     FoodEntity("oats", "Rolled oats", "Fulgi de ovăz", "Dry", "Uscați", 379, 13_200, 67_700, 6_500),
-    FoodEntity("eggs", "Whole egg", "Ou întreg", "Boiled", "Fiert", 155, 12_600, 1_100, 10_600),
+    FoodEntity(
+        "eggs", "Whole egg", "Ou întreg", "Boiled", "Fiert", 155, 12_600, 1_100, 10_600,
+        defaultPreparationId = "eggs|boiled",
+    ),
     FoodEntity("rice", "White rice", "Orez alb", "Cooked", "Gătit", 130, 2_700, 28_200, 300),
+)
+
+private val seedPreparationEntities = listOf(
+    FoodPreparationEntity(
+        id = "eggs|boiled",
+        foodId = "eggs",
+        nameEn = "Boiled",
+        nameRo = "Fiert",
+        caloriesPer100g = 155,
+        proteinMilligramsPer100g = 12_600,
+        carbsMilligramsPer100g = 1_100,
+        fatMilligramsPer100g = 10_600,
+        fiberMilligramsPer100g = 0,
+        sortOrder = 0,
+    ),
+    FoodPreparationEntity(
+        id = "eggs|fried",
+        foodId = "eggs",
+        nameEn = "Fried",
+        nameRo = "Prăjit",
+        caloriesPer100g = 196,
+        proteinMilligramsPer100g = 13_600,
+        carbsMilligramsPer100g = 800,
+        fatMilligramsPer100g = 14_800,
+        fiberMilligramsPer100g = 0,
+        sortOrder = 1,
+    ),
 )
 
 private val seedServingEntities = listOf(

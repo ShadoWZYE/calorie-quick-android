@@ -52,6 +52,25 @@ data class Serving(
     val isPackage: Boolean = false,
 )
 
+enum class FoodImageSource { BUNDLED, LOCAL, REMOTE }
+enum class ReviewStatus { PRIVATE, READY_FOR_REVIEW, EXPORTED }
+
+data class FoodImage(
+    val source: FoodImageSource,
+    val localPath: String? = null,
+    val remoteUrl: String? = null,
+    val attribution: String? = null,
+    val license: String? = null,
+)
+
+data class FoodPreparation(
+    val id: String,
+    val names: LocalizedText,
+    val nutritionPer100g: Nutrition,
+    val image: FoodImage? = null,
+    val sortOrder: Int = 0,
+)
+
 data class Food(
     val id: String,
     val names: LocalizedText,
@@ -64,6 +83,11 @@ data class Food(
     val isPackaged: Boolean = false,
     val allergens: Map<Allergen, AllergenDeclaration> = emptyMap(),
     val provenance: FoodProvenance = FoodProvenance(FoodSourceType.BUILT_IN),
+    val image: FoodImage? = null,
+    val reviewStatus: ReviewStatus = ReviewStatus.PRIVATE,
+    val preparations: List<FoodPreparation> = emptyList(),
+    val defaultPreparationId: String? = null,
+    val activePreparationId: String? = null,
 ) {
     fun name(locale: Locale): String = names.forLocale(locale)
     fun detail(locale: Locale): String = details.forLocale(locale)
@@ -84,6 +108,14 @@ data class Food(
         }
         return barcodeMatches || hasSameIdentity(other.names.en, other.brand) || hasSameIdentity(other.names.ro, other.brand)
     }
+
+
+    fun withPreparation(preparation: FoodPreparation): Food = copy(
+        details = preparation.names,
+        nutritionPer100g = preparation.nutritionPer100g,
+        image = preparation.image ?: image,
+        activePreparationId = preparation.id,
+    )
 }
 
 enum class FoodSourceType { BUILT_IN, PERSONAL, OPEN_FOOD_FACTS, OCR, RECIPE }
@@ -117,6 +149,9 @@ data class PersonalFoodDraft(
     val measures: List<PersonalMeasure>,
     val isPackaged: Boolean,
     val provenance: FoodProvenance = FoodProvenance(FoodSourceType.PERSONAL),
+    val image: FoodImage? = null,
+    val pendingImageUri: String? = null,
+    val reviewStatus: ReviewStatus = ReviewStatus.PRIVATE,
 )
 
 data class PersonalMeasure(
@@ -141,6 +176,7 @@ data class RecipeDraft(
     val ingredients: List<RecipeIngredientDraft>,
     val cookedYieldGrams: Int,
     val portionCount: Int,
+    val reviewStatus: ReviewStatus = ReviewStatus.PRIVATE,
 )
 
 data class RecipeTemplate(
@@ -153,6 +189,14 @@ data class RecipeTemplate(
     val cookedAtEpochMillis: Long,
     val remainingGrams: Int,
     val batches: List<RecipeBatchSummary>,
+    val reviewStatus: ReviewStatus = ReviewStatus.PRIVATE,
+)
+
+data class PreparationUsage(
+    val foodId: String,
+    val preparationId: String,
+    val useCount: Int,
+    val lastUsedAtEpochMillis: Long,
 )
 
 data class RecipeBatchSummary(
@@ -264,6 +308,8 @@ data class FoodEntry(
     val nutrition: Nutrition,
     val recipeBatchId: String? = null,
     val recipeBatchGrams: Int = 0,
+    val preparationId: String? = null,
+    val preparationName: LocalizedText? = null,
 )
 
 data class UnitUsage(

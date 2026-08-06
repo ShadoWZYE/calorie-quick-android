@@ -26,6 +26,41 @@ data class FoodEntity(
     val sourceType: String = "BUILT_IN",
     val sourceId: String? = null,
     val importedAtEpochMillis: Long? = null,
+    val imageLocalPath: String? = null,
+    val imageRemoteUrl: String? = null,
+    val imageSource: String? = null,
+    val imageAttribution: String? = null,
+    val imageLicense: String? = null,
+    val reviewStatus: String = "PRIVATE",
+    val defaultPreparationId: String? = null,
+)
+
+@Entity(tableName = "food_preparations", indices = [Index("foodId")])
+data class FoodPreparationEntity(
+    @PrimaryKey val id: String,
+    val foodId: String,
+    val nameEn: String,
+    val nameRo: String,
+    val caloriesPer100g: Int,
+    val proteinMilligramsPer100g: Int,
+    val carbsMilligramsPer100g: Int,
+    val fatMilligramsPer100g: Int,
+    val fiberMilligramsPer100g: Int?,
+    val imageLocalPath: String? = null,
+    val imageRemoteUrl: String? = null,
+    val imageSource: String? = null,
+    val imageAttribution: String? = null,
+    val imageLicense: String? = null,
+    val sortOrder: Int = 0,
+)
+
+@Entity(tableName = "preparation_usage", indices = [Index("foodId")])
+data class PreparationUsageEntity(
+    @PrimaryKey val id: String,
+    val foodId: String,
+    val preparationId: String,
+    val useCount: Int,
+    val lastUsedAtEpochMillis: Long,
 )
 
 @Entity(tableName = "nutrient_values", indices = [Index("foodId")])
@@ -72,6 +107,7 @@ data class RecipeEntity(
     val activeBatchId: String,
     val createdAtEpochMillis: Long,
     val updatedAtEpochMillis: Long,
+    val reviewStatus: String = "PRIVATE",
 )
 
 @Entity(tableName = "recipe_batches", indices = [Index("recipeFoodId")])
@@ -122,6 +158,8 @@ data class FoodWithServings(
     val nutrientValues: List<NutrientValueEntity>,
     @Relation(parentColumn = "id", entityColumn = "foodId")
     val allergenDeclarations: List<AllergenDeclarationEntity>,
+    @Relation(parentColumn = "id", entityColumn = "foodId")
+    val preparations: List<FoodPreparationEntity>,
 )
 
 @Entity(
@@ -146,6 +184,9 @@ data class DiaryEntryEntity(
     val fiberMilligrams: Int? = null,
     val recipeBatchId: String? = null,
     val recipeBatchGrams: Int = 0,
+    val preparationId: String? = null,
+    val preparationNameEn: String? = null,
+    val preparationNameRo: String? = null,
 )
 
 @Entity(tableName = "serving_usage", indices = [Index("foodId")])
