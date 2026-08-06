@@ -12,8 +12,8 @@ android {
         applicationId = "com.shadow.calorietracker"
         minSdk = 23
         targetSdk = 37
-        versionCode = 5
-        versionName = "0.2.0-alpha04"
+        versionCode = 6
+        versionName = "0.2.0-alpha05"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -83,4 +83,14 @@ dependencies {
 
 ksp {
     arg("room.schemaLocation", "$projectDir/schemas")
+}
+
+androidComponents {
+    onVariants(selector().all()) { variant ->
+        variant.outputs.forEach { output ->
+            output.outputFileName.set(
+                "CalorieQuick-${output.versionName.get()}-${variant.buildType}.apk",
+            )
+        }
+    }
 }

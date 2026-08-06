@@ -2,6 +2,7 @@ package com.shadow.calorietracker.ui
 
 import android.net.Uri
 import android.graphics.BitmapFactory
+import android.content.Context
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatDelegate
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -53,6 +54,7 @@ import androidx.compose.material.icons.filled.ChevronLeft
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.MonitorWeight
+import androidx.compose.material.icons.filled.NewReleases
 import androidx.compose.material.icons.filled.QrCodeScanner
 import androidx.compose.material.icons.filled.DocumentScanner
 import androidx.compose.material.icons.filled.ExpandLess
@@ -112,6 +114,7 @@ import androidx.core.content.FileProvider
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.shadow.calorietracker.R
+import com.shadow.calorietracker.BuildConfig
 import com.shadow.calorietracker.model.ActivityLevel
 import com.shadow.calorietracker.model.AdaptiveGoalReview
 import com.shadow.calorietracker.model.AdaptiveGoalReviewer
@@ -172,7 +175,12 @@ import kotlin.math.abs
 import kotlin.math.roundToInt
 import kotlinx.coroutines.delay
 
-private enum class AppScreen { TODAY, HISTORY, PROGRESS, SETTINGS, FEEDBACK, FOOD_EDITOR, RECIPE_EDITOR }
+private enum class AppScreen {
+    TODAY, HISTORY, PROGRESS, SETTINGS, FEEDBACK, WHATS_NEW, FOOD_EDITOR, RECIPE_EDITOR,
+}
+
+private const val RELEASE_NOTES_PREFERENCES = "release-notes"
+private const val LAST_SEEN_RELEASE_VERSION_CODE = "last-seen-version-code"
 
 private data class ExportSelection(
     val foodIds: Set<String>,
@@ -185,6 +193,7 @@ private data class ExportSelection(
 
 @Composable
 fun CalorieQuickApp(viewModel: CalorieViewModel = viewModel()) {
+    val context = LocalContext.current
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val lookupState by viewModel.foodLookupState.collectAsStateWithLifecycle()
     val nutritionLabelScanState by viewModel.nutritionLabelScanState.collectAsStateWithLifecycle()
@@ -202,6 +211,38 @@ fun CalorieQuickApp(viewModel: CalorieViewModel = viewModel()) {
     var nutritionLabelPrefill by remember { mutableStateOf<NutritionLabelPrefill?>(null) }
     var editingRecipe by remember { mutableStateOf<RecipeTemplate?>(null) }
     var recipeSeedFood by remember { mutableStateOf<Food?>(null) }
+    var showReleaseSummary by rememberSaveable { mutableStateOf(false) }
+
+    LaunchedEffect(state.loaded, profile?.onboardingComplete) {
+        if (!state.loaded) return@LaunchedEffect
+        val preferences = context.getSharedPreferences(RELEASE_NOTES_PREFERENCES, Context.MODE_PRIVATE)
+        val lastSeen = preferences.getInt(LAST_SEEN_RELEASE_VERSION_CODE, -1)
+        if (lastSeen < 0) {
+            if (profile?.onboardingComplete == true) {
+                showReleaseSummary = true
+            } else {
+                preferences.edit()
+                    .putInt(LAST_SEEN_RELEASE_VERSION_CODE, BuildConfig.VERSION_CODE)
+                    .apply()
+            }
+        } else if (
+            ReleaseNotes.shouldPrompt(
+                onboardingComplete = profile?.onboardingComplete == true,
+                lastSeenVersionCode = lastSeen,
+                currentVersionCode = BuildConfig.VERSION_CODE,
+            )
+        ) {
+            showReleaseSummary = true
+        }
+    }
+
+    fun markCurrentReleaseSeen() {
+        context.getSharedPreferences(RELEASE_NOTES_PREFERENCES, Context.MODE_PRIVATE)
+            .edit()
+            .putInt(LAST_SEEN_RELEASE_VERSION_CODE, BuildConfig.VERSION_CODE)
+            .apply()
+        showReleaseSummary = false
+    }
 
     LaunchedEffect(nutritionLabelScanState.status, nutritionLabelScanState.prefill) {
         if (nutritionLabelScanState.status == NutritionLabelScanStatus.SUCCESS) {
@@ -246,6 +287,10 @@ fun CalorieQuickApp(viewModel: CalorieViewModel = viewModel()) {
             onInspectFullBackup = viewModel::inspectFullBackup,
             onRestoreFullBackup = viewModel::restoreInspectedFullBackup,
             onClearFullBackupState = viewModel::clearFullBackupState,
+            onOpenWhatsNew = { screenName = AppScreen.WHATS_NEW.name },
+        )
+        screenName == AppScreen.WHATS_NEW.name -> WhatsNewScreen(
+            onBack = { screenName = AppScreen.SETTINGS.name },
         )
         screenName == AppScreen.FEEDBACK.name -> FeedbackScreen(
             messages = feedbackMessages,
@@ -390,6 +435,17 @@ fun CalorieQuickApp(viewModel: CalorieViewModel = viewModel()) {
             },
         )
     }
+
+    if (showReleaseSummary && profile?.onboardingComplete == true) {
+        ReleaseSummaryDialog(
+            release = ReleaseNotes.current,
+            onDismiss = ::markCurrentReleaseSeen,
+            onViewAll = {
+                markCurrentReleaseSeen()
+                screenName = AppScreen.WHATS_NEW.name
+            },
+        )
+    }
 }
 
 @Composable
@@ -432,6 +488,7 @@ private fun SettingsScreen(
     onInspectFullBackup: (Uri) -> Unit,
     onRestoreFullBackup: () -> Unit,
     onClearFullBackupState: () -> Unit,
+    onOpenWhatsNew: () -> Unit,
 ) {
     val context = LocalContext.current
     var showExportReview by rememberSaveable { mutableStateOf(false) }
@@ -487,6 +544,7 @@ private fun SettingsScreen(
         onChooseFullBackup = {
             fullBackupImportLauncher.launch(arrayOf("application/zip", "application/octet-stream"))
         },
+        onOpenWhatsNew = onOpenWhatsNew,
     )
     if (showExportReview) {
         ExportReviewDialog(
@@ -511,6 +569,92 @@ private fun SettingsScreen(
             onDismiss = onClearFullBackupState,
             onRestore = onRestoreFullBackup,
         )
+    }
+}
+
+@Composable
+private fun ReleaseSummaryDialog(
+    release: ReleaseNote,
+    onDismiss: () -> Unit,
+    onViewAll: () -> Unit,
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        icon = { Icon(Icons.Default.NewReleases, null) },
+        title = { Text(stringResource(R.string.whats_new)) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Text(
+                    stringResource(R.string.version_label, release.versionName),
+                    color = MaterialTheme.colorScheme.primary,
+                    fontWeight = FontWeight.SemiBold,
+                )
+                Text(stringResource(release.titleResource), fontWeight = FontWeight.SemiBold)
+                release.itemResources.forEach { item ->
+                    Text("• ${stringResource(item)}")
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onViewAll) { Text(stringResource(R.string.view_all_release_notes)) }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text(stringResource(R.string.continue_to_app)) }
+        },
+    )
+}
+
+@Composable
+private fun WhatsNewScreen(onBack: () -> Unit) {
+    LazyColumn(
+        modifier = Modifier
+            .fillMaxSize()
+            .statusBarsPadding()
+            .navigationBarsPadding(),
+        contentPadding = PaddingValues(start = 20.dp, end = 20.dp, bottom = 24.dp),
+        verticalArrangement = Arrangement.spacedBy(14.dp),
+    ) {
+        item {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                IconButton(onClick = onBack) {
+                    Icon(Icons.AutoMirrored.Filled.ArrowBack, stringResource(R.string.back))
+                }
+                Column {
+                    Text(stringResource(R.string.whats_new), fontSize = 30.sp, fontWeight = FontWeight.Bold)
+                    Text(
+                        stringResource(R.string.whats_new_subtitle),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
+        }
+        items(ReleaseNotes.all, key = ReleaseNote::versionName) { release ->
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(
+                    containerColor = if (release == ReleaseNotes.current) {
+                        MaterialTheme.colorScheme.primaryContainer
+                    } else {
+                        MaterialTheme.colorScheme.surfaceVariant
+                    },
+                ),
+            ) {
+                Column(
+                    Modifier.fillMaxWidth().padding(18.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    Text(
+                        stringResource(R.string.version_label, release.versionName),
+                        color = MaterialTheme.colorScheme.primary,
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                    Text(stringResource(release.titleResource), fontSize = 20.sp, fontWeight = FontWeight.Bold)
+                    release.itemResources.forEach { item ->
+                        Text("• ${stringResource(item)}")
+                    }
+                }
+            }
+        }
     }
 }
 
@@ -1775,6 +1919,7 @@ private fun ProfileForm(
     onClearSavedCrashReports: (() -> Unit)? = null,
     onCreateFullBackup: (() -> Unit)? = null,
     onChooseFullBackup: (() -> Unit)? = null,
+    onOpenWhatsNew: (() -> Unit)? = null,
 ) {
     var displayName by rememberSaveable { mutableStateOf(initial?.displayName.orEmpty()) }
     var age by rememberSaveable { mutableStateOf((initial?.age ?: 30).toString()) }
@@ -1929,6 +2074,23 @@ private fun ProfileForm(
                 Column {
                     Text(title, fontSize = 30.sp, fontWeight = FontWeight.Bold)
                     Text(subtitle, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            }
+        }
+        if (onOpenWhatsNew != null) item {
+            OutlinedButton(
+                onClick = onOpenWhatsNew,
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Icon(Icons.Default.NewReleases, null)
+                Spacer(Modifier.width(10.dp))
+                Column(Modifier.weight(1f), horizontalAlignment = Alignment.Start) {
+                    Text(stringResource(R.string.whats_new), fontWeight = FontWeight.SemiBold)
+                    Text(
+                        stringResource(R.string.whats_new_settings_hint, BuildConfig.VERSION_NAME),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        fontSize = 12.sp,
+                    )
                 }
             }
         }

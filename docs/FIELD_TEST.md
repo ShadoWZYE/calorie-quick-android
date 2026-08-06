@@ -2,10 +2,10 @@
 
 ## Install
 
-Build `app/build/outputs/apk/debug/app-debug.apk` with the release gate in `docs/TESTING.md`, enable USB debugging on the test phone, then run:
+Build `app/build/outputs/apk/debug/CalorieQuick-<version>-debug.apk` with the release gate in `docs/TESTING.md`, enable USB debugging on the test phone, then run:
 
 ```powershell
-adb install -r app/build/outputs/apk/debug/app-debug.apk
+adb install -r app/build/outputs/apk/debug/CalorieQuick-0.2.0-alpha05-debug.apk
 ```
 
 `-r` preserves an existing installation's private data. Do not uninstall the app between updates. Keep the same application ID and signing identity throughout the test.

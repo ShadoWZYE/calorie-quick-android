@@ -34,7 +34,9 @@ The checked-in catalogue test validates its schema, bilingual names, nutrition b
 16. Rotate, background, kill, and relaunch the app. Verify profile, foods, recipes, photos, history, and totals remain intact.
 17. Enter coffee, milk, juice, and cooking oil in millilitres; verify the displayed gram equivalents use each food's density and survive relaunch.
 18. Flag a failed scan, add optional feedback, export the combined review ZIP, and inspect its separate `catalogue/` and `support/` folders. Review the independent selections for scans, UI-freeze reports, crash reports, and feedback. Confirm private/non-opted-in foods and unflagged scans are absent.
-19. Install the next APK with `adb install -r`; verify schema migration preserves profile, diary, personal foods, recipes, images, and feedback. Follow [UPDATES.md](UPDATES.md).
+19. Install the next versioned `CalorieQuick-<version>-debug.apk` with `adb install -r`; verify schema migration preserves profile, diary, personal foods, recipes, images, and feedback. Follow [UPDATES.md](UPDATES.md).
+20. After an upgrade, verify the current What’s new summary appears once, opens the full release history, does not repeat after dismissal, and remains available from Settings.
+21. Check the launcher icon on each physical-device launcher; its background must remain white rather than transparent, black, or launcher-tinted.
 20. Tap the daily summary for today and a past day. Confirm the sheet lists each logged item with quantity, time, calories, macro contribution, and an accurate daily total rather than repeating goal progress.
 21. Create a full backup from Settings. Select it for restore and verify the preview counts/profile version before cancelling. On a disposable test profile, confirm restore replaces user data while retaining the current built-in catalogue.
 22. Attach an image to a feedback message, confirm the thumbnail remains after reopening Feedback, and verify the image appears in both an opted-in review export and a full backup round trip.

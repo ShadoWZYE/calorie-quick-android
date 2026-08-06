@@ -29,6 +29,7 @@ Implemented:
 Private-alpha exit gate:
 
 - Pass the release gate and the private-alpha smoke test on a real phone.
+- Keep an offline in-app release history and versioned APK names for every tester handoff.
 - Complete at least two weeks of daily use without data corruption or a blocking entry flow.
 - Triage missing-food/search feedback before expanding the static catalogue again.
 

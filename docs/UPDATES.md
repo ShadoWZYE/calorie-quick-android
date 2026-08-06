@@ -4,9 +4,9 @@
 
 - Give every tester build a higher `versionCode` and a readable pre-release `versionName`.
 - Build and sign every APK with the same key, application ID, and signing lineage.
-- Install updates with `adb install -r app/build/outputs/apk/debug/app-debug.apk`; never uninstall first.
+- Install updates with `adb install -r app/build/outputs/apk/debug/CalorieQuick-<version>-debug.apk`; never uninstall first.
 - Run all Room migrations in normal startup and include migration coverage in the release gate. An update must be rejected if it cannot preserve the existing database.
-- Put the APK, version, commit, checksum, migration notes, and a short changelog together in each handoff.
+- Put the versioned `CalorieQuick-<version>-<build-type>.apk`, version, commit, checksum, migration notes, and changelog together in each handoff.
 - Ask testers to create a full backup before a risky schema change. The review bundle is diagnostic/contribution data and is not a diary backup.
 
 Debug-signed APKs are suitable only while one trusted machine produces every field-test build. Moving to another build machine or distribution service requires retaining that debug key or installing a separately signed app, which Android treats as a different trust lineage.
@@ -31,7 +31,7 @@ Android will not install an APK signed by a different key over the existing pack
 
 ## Release checklist
 
-1. Increment `versionCode` and update `versionName`.
+1. Increment `versionCode`, update `versionName`, and add the user-facing changes to `CHANGELOG.md` and the in-app release notes.
 2. Add and test every database migration from the last distributed schema.
 3. Run the full release gate and a preserve-data upgrade smoke test on a real phone.
 4. Verify review exports, photos, recipes, diary history, and settings before and after update.

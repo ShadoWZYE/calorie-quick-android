@@ -58,7 +58,7 @@ $javaHome = Resolve-ToolchainPath `
 $adb = Join-Path $sdkRoot "platform-tools\adb.exe"
 $emulator = Join-Path $sdkRoot "emulator\emulator.exe"
 $gradleWrapper = Join-Path $repoRoot "gradlew.bat"
-$apk = Join-Path $repoRoot "app\build\outputs\apk\debug\app-debug.apk"
+$apkOutputDirectory = Join-Path $repoRoot "app\build\outputs\apk\debug"
 
 foreach ($requiredFile in @($adb, $emulator, $gradleWrapper, (Join-Path $javaHome "bin\java.exe"))) {
     if (-not (Test-Path -LiteralPath $requiredFile)) {
@@ -101,9 +101,14 @@ if (-not $SkipBuild) {
     }
 }
 
-if (-not (Test-Path -LiteralPath $apk)) {
-    throw "Debug APK was not found at $apk. Run without -SkipBuild first."
+$apkFile = Get-ChildItem -LiteralPath $apkOutputDirectory -Filter "CalorieQuick-*-debug.apk" -File `
+    | Sort-Object LastWriteTimeUtc -Descending `
+    | Select-Object -First 1
+if (-not $apkFile) {
+    throw "A versioned debug APK was not found in $apkOutputDirectory. Run without -SkipBuild first."
 }
+$apk = $apkFile.FullName
+Write-Host "Using $($apkFile.Name)" -ForegroundColor Green
 
 Write-Step "Waiting for Android to finish booting"
 $deadline = (Get-Date).AddMinutes(3)

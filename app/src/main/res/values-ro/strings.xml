@@ -450,4 +450,23 @@
     <string name="delete">Șterge</string>
     <string name="flag_failed_scan">Marchează imaginea pentru export</string>
     <string name="scan_saved_for_support">Imagine marcată. Va fi inclusă în următorul export pentru verificare.</string>
+    <string name="whats_new">Noutăți</string>
+    <string name="whats_new_subtitle">Note de versiune și îmbunătățiri recente</string>
+    <string name="whats_new_settings_hint">Vezi ce s-a schimbat în Calorie Quick %1$s</string>
+    <string name="view_all_release_notes">Vezi toate notele de versiune</string>
+    <string name="continue_to_app">Continuă</string>
+    <string name="version_label">Versiunea %1$s</string>
+    <string name="release_alpha05_title">Notele de versiune sunt acum în aplicație</string>
+    <string name="release_alpha05_item_changelog">Consultă oricând istoricul offline „Noutăți” din Setări.</string>
+    <string name="release_alpha05_item_prompt">Primești un rezumat scurt o singură dată după fiecare actualizare instalată.</string>
+    <string name="release_alpha05_item_previous">Include noile funcții de backup, imagini în feedback, diagnosticare și îmbunătățirile de aspect din cele mai recente versiuni de test.</string>
+    <string name="release_alpha05_item_icon">Folosește un fundal alb explicit pentru pictograma aplicației, pentru afișare consecventă pe dispozitivele Android.</string>
+    <string name="release_alpha04_title">Testare mai sigură și feedback mai clar</string>
+    <string name="release_alpha04_item_backup">Creează și verifică copii complete, apoi restaurează profilul, jurnalul, catalogul personal, rețetele, măsurătorile, imaginile, preferințele și feedbackul.</string>
+    <string name="release_alpha04_item_feedback">Atașează opțional o imagine unui mesaj de feedback și include-o în exportul pentru verificare.</string>
+    <string name="release_alpha04_item_header">Data de astăzi și cele patru acțiuni folosesc acum un singur rând aliniat.</string>
+    <string name="release_alpha03_title">Detalii zilnice și diagnosticare îmbunătățite</string>
+    <string name="release_alpha03_item_breakdown">Fișa nutrițională detaliază acum ziua pentru fiecare aliment înregistrat.</string>
+    <string name="release_alpha03_item_diagnostics">Rapoartele de eroare și blocare în fundal pot fi incluse explicit pentru suport.</string>
+    <string name="release_alpha03_item_entry">Căutarea oferă mereu introducerea manuală, iar unitățile pentru lichide sunt mai ușor de folosit.</string>
 </resources>

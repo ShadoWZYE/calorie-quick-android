@@ -445,4 +445,23 @@
     <string name="delete">Delete</string>
     <string name="flag_failed_scan">Flag image for review export</string>
     <string name="scan_saved_for_support">Image flagged. It will be included in the next review export.</string>
+    <string name="whats_new">What’s new</string>
+    <string name="whats_new_subtitle">Release notes and recent improvements</string>
+    <string name="whats_new_settings_hint">See what changed in Calorie Quick %1$s</string>
+    <string name="view_all_release_notes">View all release notes</string>
+    <string name="continue_to_app">Continue</string>
+    <string name="version_label">Version %1$s</string>
+    <string name="release_alpha05_title">Release notes are now built in</string>
+    <string name="release_alpha05_item_changelog">Browse a permanent, offline What’s new history from Settings.</string>
+    <string name="release_alpha05_item_prompt">See a concise summary once after each installed app upgrade.</string>
+    <string name="release_alpha05_item_previous">Includes the new backup, feedback-image, diagnostic, and layout improvements from the latest test builds.</string>
+    <string name="release_alpha05_item_icon">Uses an explicit white launcher-icon background for consistent display across Android devices.</string>
+    <string name="release_alpha04_title">Safer field testing and clearer feedback</string>
+    <string name="release_alpha04_item_backup">Create and preview complete backups, then restore profile, diary, personal catalogue, recipes, measurements, images, preferences, and feedback.</string>
+    <string name="release_alpha04_item_feedback">Attach an optional image to a feedback message and include it in the review export.</string>
+    <string name="release_alpha04_item_header">Today’s date and all four action icons now share one aligned header row.</string>
+    <string name="release_alpha03_title">Better daily detail and diagnostics</string>
+    <string name="release_alpha03_item_breakdown">The nutrition sheet now breaks the day down by logged item.</string>
+    <string name="release_alpha03_item_diagnostics">Crash and background-freeze reports can be bundled explicitly for support.</string>
+    <string name="release_alpha03_item_entry">Food search always offers manual entry, and liquid measures are easier to use.</string>
 </resources>
