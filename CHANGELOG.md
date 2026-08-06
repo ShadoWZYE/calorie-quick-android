@@ -27,6 +27,7 @@ All notable user-facing changes to Calorie Quick are recorded here. The app is c
 
 - Made the one-time release summary scrollable while keeping its actions reachable on smaller screens and with larger text.
 - Moved food-photo and catalogue-image decoding off the main thread, downsampled large local photos, and retained a bounded preview cache to reduce stutter when cards re-enter the screen.
+- Added a direct Files/Downloads image route alongside the system photo library for food photos, label scans, scale reports, and feedback attachments.
 
 ## [0.2.0-alpha04] - 2026-08-06
 

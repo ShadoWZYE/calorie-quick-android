@@ -38,6 +38,7 @@ The checked-in catalogue test validates its schema, bilingual names, nutrition b
 20. After an upgrade, verify the current What’s new summary appears once, scrolls independently at large font sizes without hiding its actions, opens the full release history, does not repeat after dismissal, and remains available from Settings.
 21. Check the launcher icon on each physical-device launcher; its background must remain white rather than transparent, black, or launcher-tinted.
 22. Browse a long built-in catalogue, scroll several screens down and rapidly back up, and confirm cards re-enter smoothly without visible pauses while their images load.
+23. At every image attachment point, verify both Photos/Albums and Files/Downloads routes; place a test image in Downloads and confirm it can be selected through the file browser.
 20. Tap the daily summary for today and a past day. Confirm the sheet lists each logged item with quantity, time, calories, macro contribution, and an accurate daily total rather than repeating goal progress.
 21. Create a full backup from Settings. Select it for restore and verify the preview counts/profile version before cancelling. On a disposable test profile, confirm restore replaces user data while retaining the current built-in catalogue.
 22. Attach an image to a feedback message, confirm the thumbnail remains after reopening Feedback, and verify the image appears in both an opted-in review export and a full backup round trip.

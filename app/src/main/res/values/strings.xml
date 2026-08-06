@@ -363,6 +363,10 @@
     <string name="food_photo">Food photo</string>
     <string name="food_photo_add_hint">Take a photo now or choose one from your gallery.</string>
     <string name="choose_photo">Choose photo</string>
+    <string name="photo_library">Photos and albums</string>
+    <string name="browse_image_files">Browse files / Downloads</string>
+    <string name="choose_image_source">Choose image source</string>
+    <string name="choose_image_source_explanation">Use your photo library, or browse image files directly when an image is stored in Downloads or another folder.</string>
     <string name="replace_photo">Replace photo</string>
     <string name="remove_photo">Remove photo</string>
     <string name="food_photo_private_hint">Stored only on this device unless you explicitly include this item in a review export.</string>
@@ -456,6 +460,8 @@
     <string name="release_alpha05_item_prompt">See a concise summary once after each installed app upgrade.</string>
     <string name="release_alpha05_item_previous">Includes the new backup, feedback-image, diagnostic, and layout improvements from the latest test builds.</string>
     <string name="release_alpha05_item_icon">Uses an explicit white launcher-icon background for consistent display across Android devices.</string>
+    <string name="release_alpha05_item_images">Browse Files and Downloads directly when attaching images, in addition to Photos and Albums.</string>
+    <string name="release_alpha05_item_scrolling">Improves upward catalogue scrolling and makes this release summary scrollable on smaller screens.</string>
     <string name="release_alpha04_title">Safer field testing and clearer feedback</string>
     <string name="release_alpha04_item_backup">Create and preview complete backups, then restore profile, diary, personal catalogue, recipes, measurements, images, preferences, and feedback.</string>
     <string name="release_alpha04_item_feedback">Attach an optional image to a feedback message and include it in the review export.</string>

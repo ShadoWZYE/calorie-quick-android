@@ -367,6 +367,10 @@
     <string name="food_photo">Fotografia alimentului</string>
     <string name="food_photo_add_hint">Fotografiază acum sau alege o imagine din galerie.</string>
     <string name="choose_photo">Alege fotografia</string>
+    <string name="photo_library">Fotografii și albume</string>
+    <string name="browse_image_files">Răsfoiește fișiere / Descărcări</string>
+    <string name="choose_image_source">Alege sursa imaginii</string>
+    <string name="choose_image_source_explanation">Folosește biblioteca foto sau răsfoiește direct fișierele imagine când acestea sunt salvate în Descărcări ori în alt dosar.</string>
     <string name="replace_photo">Înlocuiește fotografia</string>
     <string name="remove_photo">Elimină fotografia</string>
     <string name="food_photo_private_hint">Este păstrată numai pe acest dispozitiv, dacă nu incluzi explicit alimentul într-un export pentru verificare.</string>
@@ -461,6 +465,8 @@
     <string name="release_alpha05_item_prompt">Primești un rezumat scurt o singură dată după fiecare actualizare instalată.</string>
     <string name="release_alpha05_item_previous">Include noile funcții de backup, imagini în feedback, diagnosticare și îmbunătățirile de aspect din cele mai recente versiuni de test.</string>
     <string name="release_alpha05_item_icon">Folosește un fundal alb explicit pentru pictograma aplicației, pentru afișare consecventă pe dispozitivele Android.</string>
+    <string name="release_alpha05_item_images">Răsfoiește direct Fișiere și Descărcări când atașezi imagini, pe lângă Fotografii și Albume.</string>
+    <string name="release_alpha05_item_scrolling">Îmbunătățește derularea în sus a catalogului și permite derularea acestui rezumat pe ecranele mai mici.</string>
     <string name="release_alpha04_title">Testare mai sigură și feedback mai clar</string>
     <string name="release_alpha04_item_backup">Creează și verifică copii complete, apoi restaurează profilul, jurnalul, catalogul personal, rețetele, măsurătorile, imaginile, preferințele și feedbackul.</string>
     <string name="release_alpha04_item_feedback">Atașează opțional o imagine unui mesaj de feedback și include-o în exportul pentru verificare.</string>

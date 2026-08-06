@@ -18,6 +18,8 @@ object ReleaseNotes {
                 R.string.release_alpha05_item_prompt,
                 R.string.release_alpha05_item_previous,
                 R.string.release_alpha05_item_icon,
+                R.string.release_alpha05_item_images,
+                R.string.release_alpha05_item_scrolling,
             ),
         ),
         ReleaseNote(

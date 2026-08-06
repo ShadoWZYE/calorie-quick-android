@@ -615,6 +615,43 @@ private fun ReleaseSummaryDialog(
 }
 
 @Composable
+private fun ImageSourceDialog(
+    title: String,
+    explanation: String,
+    onDismiss: () -> Unit,
+    onPhotos: () -> Unit,
+    onFiles: () -> Unit,
+    onCamera: (() -> Unit)? = null,
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(title) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Text(explanation, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                onCamera?.let { cameraAction ->
+                    OutlinedButton(
+                        onClick = cameraAction,
+                        modifier = Modifier.fillMaxWidth(),
+                    ) { Text(stringResource(R.string.take_photo)) }
+                }
+                OutlinedButton(
+                    onClick = onPhotos,
+                    modifier = Modifier.fillMaxWidth(),
+                ) { Text(stringResource(R.string.photo_library)) }
+                OutlinedButton(
+                    onClick = onFiles,
+                    modifier = Modifier.fillMaxWidth(),
+                ) { Text(stringResource(R.string.browse_image_files)) }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) }
+        },
+    )
+}
+
+@Composable
 private fun WhatsNewScreen(onBack: () -> Unit) {
     LazyColumn(
         modifier = Modifier
@@ -951,6 +988,12 @@ private fun PersonalFoodEditorScreen(
             keepExistingImage = true
         }
     }
+    val imageFilePicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri != null) {
+            pendingImageUri = uri.toString()
+            keepExistingImage = true
+        }
+    }
     val foodCamera = rememberLauncherForActivityResult(ActivityResultContracts.TakePicture()) { captured ->
         pendingFoodCameraUri?.let(Uri::parse)?.let { uri ->
             if (captured) {
@@ -1095,7 +1138,10 @@ private fun PersonalFoodEditorScreen(
                             modifier = Modifier.fillMaxWidth().height(180.dp).clip(RoundedCornerShape(14.dp)),
                         )
                     }
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    FlowRow(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
                         Button(onClick = {
                             val directory = File(context.cacheDir, "label-captures").apply { mkdirs() }
                             val file = File.createTempFile("food-photo-", ".jpg", directory)
@@ -1108,7 +1154,10 @@ private fun PersonalFoodEditorScreen(
                         }
                         OutlinedButton(onClick = {
                             imagePicker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
-                        }) { Text(stringResource(R.string.choose_photo)) }
+                        }) { Text(stringResource(R.string.photo_library)) }
+                        OutlinedButton(onClick = {
+                            imageFilePicker.launch(arrayOf("image/*"))
+                        }) { Text(stringResource(R.string.browse_image_files)) }
                     }
                     if (shownImage != null) {
                         TextButton(onClick = { pendingImageUri = null; keepExistingImage = false }) {
@@ -2706,7 +2755,11 @@ private fun BodyProgressScreen(
     val profile = requireNotNull(state.profile)
     var editorInitial by remember { mutableStateOf<BodyMeasurement?>(null) }
     var editorWarnings by remember { mutableStateOf<Set<BodyScaleWarning>>(emptySet()) }
+    var showScaleImageSource by rememberSaveable { mutableStateOf(false) }
     val photoPicker = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
+        uri?.let(onScan)
+    }
+    val scaleFilePicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         uri?.let(onScan)
     }
     LaunchedEffect(scanState.status, scanState.prefill) {
@@ -2848,7 +2901,7 @@ private fun BodyProgressScreen(
                     enabled = scanState.status != BodyScaleScanStatus.PROCESSING,
                     onClick = {
                         onClearScan()
-                        photoPicker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
+                        showScaleImageSource = true
                     },
                     modifier = Modifier.weight(1f),
                 ) {
@@ -2903,6 +2956,22 @@ private fun BodyProgressScreen(
             )
         }
         item { Spacer(Modifier.height(24.dp)) }
+    }
+
+    if (showScaleImageSource) {
+        ImageSourceDialog(
+            title = stringResource(R.string.import_scale_report),
+            explanation = stringResource(R.string.choose_image_source_explanation),
+            onDismiss = { showScaleImageSource = false },
+            onPhotos = {
+                showScaleImageSource = false
+                photoPicker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
+            },
+            onFiles = {
+                showScaleImageSource = false
+                scaleFilePicker.launch(arrayOf("image/*"))
+            },
+        )
     }
 
     editorInitial?.let { initial ->
@@ -3648,8 +3717,12 @@ private fun FeedbackScreen(
 ) {
     var draft by rememberSaveable { mutableStateOf("") }
     var draftImageUri by rememberSaveable { mutableStateOf<String?>(null) }
+    var showFeedbackImageSource by rememberSaveable { mutableStateOf(false) }
     val imagePicker = rememberLauncherForActivityResult(
         ActivityResultContracts.PickVisualMedia(),
+    ) { uri -> draftImageUri = uri?.toString() }
+    val feedbackFilePicker = rememberLauncherForActivityResult(
+        ActivityResultContracts.OpenDocument(),
     ) { uri -> draftImageUri = uri?.toString() }
     Scaffold(
         modifier = Modifier.fillMaxSize(),
@@ -3682,9 +3755,7 @@ private fun FeedbackScreen(
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
                     IconButton(
-                        onClick = {
-                            imagePicker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
-                        },
+                        onClick = { showFeedbackImageSource = true },
                     ) {
                         Icon(Icons.Default.AddAPhoto, stringResource(R.string.attach_feedback_image))
                     }
@@ -3775,6 +3846,21 @@ private fun FeedbackScreen(
             item { Spacer(Modifier.height(8.dp)) }
         }
     }
+    if (showFeedbackImageSource) {
+        ImageSourceDialog(
+            title = stringResource(R.string.attach_feedback_image),
+            explanation = stringResource(R.string.choose_image_source_explanation),
+            onDismiss = { showFeedbackImageSource = false },
+            onPhotos = {
+                showFeedbackImageSource = false
+                imagePicker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
+            },
+            onFiles = {
+                showFeedbackImageSource = false
+                feedbackFilePicker.launch(arrayOf("image/*"))
+            },
+        )
+    }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -3820,6 +3906,9 @@ private fun TodayScreen(
     val selectedTotals = selectedEntries.fold(Nutrition.Zero) { total, entry -> total + entry.nutrition }
     val selectedFiberIncomplete = selectedEntries.any { it.nutrition.fiberGrams == null }
     val labelPhotoPicker = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
+        uri?.let { onScanNutritionLabel(it, query.trim()) }
+    }
+    val labelFilePicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         uri?.let { onScanNutritionLabel(it, query.trim()) }
     }
     val labelCamera = rememberLauncherForActivityResult(ActivityResultContracts.TakePicture()) { captured ->
@@ -4341,26 +4430,26 @@ private fun TodayScreen(
         )
     }
     if (showLabelSourceDialog) {
-        AlertDialog(
-            onDismissRequest = { showLabelSourceDialog = false },
-            title = { Text(stringResource(R.string.scan_nutrition_label)) },
-            text = { Text(stringResource(R.string.scan_label_explanation)) },
-            confirmButton = {
-                TextButton(onClick = {
-                    showLabelSourceDialog = false
-                    val directory = File(context.cacheDir, "label-captures").apply { mkdirs() }
-                    directory.listFiles()?.filter { it.name.startsWith("nutrition-label-") }?.forEach(File::delete)
-                    val file = File.createTempFile("nutrition-label-", ".jpg", directory)
-                    val uri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
-                    pendingCameraUri = uri.toString()
-                    labelCamera.launch(uri)
-                }) { Text(stringResource(R.string.take_photo)) }
+        ImageSourceDialog(
+            title = stringResource(R.string.scan_nutrition_label),
+            explanation = stringResource(R.string.scan_label_explanation),
+            onDismiss = { showLabelSourceDialog = false },
+            onCamera = {
+                showLabelSourceDialog = false
+                val directory = File(context.cacheDir, "label-captures").apply { mkdirs() }
+                directory.listFiles()?.filter { it.name.startsWith("nutrition-label-") }?.forEach(File::delete)
+                val file = File.createTempFile("nutrition-label-", ".jpg", directory)
+                val uri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
+                pendingCameraUri = uri.toString()
+                labelCamera.launch(uri)
             },
-            dismissButton = {
-                TextButton(onClick = {
-                    showLabelSourceDialog = false
-                    labelPhotoPicker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
-                }) { Text(stringResource(R.string.choose_photo)) }
+            onPhotos = {
+                showLabelSourceDialog = false
+                labelPhotoPicker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
+            },
+            onFiles = {
+                showLabelSourceDialog = false
+                labelFilePicker.launch(arrayOf("image/*"))
             },
         )
     }
