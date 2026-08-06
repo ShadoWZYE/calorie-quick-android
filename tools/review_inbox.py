@@ -11,12 +11,18 @@ from tkinter import filedialog, messagebox, ttk
 
 from review_inbox_core import (
     CLASSIFICATIONS,
-    DECISIONS,
-    PROMOTABLE_DECISIONS,
     SEVERITIES,
-    STATUSES,
     ReviewInboxStore,
 )
+
+SIMPLE_DECISIONS = [
+    ("Not decided", "UNDECIDED"),
+    ("Next", "ACCEPT_NEXT"),
+    ("Later", "ACCEPT_BACKLOG"),
+    ("Needs testing", "NEEDS_REPRODUCTION"),
+    ("Done", "RESOLVED"),
+]
+DECISION_LABELS = {value: label for label, value in SIMPLE_DECISIONS}
 
 DECISION_HELP = {
     "UNDECIDED": "No product decision yet. Add comments or corrections, then choose what should happen.",
@@ -62,8 +68,8 @@ class ReviewInboxApp(tk.Tk):
             guide,
             text=(
                 "Workflow: 1 Import a ZIP  →  2 choose a bundle  →  3 select a finding  →  "
-                "4 read the evidence and Codex analysis  →  5 choose a decision  →  "
-                "6 promote accepted items into a brief"
+                "4 read the evidence and Codex analysis  →  5 choose Next, Later, Needs testing, or Done  →  "
+                "6 create a brief from Next items"
             ),
             foreground="#444444",
         ).pack(anchor="w")
@@ -92,7 +98,7 @@ class ReviewInboxApp(tk.Tk):
         filter_box = ttk.Combobox(
             filter_row,
             textvariable=self.filter_value,
-            values=["All", "Needs decision", "Accepted", "Promoted", "Unresolved"],
+            values=["All", "Not decided", "Next", "Later", "Needs testing", "Done"],
             state="readonly",
             width=18,
         )
@@ -100,18 +106,14 @@ class ReviewInboxApp(tk.Tk):
         filter_box.bind("<<ComboboxSelected>>", lambda _event: self.refresh_items())
         tree_container = ttk.Frame(item_frame)
         tree_container.pack(fill=tk.BOTH, expand=True)
-        columns = ("source", "classification", "severity", "decision")
+        columns = ("source", "decision")
         self.item_tree = ttk.Treeview(tree_container, columns=columns, show="tree headings", selectmode="browse")
         self.item_tree.heading("#0", text="Title")
         self.item_tree.heading("source", text="Source")
-        self.item_tree.heading("classification", text="Class")
-        self.item_tree.heading("severity", text="Severity")
         self.item_tree.heading("decision", text="Decision")
-        self.item_tree.column("#0", width=290, minwidth=180)
+        self.item_tree.column("#0", width=390, minwidth=220)
         self.item_tree.column("source", width=105, minwidth=85)
-        self.item_tree.column("classification", width=95, minwidth=75)
-        self.item_tree.column("severity", width=80, minwidth=65)
-        self.item_tree.column("decision", width=150, minwidth=100)
+        self.item_tree.column("decision", width=115, minwidth=95)
         item_scroll = ttk.Scrollbar(tree_container, orient=tk.VERTICAL, command=self.item_tree.yview)
         item_horizontal_scroll = ttk.Scrollbar(tree_container, orient=tk.HORIZONTAL, command=self.item_tree.xview)
         self.item_tree.configure(yscrollcommand=item_scroll.set, xscrollcommand=item_horizontal_scroll.set)
@@ -148,13 +150,13 @@ class ReviewInboxApp(tk.Tk):
         self.title_value = tk.StringVar()
         self.classification_value = tk.StringVar()
         self.severity_value = tk.StringVar()
-        self.status_value = tk.StringVar()
         self.decision_value = tk.StringVar()
         self.target_value = tk.StringVar()
         self.reference_value = tk.StringVar()
-        self.promote_value = tk.BooleanVar()
         self.suggestion_value = tk.StringVar()
         self.decision_help_value = tk.StringVar()
+        self.advanced_button_value = tk.StringVar(value="Show advanced fields")
+        self.advanced_visible = False
         self.decision_value.trace_add("write", lambda *_args: self._update_decision_help())
 
         navigation = ttk.Frame(self.editor)
@@ -170,61 +172,103 @@ class ReviewInboxApp(tk.Tk):
             row=3, column=0, columnspan=4, sticky="w", pady=(0, 7),
         )
 
-        fields = [
-            ("Classification", self.classification_value, CLASSIFICATIONS, 4, 0),
-            ("Severity", self.severity_value, SEVERITIES, 4, 2),
-            ("Review progress", self.status_value, STATUSES, 6, 0),
-            ("What happens next", self.decision_value, DECISIONS, 6, 2),
-        ]
-        for label, variable, values, row, column in fields:
-            ttk.Label(self.editor, text=label).grid(row=row, column=column, columnspan=2, sticky="w", padx=(0, 5))
-            ttk.Combobox(self.editor, textvariable=variable, values=values, state="readonly").grid(
-                row=row + 1, column=column, columnspan=2, sticky="ew", padx=(0, 5), pady=(0, 7),
-            )
+        decision_frame = ttk.LabelFrame(self.editor, text="What should happen with this finding?", padding=7)
+        decision_frame.grid(row=4, column=0, columnspan=4, sticky="ew")
+        for index, (label, value) in enumerate(SIMPLE_DECISIONS):
+            ttk.Radiobutton(
+                decision_frame,
+                text=label,
+                value=value,
+                variable=self.decision_value,
+            ).grid(row=index // 3, column=index % 3, sticky="w", padx=(0, 16), pady=2)
 
         ttk.Label(
             self.editor,
             textvariable=self.decision_help_value,
             foreground="#444444",
             wraplength=560,
-        ).grid(row=8, column=0, columnspan=4, sticky="w", pady=(0, 9))
+        ).grid(row=5, column=0, columnspan=4, sticky="w", pady=(4, 9))
 
-        ttk.Label(self.editor, text="Target version (optional)").grid(row=9, column=0, sticky="w")
-        ttk.Entry(self.editor, textvariable=self.target_value).grid(row=10, column=0, columnspan=2, sticky="ew", padx=(0, 5))
-        ttk.Label(self.editor, text="Issue / commit / reference (optional)").grid(row=9, column=2, sticky="w")
-        ttk.Entry(self.editor, textvariable=self.reference_value).grid(row=10, column=2, columnspan=2, sticky="ew")
-
-        self.promote_check = ttk.Checkbutton(
-            self.editor,
-            text="Include this accepted item in the next implementation brief",
-            variable=self.promote_value,
-        )
-        self.promote_check.grid(row=11, column=0, columnspan=4, sticky="w", pady=8)
-
-        self.description_text = self._text_field(12, "Original evidence (read this first)", height=5)
-        self.analysis_text = self._text_field(14, "Codex analysis (diagnosis, not a product decision)", height=6)
-        self.rationale_text = self._text_field(16, "Why you chose this decision", height=4)
-        self.comments_text = self._text_field(18, "Your extra comments", height=5)
-        self.corrections_text = self._text_field(20, "Corrections or clarified expected behavior", height=5)
-        self.implementation_text = self._text_field(22, "Implementation notes and acceptance checks", height=6)
+        self.description_text = self._text_field(6, "Original evidence", height=5)
+        self.analysis_text = self._text_field(8, "Codex analysis", height=6)
+        self.comments_text = self._text_field(10, "Your note or correction", height=5)
 
         attachment_row = ttk.Frame(self.editor)
-        attachment_row.grid(row=24, column=0, columnspan=4, sticky="ew", pady=(8, 0))
+        attachment_row.grid(row=12, column=0, columnspan=4, sticky="ew", pady=(8, 0))
         self.attachment_label = ttk.Label(attachment_row, text="No attachment")
         self.attachment_label.pack(side=tk.LEFT, fill=tk.X, expand=True)
         self.open_attachment_button = ttk.Button(attachment_row, text="Open attachment", command=self.open_attachment)
         self.open_attachment_button.pack(side=tk.RIGHT)
+
+        ttk.Button(
+            self.editor,
+            textvariable=self.advanced_button_value,
+            command=self.toggle_advanced,
+        ).grid(row=13, column=0, columnspan=4, sticky="ew", pady=(10, 0))
+
+        self.advanced_frame = ttk.LabelFrame(self.editor, text="Advanced metadata", padding=7)
+        self.advanced_frame.grid(row=14, column=0, columnspan=4, sticky="ew", pady=(8, 0))
+        ttk.Label(self.advanced_frame, text="Classification").grid(row=0, column=0, sticky="w")
+        ttk.Combobox(
+            self.advanced_frame,
+            textvariable=self.classification_value,
+            values=CLASSIFICATIONS,
+            state="readonly",
+        ).grid(row=1, column=0, sticky="ew", padx=(0, 5))
+        ttk.Label(self.advanced_frame, text="Severity").grid(row=0, column=1, sticky="w")
+        ttk.Combobox(
+            self.advanced_frame,
+            textvariable=self.severity_value,
+            values=SEVERITIES,
+            state="readonly",
+        ).grid(row=1, column=1, sticky="ew")
+        ttk.Label(self.advanced_frame, text="Target version").grid(row=2, column=0, sticky="w", pady=(7, 0))
+        ttk.Entry(self.advanced_frame, textvariable=self.target_value).grid(row=3, column=0, sticky="ew", padx=(0, 5))
+        ttk.Label(self.advanced_frame, text="Issue / commit / reference").grid(row=2, column=1, sticky="w", pady=(7, 0))
+        ttk.Entry(self.advanced_frame, textvariable=self.reference_value).grid(row=3, column=1, sticky="ew")
+        self.rationale_text = self._text_field(4, "Decision rationale", height=3, parent=self.advanced_frame, columns=2)
+        self.corrections_text = self._text_field(6, "Structured correction", height=3, parent=self.advanced_frame, columns=2)
+        self.implementation_text = self._text_field(
+            8,
+            "Implementation or verification notes",
+            height=4,
+            parent=self.advanced_frame,
+            columns=2,
+        )
+        self.advanced_frame.columnconfigure(0, weight=1)
+        self.advanced_frame.columnconfigure(1, weight=1)
+        self.advanced_frame.grid_remove()
+
         ttk.Button(self.editor, text="Save this item", command=self.save_current).grid(
-            row=25, column=0, columnspan=4, sticky="ew", pady=(10, 0),
+            row=15, column=0, columnspan=4, sticky="ew", pady=(10, 0),
         )
         for column in range(4):
             self.editor.columnconfigure(column, weight=1)
 
-    def _text_field(self, row: int, label: str, height: int) -> tk.Text:
-        ttk.Label(self.editor, text=label).grid(row=row, column=0, columnspan=4, sticky="w", pady=(5, 0))
-        text = tk.Text(self.editor, height=height, wrap=tk.WORD, undo=True)
-        text.grid(row=row + 1, column=0, columnspan=4, sticky="nsew")
+    def _text_field(
+        self,
+        row: int,
+        label: str,
+        height: int,
+        parent=None,
+        columns: int = 4,
+    ) -> tk.Text:
+        parent = parent or self.editor
+        ttk.Label(parent, text=label).grid(row=row, column=0, columnspan=columns, sticky="w", pady=(5, 0))
+        text = tk.Text(parent, height=height, wrap=tk.WORD, undo=True)
+        text.grid(row=row + 1, column=0, columnspan=columns, sticky="nsew")
         return text
+
+    def toggle_advanced(self):
+        self.advanced_visible = not self.advanced_visible
+        if self.advanced_visible:
+            self.advanced_frame.grid()
+            self.advanced_button_value.set("Hide advanced fields")
+        else:
+            self.advanced_frame.grid_remove()
+            self.advanced_button_value.set("Show advanced fields")
+        self.editor.update_idletasks()
+        self.editor_canvas.configure(scrollregion=self.editor_canvas.bbox("all"))
 
     def _update_decision_help(self):
         self.decision_help_value.set(DECISION_HELP.get(self.decision_value.get(), "Choose what should happen next."))
@@ -264,9 +308,9 @@ class ReviewInboxApp(tk.Tk):
             "1. Import a review ZIP from a phone.\n\n"
             "2. Select its bundle, then select one finding.\n\n"
             "3. Read Original evidence and Codex analysis. The analysis is advice, not an automatic decision.\n\n"
-            "4. Choose a Decision. Add corrections or comments where needed.\n\n"
-            "5. For ACCEPT_NEXT or ACCEPT_BACKLOG, tick Include only if the item should appear in the exported brief.\n\n"
-            "6. Save changes, then create an implementation brief when your review is ready.",
+            "4. Choose Not decided, Next, Later, Needs testing, or Done. Add one note if useful.\n\n"
+            "5. Next items are included in the implementation brief automatically. Other decisions stay in the local inbox.\n\n"
+            "6. Save changes, then create a local implementation brief when the Next list is ready. Less-used metadata is under Advanced.",
         )
 
     def reload_reviews(self, select_hash: str | None = None):
@@ -323,23 +367,25 @@ class ReviewInboxApp(tk.Tk):
     def _visible_items(self) -> list[dict]:
         items = list((self.review or {}).get("items", []))
         selected_filter = self.filter_value.get()
-        if selected_filter == "Needs decision":
+        if selected_filter == "Not decided":
             return [item for item in items if item.get("decision") == "UNDECIDED"]
-        if selected_filter == "Accepted":
-            return [item for item in items if item.get("decision") in PROMOTABLE_DECISIONS]
-        if selected_filter == "Promoted":
-            return [item for item in items if item.get("promote")]
-        if selected_filter == "Unresolved":
-            return [item for item in items if item.get("status") not in {"RESOLVED", "CLOSED"}]
+        selected_decision = {
+            "Next": "ACCEPT_NEXT",
+            "Later": "ACCEPT_BACKLOG",
+            "Needs testing": "NEEDS_REPRODUCTION",
+            "Done": "RESOLVED",
+        }.get(selected_filter)
+        if selected_decision:
+            return [item for item in items if item.get("decision") == selected_decision]
         return items
 
     def refresh_items(self, select_id: str | None = None):
         self.item_tree.delete(*self.item_tree.get_children())
         for item in self._visible_items():
-            prefix = "★ " if item.get("promote") else ""
+            prefix = "→ " if item.get("decision") == "ACCEPT_NEXT" else ""
             self.item_tree.insert(
                 "", tk.END, iid=item["id"], text=prefix + item.get("title", "Untitled"),
-                values=(item.get("sourceType"), item.get("classification"), item.get("severity"), item.get("decision")),
+                values=(item.get("sourceType"), DECISION_LABELS.get(item.get("decision"), item.get("decision"))),
             )
         target = select_id if select_id in self.item_tree.get_children() else None
         if target is None and self.item_tree.get_children():
@@ -371,14 +417,11 @@ class ReviewInboxApp(tk.Tk):
         self.title_value.set(item.get("title", ""))
         self.classification_value.set(item.get("classification", "FEATURE"))
         self.severity_value.set(item.get("severity", "LOW"))
-        self.status_value.set(item.get("status", "NEW"))
         self.decision_value.set(item.get("decision", "UNDECIDED"))
         self.target_value.set(item.get("targetVersion", ""))
         self.reference_value.set(item.get("linkedReference", ""))
-        self.promote_value.set(bool(item.get("promote")))
         self.suggestion_value.set(
-            f"Automatic suggestion: {item.get('suggestedClassification')} / {item.get('suggestedSeverity')} · "
-            f"Source: {item.get('sourceType')}",
+            f"Source: {item.get('sourceType')} · classification details are under Advanced",
         )
         self._set_text(self.description_text, item.get("description", ""))
         self.description_text.configure(state=tk.NORMAL if item.get("sourceType") == "MANUAL" else tk.DISABLED)
@@ -396,11 +439,10 @@ class ReviewInboxApp(tk.Tk):
     def _clear_editor(self):
         self._loading = True
         for variable in (
-            self.title_value, self.classification_value, self.severity_value, self.status_value,
+            self.title_value, self.classification_value, self.severity_value,
             self.decision_value, self.target_value, self.reference_value, self.suggestion_value,
         ):
             variable.set("")
-        self.promote_value.set(False)
         self.position_value.set("No finding selected")
         for widget in (
             self.description_text, self.analysis_text, self.rationale_text, self.comments_text,
@@ -427,15 +469,23 @@ class ReviewInboxApp(tk.Tk):
     def save_editor(self):
         if self._loading or not self.item:
             return
+        decision = self.decision_value.get() or "UNDECIDED"
+        status = {
+            "UNDECIDED": "NEW",
+            "ACCEPT_NEXT": "READY",
+            "ACCEPT_BACKLOG": "TRIAGED",
+            "NEEDS_REPRODUCTION": "NEEDS_INFO",
+            "RESOLVED": "RESOLVED",
+        }.get(decision, "TRIAGED")
         self.item.update({
             "title": self.title_value.get().strip() or "Untitled",
             "classification": self.classification_value.get(),
             "severity": self.severity_value.get(),
-            "status": self.status_value.get(),
-            "decision": self.decision_value.get(),
+            "status": status,
+            "decision": decision,
             "targetVersion": self.target_value.get().strip(),
             "linkedReference": self.reference_value.get().strip(),
-            "promote": bool(self.promote_value.get()),
+            "promote": decision == "ACCEPT_NEXT",
             "rationale": self._get_text(self.rationale_text),
             "reviewerComments": self._get_text(self.comments_text),
             "corrections": self._get_text(self.corrections_text),
@@ -479,9 +529,12 @@ class ReviewInboxApp(tk.Tk):
 
     def export_brief(self):
         self.save_current(silent=True)
+        brief_directory = self.store.root / "briefs"
+        brief_directory.mkdir(parents=True, exist_ok=True)
         path = filedialog.asksaveasfilename(
-            title="Export implementation brief",
+            title="Create local implementation brief",
             defaultextension=".json",
+            initialdir=brief_directory,
             initialfile="calorie-quick-implementation-brief.json",
             filetypes=[("JSON and Markdown brief", "*.json")],
         )
@@ -489,10 +542,10 @@ class ReviewInboxApp(tk.Tk):
             return
         try:
             brief = self.store.export_implementation_brief(self.reviews, Path(path))
-            self.status_text.set(f"Exported {brief['itemCount']} promoted implementation item(s)")
+            self.status_text.set(f"Created a local brief with {brief['itemCount']} Next item(s)")
             messagebox.showinfo(
                 "Implementation brief created",
-                f"Created JSON and Markdown briefs with {brief['itemCount']} explicitly promoted item(s).",
+                f"Created local JSON and Markdown briefs with {brief['itemCount']} Next item(s).",
             )
         except Exception as exc:
             messagebox.showerror("Cannot export brief", str(exc))

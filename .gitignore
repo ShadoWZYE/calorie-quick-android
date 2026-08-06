@@ -13,3 +13,4 @@ captures/
 inst_user_settings.tmp
 __pycache__/
 *.pyc
+docs/calorie-quick-implementation-brief.*

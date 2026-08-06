@@ -84,14 +84,14 @@ class ReviewInboxStoreTest(unittest.TestCase):
             saved_feedback = next(item for item in duplicate["items"] if item["sourceType"] == "FEEDBACK")
             self.assertEqual("Reproduced on the test phone.", saved_feedback["reviewerComments"])
 
-    def test_brief_requires_explicit_acceptance_and_promotion(self):
+    def test_brief_contains_only_next_items(self):
         with tempfile.TemporaryDirectory() as folder:
             root = Path(folder)
             store = ReviewInboxStore(root / "inbox")
             review, _ = store.import_bundle(self.create_bundle(root))
             accepted, deferred = review["items"]
-            accepted.update(decision="ACCEPT_NEXT", promote=True, reviewerComments="Ship after regression test.")
-            deferred.update(decision="DEFERRED", promote=True)
+            accepted.update(decision="ACCEPT_NEXT", reviewerComments="Ship after regression test.")
+            deferred.update(decision="ACCEPT_BACKLOG", promote=True)
             output = root / "brief.json"
 
             brief = store.export_implementation_brief([review], output)

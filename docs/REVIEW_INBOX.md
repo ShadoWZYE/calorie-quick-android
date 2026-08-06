@@ -23,37 +23,22 @@ This directory is outside the Git repository. It can contain feedback text and s
 1. Select **Import review ZIP**. The existing safe parser validates paths, sizes, schemas, hashes, and image privacy before anything is added.
 2. Re-importing the same archive hash opens the existing review and preserves all reviewer edits.
 3. The inbox creates separate items for feedback messages, catalogue findings, failed scans, and sufficiently slow or failed performance operations.
-4. Automated classification and severity are suggestions only. Review and edit:
-   - classification and severity;
-   - workflow status and decision;
-   - the read-only Codex analysis, kept distinct from source evidence;
-   - decision rationale;
-   - target version and linked issue/commit;
-   - reviewer comments;
-   - corrections or clarified expected behavior;
-   - implementation notes and acceptance checks.
-5. Use **Add manual item** for conclusions that do not map cleanly to one imported record.
+4. Read the original evidence and the separate read-only Codex analysis, then choose **Not decided**, **Next**, **Later**, **Needs testing**, or **Done**. Add a note or correction when useful.
+5. **Next** items are included in the implementation brief automatically. Classification, severity, target/reference, structured corrections, and implementation notes remain available under **Advanced**.
+6. Use **Add a review item** for conclusions that do not map cleanly to one imported record.
 
 The right-hand review panel scrolls independently with the mouse wheel anywhere under the pointer. Use **Previous** and **Next** at its top to work through the currently filtered findings without returning to the list each time. The numbered header summarizes the intended flow, and **How this works** provides the same guidance inside the tool.
 
-## Decisions
+## Simple decisions
 
-- `ACCEPT_NEXT`: suitable for the next focused implementation batch.
-- `ACCEPT_BACKLOG`: accepted, but not scheduled immediately.
-- `NEEDS_REPRODUCTION`: evidence is insufficient to change the product safely.
-- `NEEDS_PRODUCT_DECISION`: valid request whose behavior or scope is unresolved.
-- `DEFERRED`: useful, but prerequisites or current priorities prevent work.
-- `DECLINED`: intentionally not planned; record the reason.
-- `DUPLICATE`: represented by another review item.
-- `RESOLVED`: already addressed and verified.
+- **Not decided**: no decision yet.
+- **Next**: include in the next focused implementation brief.
+- **Later**: accepted, but not scheduled now.
+- **Needs testing**: gather clearer reproduction evidence first.
+- **Done**: fixed and verified.
 
-## Promote toward implementation
+## Create the next implementation brief
 
-An item reaches the generated implementation brief only when both conditions are true:
+**Create implementation brief** writes matching JSON and Markdown files under the private local inbox by default. Only **Next** items are included. The files preserve the original evidence, Codex analysis, reviewer additions, corrections, target, and acceptance notes.
 
-1. its decision is `ACCEPT_NEXT` or `ACCEPT_BACKLOG`; and
-2. **Promote to the next generated implementation brief** is checked.
-
-**Export implementation brief** writes matching JSON and Markdown files. They preserve the original evidence, Codex analysis, reviewer additions, corrections, target, and acceptance notes. Deferred, undecided, declined, and unselected items are excluded even if parsing suggested a high severity.
-
-The brief is still a handoff artifact—not an automatic code change or external issue submission.
+The brief is a local working artifact—not an automatic code change or external issue submission.

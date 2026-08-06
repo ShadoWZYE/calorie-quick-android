@@ -15,9 +15,8 @@ from review_bundle_parser import inspect_bundle
 INBOX_SCHEMA = "calorie-quick-local-review-inbox"
 INBOX_SCHEMA_VERSION = 1
 BRIEF_SCHEMA = "calorie-quick-implementation-brief"
-PROMOTABLE_DECISIONS = {"ACCEPT_NEXT", "ACCEPT_BACKLOG"}
 
-CLASSIFICATIONS = ["BUG", "PERFORMANCE", "DATA", "OCR", "FEATURE", "QUESTION"]
+CLASSIFICATIONS = ["BUG", "UI_UX", "PERFORMANCE", "DATA", "OCR", "FEATURE", "QUESTION"]
 SEVERITIES = ["CRITICAL", "HIGH", "MEDIUM", "LOW"]
 STATUSES = ["NEW", "TRIAGED", "NEEDS_INFO", "READY", "IN_PROGRESS", "RESOLVED", "CLOSED"]
 DECISIONS = [
@@ -295,23 +294,23 @@ class ReviewInboxStore:
         return item
 
     def export_implementation_brief(self, reviews: list[dict[str, Any]], json_path: Path) -> dict[str, Any]:
-        promoted = []
+        next_items = []
         for review in reviews:
             for item in review.get("items", []):
-                if item.get("promote") and item.get("decision") in PROMOTABLE_DECISIONS:
-                    promoted.append({
+                if item.get("decision") == "ACCEPT_NEXT":
+                    next_items.append({
                         "bundleHash": review.get("bundleHash"),
                         "build": review.get("build"),
                         **deepcopy(item),
                     })
-        if not promoted:
-            raise ValueError("No items are both promoted and accepted for implementation.")
+        if not next_items:
+            raise ValueError("No review items are marked Next.")
         brief = {
             "schema": BRIEF_SCHEMA,
             "schemaVersion": 1,
             "generatedAt": _now(),
-            "itemCount": len(promoted),
-            "items": promoted,
+            "itemCount": len(next_items),
+            "items": next_items,
         }
         json_path = json_path.with_suffix(".json")
         json_path.write_text(json.dumps(brief, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
@@ -376,6 +375,7 @@ class ReviewInboxStore:
                 ("Corrections", "corrections"),
                 ("Implementation notes", "implementationNotes"),
             ):
-                lines.extend(["", f"### {heading}", "", item.get(key) or "None."])
+                if item.get(key):
+                    lines.extend(["", f"### {heading}", "", item[key]])
             lines.append("")
         return "\n".join(lines)
