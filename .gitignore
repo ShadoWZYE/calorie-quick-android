@@ -11,3 +11,5 @@ captures/
 *.jks
 *.keystore
 inst_user_settings.tmp
+__pycache__/
+*.pyc

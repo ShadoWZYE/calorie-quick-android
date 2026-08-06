@@ -16,6 +16,9 @@ data class SupportExportResult(
     val freezeCount: Int,
     val crashCount: Int,
     val hasFeedback: Boolean,
+    val feedbackCount: Int = 0,
+    val manifest: JSONObject? = null,
+    val media: List<ReviewBundleMedia> = emptyList(),
 )
 
 data class FeedbackMessage(
@@ -201,6 +204,7 @@ class SupportDiagnosticStore(private val context: Context) {
 
     fun appendTo(
         zip: ZipOutputStream,
+        mediaSanitizer: ReviewBundleMediaSanitizer,
         feedback: String = "",
         includeDiagnostics: Boolean = true,
         includeFreezeReports: Boolean = true,
@@ -234,12 +238,34 @@ class SupportDiagnosticStore(private val context: Context) {
                 createdAtEpochMillis = System.currentTimeMillis(),
             )
         } else emptyList()
+        val diagnosticMedia = reports.mapIndexedNotNull { index, (metadata, image) ->
+            mediaSanitizer.sanitize(
+                source = image,
+                bundlePathWithoutExtension = "support/images/$index-${metadata.optString("id").safeName()}",
+                role = "failed-scan",
+                ownerId = metadata.optString("id").takeIf(String::isNotBlank),
+            )
+        }
+        val feedbackMedia = feedbackThread.mapIndexedNotNull { index, message ->
+            val image = message.imageLocalPath?.let(::File)?.takeIf(File::isFile) ?: return@mapIndexedNotNull null
+            mediaSanitizer.sanitize(
+                source = image,
+                bundlePathWithoutExtension = "support/feedback-images/$index-${message.id.safeName()}",
+                role = "feedback-context",
+                ownerId = message.id,
+            )
+        }
+        val diagnosticMediaByOwner = diagnosticMedia.associateBy(ReviewBundleMedia::ownerId)
+        val feedbackMediaByOwner = feedbackMedia.associateBy(ReviewBundleMedia::ownerId)
         val manifest = JSONObject()
             .put("schema", "calorie-quick-support-bundle")
-            .put("schemaVersion", 5)
+            .put("schemaVersion", 6)
             .put("generatedAtEpochMillis", System.currentTimeMillis())
             .put("appVersion", BuildConfig.VERSION_NAME)
             .put("appVersionCode", BuildConfig.VERSION_CODE)
+            .put("buildId", BuildConfig.BUILD_ID)
+            .put("sourceCommit", BuildConfig.SOURCE_COMMIT)
+            .put("sourceDirty", BuildConfig.SOURCE_DIRTY)
             .put("androidSdk", Build.VERSION.SDK_INT)
             .put("deviceManufacturer", Build.MANUFACTURER)
             .put("deviceModel", Build.MODEL)
@@ -254,14 +280,20 @@ class SupportDiagnosticStore(private val context: Context) {
                             .put("createdAtEpochMillis", message.createdAtEpochMillis)
                             .put(
                                 "imageBundlePath",
-                                image?.let { "feedback-images/$index-${it.name.safeName()}" } ?: JSONObject.NULL,
-                            ),
+                                feedbackMediaByOwner[message.id]?.bundlePath ?: JSONObject.NULL,
+                            )
+                            .put("imageSanitizationFailed", image != null && feedbackMediaByOwner[message.id] == null),
                     )
                 }
             })
             .put("diagnostics", JSONArray().apply {
                 reports.forEachIndexed { index, (metadata, image) ->
-                    put(JSONObject(metadata.toString()).put("bundlePath", "images/$index-${image.name}"))
+                    val ownerId = metadata.optString("id").takeIf(String::isNotBlank)
+                    put(
+                        JSONObject(metadata.toString())
+                            .put("bundlePath", diagnosticMediaByOwner[ownerId]?.bundlePath ?: JSONObject.NULL)
+                            .put("imageSanitizationFailed", diagnosticMediaByOwner[ownerId] == null),
+                    )
                 }
             })
             .put("uiFreezes", JSONArray(freezeReports))
@@ -269,18 +301,20 @@ class SupportDiagnosticStore(private val context: Context) {
         zip.putNextEntry(ZipEntry("support/support.json"))
         zip.write(manifest.toString(2).toByteArray())
         zip.closeEntry()
-        reports.forEachIndexed { index, (_, image) ->
-            zip.putNextEntry(ZipEntry("support/images/$index-${image.name}"))
-            image.inputStream().use { it.copyTo(zip) }
+        (diagnosticMedia + feedbackMedia).forEach { media ->
+            zip.putNextEntry(ZipEntry(media.bundlePath))
+            media.file.inputStream().use { it.copyTo(zip) }
             zip.closeEntry()
         }
-        feedbackThread.forEachIndexed { index, message ->
-            val image = message.imageLocalPath?.let(::File)?.takeIf(File::isFile) ?: return@forEachIndexed
-            zip.putNextEntry(ZipEntry("support/feedback-images/$index-${image.name.safeName()}"))
-            image.inputStream().use { it.copyTo(zip) }
-            zip.closeEntry()
-        }
-        return SupportExportResult(reports.size, freezeReports.size, crashReports.size, feedbackThread.isNotEmpty())
+        return SupportExportResult(
+            diagnosticCount = reports.size,
+            freezeCount = freezeReports.size,
+            crashCount = crashReports.size,
+            hasFeedback = feedbackThread.isNotEmpty(),
+            feedbackCount = feedbackThread.size,
+            manifest = manifest,
+            media = diagnosticMedia + feedbackMedia,
+        )
     }
 
     private companion object {

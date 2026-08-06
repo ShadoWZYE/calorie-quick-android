@@ -455,6 +455,10 @@
     <string name="view_all_release_notes">View all release notes</string>
     <string name="continue_to_app">Continue</string>
     <string name="version_label">Version %1$s</string>
+    <string name="release_alpha06_title">Safer, traceable review exports</string>
+    <string name="release_alpha06_item_bundle">Review exports now include a versioned root manifest, explicit selection details, and integrity hashes for every image.</string>
+    <string name="release_alpha06_item_privacy">Exported review images are orientation-corrected, resized, and stripped of camera, location, and editing metadata.</string>
+    <string name="release_alpha06_item_identity">Every support bundle records the exact app build and source revision that produced it.</string>
     <string name="release_alpha05_title">Release notes are now built in</string>
     <string name="release_alpha05_item_changelog">Browse a permanent, offline What’s new history from Settings.</string>
     <string name="release_alpha05_item_prompt">See a concise summary once after each installed app upgrade.</string>

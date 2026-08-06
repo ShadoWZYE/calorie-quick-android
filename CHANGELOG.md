@@ -10,6 +10,18 @@ All notable user-facing changes to Calorie Quick are recorded here. The app is c
 - Wider physical-device and accessibility testing.
 - Continued catalogue coverage and image refinement based on field feedback.
 
+## [0.2.0-alpha06] - 2026-08-06
+
+### Added
+
+- Review-bundle schema v2 with a root manifest, explicit export selections, component versions, media roles, dimensions, byte counts, and SHA-256 hashes.
+- Exact build identity in review and support exports, including version, source revision, and dirty-state marker.
+- A local, non-importing review-bundle validator and report generator with legacy bundle support.
+
+### Security
+
+- Review-export images are orientation-corrected, bounded to 2048 pixels, flattened, and re-encoded so EXIF, XMP, GPS, camera, and editing metadata are not shared.
+
 ## [0.2.0-alpha05] - 2026-08-06
 
 ### Added
@@ -68,7 +80,8 @@ All notable user-facing changes to Calorie Quick are recorded here. The app is c
 - Macro, fiber, allergen, adaptive-goal, and custom-target support.
 - Personal catalogue images, reviewable exports, Romanian localization, and responsive mobile layouts.
 
-[Unreleased]: https://github.com/ShadoWZYE/calorie-quick-android/compare/v0.2.0-alpha05...HEAD
+[Unreleased]: https://github.com/ShadoWZYE/calorie-quick-android/compare/v0.2.0-alpha06...HEAD
+[0.2.0-alpha06]: https://github.com/ShadoWZYE/calorie-quick-android/compare/v0.2.0-alpha05...v0.2.0-alpha06
 [0.2.0-alpha05]: https://github.com/ShadoWZYE/calorie-quick-android/compare/v0.2.0-alpha04...v0.2.0-alpha05
 [0.2.0-alpha04]: https://github.com/ShadoWZYE/calorie-quick-android/compare/v0.2.0-alpha03...v0.2.0-alpha04
 [0.2.0-alpha03]: https://github.com/ShadoWZYE/calorie-quick-android/releases/tag/v0.2.0-alpha03

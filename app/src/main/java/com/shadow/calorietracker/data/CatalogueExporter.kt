@@ -2,6 +2,7 @@ package com.shadow.calorietracker.data
 
 import android.content.Context
 import android.net.Uri
+import com.shadow.calorietracker.BuildConfig
 import java.io.File
 import java.util.zip.ZipEntry
 import java.util.zip.ZipOutputStream
@@ -42,14 +43,20 @@ class CatalogueExporter(
         val ingredients = database.recipeDao().listAllIngredients().groupBy(RecipeIngredientEntity::batchId)
         val ingredientAllergens = database.recipeDao().listAllIngredientAllergens()
             .groupBy(RecipeIngredientAllergenEntity::recipeIngredientId)
-        val imageEntries = linkedMapOf<String, File>()
+        return ReviewBundleMediaSanitizer(context).use { mediaSanitizer ->
+        val imageEntries = linkedMapOf<String, ReviewBundleMedia>()
 
         val foodJson = JSONArray().apply {
             foods.forEach { row ->
                 val food = row.food
                 val imageEntry = food.imageLocalPath?.let { path ->
                     File(path).takeIf(File::isFile)?.let { file ->
-                        "images/${food.id.safeFileName()}.${file.extension.ifBlank { "jpg" }}".also { imageEntries[it] = file }
+                        mediaSanitizer.sanitize(
+                            source = file,
+                            bundlePathWithoutExtension = "catalogue/images/${food.id.safeFileName()}",
+                            role = "catalogue-food",
+                            ownerId = food.id,
+                        )?.also { imageEntries[food.id] = it }?.bundlePath
                     }
                 }
                 put(
@@ -64,6 +71,8 @@ class CatalogueExporter(
                         .put("category", food.categoryKey ?: JSONObject.NULL)
                         .put("aliases", JSONArray(row.aliases.map(FoodAliasEntity::value)))
                         .put("reviewStatus", food.reviewStatus)
+                        .put("reviewStatusAtExport", food.reviewStatus)
+                        .put("selectedForThisExport", true)
                         .put("image", imageJson(food, imageEntry))
                         .put("nutritionPer100g", nutritionJson(row))
                         .put("allergens", JSONArray().apply {
@@ -111,6 +120,8 @@ class CatalogueExporter(
                         .put("name", recipe.name)
                         .put("activeBatchId", recipe.activeBatchId)
                         .put("reviewStatus", recipe.reviewStatus)
+                        .put("reviewStatusAtExport", recipe.reviewStatus)
+                        .put("selectedForThisExport", true)
                         .put("batches", JSONArray().apply {
                             batches[recipe.foodId].orEmpty().forEach { batch ->
                                 put(
@@ -147,10 +158,11 @@ class CatalogueExporter(
             }
         }
 
+        val generatedAt = System.currentTimeMillis()
         val manifest = JSONObject()
             .put("schema", "calorie-quick-personal-catalogue")
-            .put("schemaVersion", 1)
-            .put("generatedAtEpochMillis", System.currentTimeMillis())
+            .put("schemaVersion", 2)
+            .put("generatedAtEpochMillis", generatedAt)
             .put("foods", foodJson)
             .put("recipes", recipeJson)
 
@@ -160,26 +172,60 @@ class CatalogueExporter(
                 zip.putNextEntry(ZipEntry("catalogue/catalogue.json"))
                 zip.write(manifest.toString(2).toByteArray())
                 zip.closeEntry()
-                imageEntries.forEach { (entryName, file) ->
-                    zip.putNextEntry(ZipEntry("catalogue/$entryName"))
-                    file.inputStream().use { it.copyTo(zip) }
+                imageEntries.values.forEach { media ->
+                    zip.putNextEntry(ZipEntry(media.bundlePath))
+                    media.file.inputStream().use { it.copyTo(zip) }
                     zip.closeEntry()
                 }
                 supportResult = supportDiagnostics.appendTo(
                     zip,
+                    mediaSanitizer = mediaSanitizer,
                     feedback = feedback,
                     includeDiagnostics = includeDiagnostics,
                     includeFreezeReports = includeFreezeReports,
                     includeCrashReports = includeCrashReports,
                     includeFeedback = includeFeedback,
                 )
+                val allMedia = imageEntries.values + supportResult.media
+                val bundleManifest = JSONObject()
+                    .put("schema", "calorie-quick-review-bundle")
+                    .put("schemaVersion", 2)
+                    .put("generatedAtEpochMillis", generatedAt)
+                    .put("app", JSONObject()
+                        .put("versionName", BuildConfig.VERSION_NAME)
+                        .put("versionCode", BuildConfig.VERSION_CODE)
+                        .put("buildId", BuildConfig.BUILD_ID)
+                        .put("sourceCommit", BuildConfig.SOURCE_COMMIT)
+                        .put("sourceDirty", BuildConfig.SOURCE_DIRTY))
+                    .put("selection", JSONObject()
+                        .put("foodCount", foodJson.length())
+                        .put("recipeCount", recipeJson.length())
+                        .put("includeDiagnostics", includeDiagnostics)
+                        .put("includeFreezeReports", includeFreezeReports)
+                        .put("includeCrashReports", includeCrashReports)
+                        .put("includeFeedback", includeFeedback))
+                    .put("components", JSONArray()
+                        .put(JSONObject()
+                            .put("kind", "catalogue")
+                            .put("path", "catalogue/catalogue.json")
+                            .put("schemaVersion", 2)
+                            .put("recordCount", foodJson.length() + recipeJson.length()))
+                        .put(JSONObject()
+                            .put("kind", "support")
+                            .put("path", "support/support.json")
+                            .put("schemaVersion", 6)
+                            .put("recordCount", supportResult.diagnosticCount + supportResult.freezeCount + supportResult.crashCount + supportResult.feedbackCount)))
+                    .put("media", JSONArray(allMedia.map(ReviewBundleMedia::toJson)))
+                zip.putNextEntry(ZipEntry("bundle.json"))
+                zip.write(bundleManifest.toString(2).toByteArray())
+                zip.closeEntry()
             }
         }
         val foodIds = foods.map { it.food.id }
         if (foodIds.isNotEmpty()) database.foodDao().markExported(foodIds)
         val recipeIds = recipes.map(RecipeEntity::foodId)
         if (recipeIds.isNotEmpty()) database.recipeDao().markExported(recipeIds)
-        return CatalogueExportResult(
+        CatalogueExportResult(
             itemCount = foodJson.length() + recipeJson.length(),
             imageCount = imageEntries.size,
             diagnosticCount = supportResult.diagnosticCount,
@@ -187,6 +233,7 @@ class CatalogueExporter(
             crashCount = supportResult.crashCount,
             hasFeedback = supportResult.hasFeedback,
         )
+        }
     }
 
     private fun nutritionJson(row: FoodWithServings): JSONObject {

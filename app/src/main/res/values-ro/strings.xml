@@ -460,6 +460,10 @@
     <string name="view_all_release_notes">Vezi toate notele de versiune</string>
     <string name="continue_to_app">Continuă</string>
     <string name="version_label">Versiunea %1$s</string>
+    <string name="release_alpha06_title">Exporturi pentru verificare mai sigure și trasabile</string>
+    <string name="release_alpha06_item_bundle">Exporturile includ acum un manifest-rădăcină versionat, selecția explicită și amprente de integritate pentru fiecare imagine.</string>
+    <string name="release_alpha06_item_privacy">Imaginile exportate sunt orientate corect, redimensionate și curățate de date despre cameră, locație și editare.</string>
+    <string name="release_alpha06_item_identity">Fiecare pachet de asistență înregistrează versiunea exactă a aplicației și revizia sursă care l-a creat.</string>
     <string name="release_alpha05_title">Notele de versiune sunt acum în aplicație</string>
     <string name="release_alpha05_item_changelog">Consultă oricând istoricul offline „Noutăți” din Setări.</string>
     <string name="release_alpha05_item_prompt">Primești un rezumat scurt o singură dată după fiecare actualizare instalată.</string>

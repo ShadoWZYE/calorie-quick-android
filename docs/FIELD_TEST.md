@@ -5,12 +5,22 @@
 Build `app/build/outputs/apk/debug/CalorieQuick-<version>-debug.apk` with the release gate in `docs/TESTING.md`, enable USB debugging on the test phone, then run:
 
 ```powershell
-adb install -r app/build/outputs/apk/debug/CalorieQuick-0.2.0-alpha05-debug.apk
+adb install -r app/build/outputs/apk/debug/CalorieQuick-0.2.0-alpha06-debug.apk
 ```
 
 `-r` preserves an existing installation's private data. Do not uninstall the app between updates. Keep the same application ID and signing identity throughout the test.
 
 Follow the versioning, signing, migration, and handoff rules in [UPDATES.md](UPDATES.md) for every tester update.
+
+## Inspect a review export
+
+The local validator supports both legacy exports and review-bundle schema v2. It validates paths, sizes, component schemas, image metadata, and v2 media hashes without importing data or extracting images:
+
+```powershell
+python tools/review_bundle_parser.py "C:\path\to\calorie-quick-review.zip" --output-dir build\reports\review-bundles
+```
+
+It writes a JSON report for tooling and a privacy-conscious Markdown summary that omits feedback text and image contents.
 
 ## Tester expectations
 

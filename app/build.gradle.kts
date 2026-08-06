@@ -4,6 +4,19 @@ plugins {
     id("org.jetbrains.kotlin.plugin.compose")
 }
 
+fun gitValue(vararg arguments: String): String = runCatching {
+    providers.exec {
+        commandLine("git", *arguments)
+        isIgnoreExitValue = true
+    }.standardOutput.asText.get().trim()
+}.getOrDefault("")
+
+val sourceCommit = gitValue("rev-parse", "HEAD").ifBlank { "unknown" }
+val sourceDirty = gitValue("status", "--porcelain").isNotBlank()
+val releaseVersionName = "0.2.0-alpha06"
+val releaseVersionCode = 7
+val exactBuildId = "$releaseVersionName+$releaseVersionCode-${sourceCommit.take(12)}${if (sourceDirty) "-dirty" else ""}"
+
 android {
     namespace = "com.shadow.calorietracker"
     compileSdk = 37
@@ -12,8 +25,12 @@ android {
         applicationId = "com.shadow.calorietracker"
         minSdk = 23
         targetSdk = 37
-        versionCode = 6
-        versionName = "0.2.0-alpha05"
+        versionCode = releaseVersionCode
+        versionName = releaseVersionName
+
+        buildConfigField("String", "SOURCE_COMMIT", "\"$sourceCommit\"")
+        buildConfigField("boolean", "SOURCE_DIRTY", sourceDirty.toString())
+        buildConfigField("String", "BUILD_ID", "\"$exactBuildId\"")
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -54,6 +71,7 @@ dependencies {
 
     implementation("androidx.activity:activity-compose:1.13.0")
     implementation("androidx.appcompat:appcompat:1.7.1")
+    implementation("androidx.exifinterface:exifinterface:1.4.2")
     implementation("androidx.compose.foundation:foundation")
     implementation("androidx.compose.material3:material3")
     implementation("androidx.compose.material:material-icons-extended")
