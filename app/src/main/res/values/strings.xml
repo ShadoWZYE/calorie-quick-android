@@ -19,6 +19,7 @@
     <string name="retry">Retry</string>
     <string name="lookup_barcode">Look up barcode</string>
     <string name="search_open_food_facts">Search Open Food Facts</string>
+    <string name="open_food_facts_unavailable">Open Food Facts search is temporarily unavailable. Barcode lookup may still work; try text search again later.</string>
     <string name="open_food_facts_results">Open Food Facts</string>
     <string name="open_food_facts_error">Open Food Facts could not be reached. Check your connection and try again.</string>
     <string name="open_food_facts_rate_limited">Open Food Facts is receiving too many requests. Please wait a moment and retry.</string>
@@ -372,7 +373,7 @@
     <string name="catalogue_export_success">Exported %1$d records and %2$d images.</string>
     <string name="catalogue_export_empty">Export created, but no items were opted in. Enable “Include in review export” while editing a food or recipe.</string>
     <string name="catalogue_export_error">The export could not be created. Choose another location and try again.</string>
-    <string name="review_bundle_export_success">Exported %1$d catalogue records, %2$d catalogue images, and %3$d flagged scans.</string>
+    <string name="review_bundle_export_success">Exported %1$d catalogue records, %2$d catalogue images, %3$d flagged scans, and %4$d UI freeze reports.</string>
     <string name="feedback_optional">Feedback (optional)</string>
     <string name="feedback">Feedback</string>
     <string name="feedback_message">Write a message</string>
@@ -390,17 +391,27 @@
     <string name="nutrition_and_measures">Nutrition and measures</string>
     <string name="support_data">Support data</string>
     <string name="flagged_scan_images">Flagged scan images</string>
+    <string name="ui_freeze_reports">UI freeze reports</string>
     <string name="feedback_thread">Feedback thread</string>
     <string name="item_count">%1$d items</string>
     <string name="message_count">%1$d messages</string>
     <string name="continue_to_save">Continue to save</string>
+    <string name="custom_goal_change_title">Update custom targets?</string>
+    <string name="custom_goal_change_explanation">Your goal is changing to %1$s. Recalculate calories and macros for that goal, or keep the custom values you entered?</string>
+    <string name="recalculate_custom_targets">Recalculate</string>
+    <string name="keep_custom_targets">Keep current values</string>
+    <string name="custom_targets_large_difference">Large difference from the current estimate</string>
+    <string name="custom_targets_large_difference_hint">Custom targets are allowed. Review these differences to make sure they are intentional.</string>
     <plurals name="recipe_ingredient_count">
         <item quantity="one">%1$d ingredient</item>
         <item quantity="other">%1$d ingredients</item>
     </plurals>
     <string name="saved_scan_diagnostics">%1$d flagged scan images saved on this device</string>
+    <string name="saved_freeze_diagnostics">%1$d UI freeze reports saved on this device</string>
     <string name="delete_saved_diagnostics">Delete flagged scans</string>
     <string name="delete_saved_diagnostics_confirm">Permanently delete all scan images currently flagged for review?</string>
+    <string name="delete_saved_freezes">Delete UI freeze reports</string>
+    <string name="delete_saved_freezes_confirm">Permanently delete all recorded UI freeze reports?</string>
     <string name="delete">Delete</string>
     <string name="flag_failed_scan">Flag image for review export</string>
     <string name="scan_saved_for_support">Image flagged. It will be included in the next review export.</string>

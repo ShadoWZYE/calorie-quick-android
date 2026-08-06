@@ -97,9 +97,18 @@ data class ServingEntity(
     val foodId: String,
     val labelEn: String,
     val labelRo: String,
-    val grams: Int,
+    val grams: Double,
     val isPackage: Boolean = false,
-)
+) {
+    constructor(
+        id: String,
+        foodId: String,
+        labelEn: String,
+        labelRo: String,
+        grams: Int,
+        isPackage: Boolean = false,
+    ) : this(id, foodId, labelEn, labelRo, grams.toDouble(), isPackage)
+}
 
 @Entity(tableName = "serving_presets", indices = [Index("servingId")])
 data class ServingPresetEntity(

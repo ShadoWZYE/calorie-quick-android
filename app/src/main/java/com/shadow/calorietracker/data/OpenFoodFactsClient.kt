@@ -1,5 +1,6 @@
 package com.shadow.calorietracker.data
 
+import com.shadow.calorietracker.BuildConfig
 import com.shadow.calorietracker.model.Allergen
 import com.shadow.calorietracker.model.AllergenDeclaration
 import com.shadow.calorietracker.model.Food
@@ -15,6 +16,7 @@ import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
 import kotlin.math.roundToInt
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
 import org.json.JSONObject
@@ -28,7 +30,7 @@ class OpenFoodFactsClient(
         val encodedQuery = URLEncoder.encode(query.trim(), StandardCharsets.UTF_8.toString())
         val url = "$BASE_URL/cgi/search.pl?action=process&search_terms=$encodedQuery&json=1&page_size=20" +
             "&fields=$PRODUCT_FIELDS"
-        val root = requireNotNull(requestJson(url, locale))
+        val root = requireNotNull(requestJsonWithRetry(url, locale))
         root.optJSONArray("products").orEmptyObjects().mapNotNull(::parseProduct)
             .distinctBy { it.barcode ?: it.id }
     }
@@ -37,7 +39,7 @@ class OpenFoodFactsClient(
         val normalized = barcode.filter(Char::isDigit)
         require(normalized.length in 8..14) { "Invalid barcode" }
         val url = "$BASE_URL/api/v3/product/$normalized?fields=$PRODUCT_FIELDS&lc=$locale"
-        val root = requestJson(url, locale, allowNotFound = true) ?: return@withContext null
+        val root = requestJsonWithRetry(url, locale, allowNotFound = true) ?: return@withContext null
         if (root.optString("status") == "failure") return@withContext null
         root.optJSONObject("product")?.let(::parseProduct)
     }
@@ -54,6 +56,7 @@ class OpenFoodFactsClient(
             val status = connection.responseCode
             if (allowNotFound && status == HttpURLConnection.HTTP_NOT_FOUND) return null
             if (status == 429) throw OpenFoodFactsException.RateLimited
+            if (status in listOf(502, 503, 504)) throw OpenFoodFactsException.ServiceUnavailable
             if (status !in 200..299) throw IOException("Open Food Facts returned HTTP $status")
             connection.inputStream.bufferedReader().use { JSONObject(it.readText()) }
         } finally {
@@ -61,10 +64,26 @@ class OpenFoodFactsClient(
         }
     }
 
+    private suspend fun requestJsonWithRetry(
+        url: String,
+        locale: String,
+        allowNotFound: Boolean = false,
+    ): JSONObject? {
+        repeat(2) { attempt ->
+            try {
+                return requestJson(url, locale, allowNotFound)
+            } catch (error: OpenFoodFactsException.ServiceUnavailable) {
+                if (attempt == 1) throw error
+                delay(750)
+            }
+        }
+        error("unreachable")
+    }
+
     companion object {
         private const val BASE_URL = "https://world.openfoodfacts.org"
-        private const val USER_AGENT =
-            "CalorieQuick/0.1.0 (https://github.com/ShadoWZYE/calorie-quick-android)"
+        private val USER_AGENT =
+            "CalorieQuick/${BuildConfig.VERSION_NAME} (https://github.com/ShadoWZYE/calorie-quick-android)"
         private const val PRODUCT_FIELDS =
             "code,product_name,product_name_en,product_name_ro,brands,nutriments," +
                 "allergens_tags,traces_tags,quantity,product_quantity,product_quantity_unit," +
@@ -167,6 +186,7 @@ class OpenFoodFactsClient(
 
 sealed class OpenFoodFactsException(message: String) : IOException(message) {
     data object RateLimited : OpenFoodFactsException("Open Food Facts rate limit reached")
+    data object ServiceUnavailable : OpenFoodFactsException("Open Food Facts is temporarily unavailable")
 }
 
 private fun JSONObject.finiteDouble(key: String): Double? = optDoubleOrNull(key)?.takeIf(Double::isFinite)

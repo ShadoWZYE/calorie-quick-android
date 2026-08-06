@@ -115,4 +115,31 @@ class QuantityPresetsTest {
             presets.map { it.label },
         )
     }
+
+    @Test
+    fun millilitresReadAsAUnitWithoutMultiplicationNotation() {
+        val coffee = Food(
+            id = "coffee",
+            names = LocalizedText("Coffee", "Cafea"),
+            details = LocalizedText("Brewed", "Preparată"),
+            nutritionPer100g = Nutrition(1, 0.1, 0.0, 0.0),
+            servings = listOf(
+                Serving(
+                    "coffee-millilitre",
+                    LocalizedText("ml", "ml"),
+                    1.0,
+                    listOf(100.0, 200.0),
+                ),
+            ),
+        )
+
+        val presets = buildQuantityPresets(
+            buildUnitChoices(coffee, emptyList(), Locale.ENGLISH, "g"),
+            emptyList(),
+            Locale.ENGLISH,
+            "g",
+        )
+
+        assertEquals(listOf("ml · 1 g", "100 ml · 100 g", "200 ml · 200 g", "100 g"), presets.map { it.label })
+    }
 }

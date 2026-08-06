@@ -47,10 +47,18 @@ data class LocalizedText(val en: String, val ro: String) {
 data class Serving(
     val id: String,
     val label: LocalizedText,
-    val grams: Int,
+    val grams: Double,
     val suggestedAmounts: List<Double> = emptyList(),
     val isPackage: Boolean = false,
-)
+) {
+    constructor(
+        id: String,
+        label: LocalizedText,
+        grams: Int,
+        suggestedAmounts: List<Double> = emptyList(),
+        isPackage: Boolean = false,
+    ) : this(id, label, grams.toDouble(), suggestedAmounts, isPackage)
+}
 
 enum class FoodImageSource { BUNDLED, LOCAL, REMOTE }
 enum class ReviewStatus { PRIVATE, READY_FOR_REVIEW, EXPORTED }
@@ -288,7 +296,7 @@ data class MacroOverage(
 )
 
 fun Food.projectedMacroOverages(totals: Nutrition, profile: UserProfile): List<MacroOverage> {
-    val comparisonGrams = servings.firstOrNull()?.grams ?: 100
+    val comparisonGrams = (servings.firstOrNull()?.grams ?: 100.0).roundToInt()
     val added = nutritionPer100g.forGrams(comparisonGrams)
     return listOf(
         MacroOverage(MacroKind.PROTEIN, added.proteinGrams, comparisonGrams) to

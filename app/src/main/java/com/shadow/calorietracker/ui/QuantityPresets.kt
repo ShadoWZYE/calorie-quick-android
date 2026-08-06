@@ -65,7 +65,7 @@ fun buildQuantityPresets(
 }
 
 private fun UnitChoice.toPreset(amount: Double, locale: Locale, gramsLabel: String): QuantityPreset {
-    val grams = (amount * (serving?.grams ?: 1)).roundToInt()
+    val grams = (amount * (serving?.grams ?: 1.0)).roundToInt()
     val formattedAmount = when {
         abs(amount - 0.5) < 0.000_001 -> "½"
         abs(amount - (1.0 / 3.0)) < 0.001 -> "⅓"
@@ -74,6 +74,8 @@ private fun UnitChoice.toPreset(amount: Double, locale: Locale, gramsLabel: Stri
     }
     val label = when {
         serving == null -> "$formattedAmount $gramsLabel"
+        this.label.equals("ml", ignoreCase = true) && amount != 1.0 ->
+            "$formattedAmount ml · $grams $gramsLabel"
         amount == 1.0 -> "$label · $grams $gramsLabel"
         else -> "$formattedAmount × $label · $grams $gramsLabel"
     }

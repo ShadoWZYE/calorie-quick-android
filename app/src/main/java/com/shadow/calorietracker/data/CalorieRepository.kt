@@ -362,7 +362,7 @@ class CalorieRepository(
         recipeBatchId: String? = null,
         consumedAtEpochMillis: Long = System.currentTimeMillis(),
     ) {
-        val grams = (amount * (serving?.grams ?: 1)).roundToInt().coerceIn(1, 5_000)
+        val grams = (amount * (serving?.grams ?: 1.0)).roundToInt().coerceIn(1, 5_000)
         val interactionAt = System.currentTimeMillis()
         val amountMilliUnits = (amount * 1_000).roundToInt().toLong()
         val unitKey = serving?.id ?: GRAMS_UNIT_KEY

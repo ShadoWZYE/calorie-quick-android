@@ -78,7 +78,7 @@ private data class UsageAndRecipeState(
     val preparationUsage: List<PreparationUsage>,
 )
 
-enum class FoodLookupStatus { IDLE, SEARCHING, SUCCESS, ERROR, RATE_LIMITED }
+enum class FoodLookupStatus { IDLE, SEARCHING, SUCCESS, ERROR, RATE_LIMITED, SERVICE_UNAVAILABLE }
 
 data class FoodLookupState(
     val query: String = "",
@@ -113,6 +113,7 @@ data class CatalogueExportState(
 
 data class SupportExportState(
     val savedDiagnosticCount: Int = 0,
+    val savedFreezeCount: Int = 0,
 )
 
 class CalorieViewModel(application: Application) : AndroidViewModel(application) {
@@ -125,7 +126,10 @@ class CalorieViewModel(application: Application) : AndroidViewModel(application)
     private val _catalogueExportState = MutableStateFlow(CatalogueExportState())
     val catalogueExportState: StateFlow<CatalogueExportState> = _catalogueExportState.asStateFlow()
     private val _supportExportState = MutableStateFlow(
-        SupportExportState(savedDiagnosticCount = supportDiagnostics.count()),
+        SupportExportState(
+            savedDiagnosticCount = supportDiagnostics.count(),
+            savedFreezeCount = supportDiagnostics.freezeCount(),
+        ),
     )
     val supportExportState: StateFlow<SupportExportState> = _supportExportState.asStateFlow()
     private val _feedbackMessages = MutableStateFlow(supportDiagnostics.feedbackMessages())
@@ -269,6 +273,7 @@ class CalorieViewModel(application: Application) : AndroidViewModel(application)
         selectedFoodIds: Set<String>? = null,
         selectedRecipeIds: Set<String>? = null,
         includeDiagnostics: Boolean = true,
+        includeFreezeReports: Boolean = true,
         includeFeedback: Boolean = true,
     ) {
         _catalogueExportState.value = CatalogueExportState(CatalogueExportStatus.EXPORTING)
@@ -281,6 +286,7 @@ class CalorieViewModel(application: Application) : AndroidViewModel(application)
                         selectedFoodIds = selectedFoodIds,
                         selectedRecipeIds = selectedRecipeIds,
                         includeDiagnostics = includeDiagnostics,
+                        includeFreezeReports = includeFreezeReports,
                         includeFeedback = includeFeedback,
                     ),
                 )
@@ -322,6 +328,8 @@ class CalorieViewModel(application: Application) : AndroidViewModel(application)
                 )
             } catch (_: OpenFoodFactsException.RateLimited) {
                 FoodLookupState(normalized, FoodLookupStatus.RATE_LIMITED)
+            } catch (_: OpenFoodFactsException.ServiceUnavailable) {
+                FoodLookupState(normalized, FoodLookupStatus.SERVICE_UNAVAILABLE)
             } catch (error: Exception) {
                 Log.w("OpenFoodFacts", "Search failed", error)
                 FoodLookupState(normalized, FoodLookupStatus.ERROR)
@@ -347,6 +355,8 @@ class CalorieViewModel(application: Application) : AndroidViewModel(application)
                 )
             } catch (_: OpenFoodFactsException.RateLimited) {
                 FoodLookupState(normalized, FoodLookupStatus.RATE_LIMITED, isBarcodeLookup = true)
+            } catch (_: OpenFoodFactsException.ServiceUnavailable) {
+                FoodLookupState(normalized, FoodLookupStatus.SERVICE_UNAVAILABLE, isBarcodeLookup = true)
             } catch (error: Exception) {
                 Log.w("OpenFoodFacts", "Barcode lookup failed", error)
                 FoodLookupState(normalized, FoodLookupStatus.ERROR, isBarcodeLookup = true)
@@ -397,12 +407,22 @@ class CalorieViewModel(application: Application) : AndroidViewModel(application)
 
     fun clearSavedDiagnostics() {
         supportDiagnostics.clear()
-        _supportExportState.value = SupportExportState(savedDiagnosticCount = 0)
+        refreshSupportState()
     }
 
-    private fun refreshSupportCount() {
-        _supportExportState.value = _supportExportState.value.copy(savedDiagnosticCount = supportDiagnostics.count())
+    fun clearSavedFreezeReports() {
+        supportDiagnostics.clearFreezes()
+        refreshSupportState()
     }
+
+    fun refreshSupportState() {
+        _supportExportState.value = SupportExportState(
+            savedDiagnosticCount = supportDiagnostics.count(),
+            savedFreezeCount = supportDiagnostics.freezeCount(),
+        )
+    }
+
+    private fun refreshSupportCount() = refreshSupportState()
 
     override fun onCleared() {
         nutritionLabelOcr.close()

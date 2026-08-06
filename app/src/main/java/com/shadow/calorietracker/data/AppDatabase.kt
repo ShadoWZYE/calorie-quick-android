@@ -27,7 +27,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         PreparationUsageEntity::class,
         FoodAliasEntity::class,
     ],
-    version = 14,
+    version = 15,
     exportSchema = true,
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -62,6 +62,7 @@ abstract class AppDatabase : RoomDatabase() {
                 MIGRATION_11_12,
                 MIGRATION_12_13,
                 MIGRATION_13_14,
+                MIGRATION_14_15,
             ).build().also { instance = it }
         }
 
@@ -334,6 +335,23 @@ abstract class AppDatabase : RoomDatabase() {
                         "id TEXT NOT NULL, foodId TEXT NOT NULL, value TEXT NOT NULL, PRIMARY KEY(id))",
                 )
                 db.execSQL("CREATE INDEX IF NOT EXISTS index_food_aliases_foodId ON food_aliases(foodId)")
+            }
+        }
+
+        private val MIGRATION_14_15 = object : Migration(14, 15) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "CREATE TABLE servings_new (" +
+                        "id TEXT NOT NULL, foodId TEXT NOT NULL, labelEn TEXT NOT NULL, labelRo TEXT NOT NULL, " +
+                        "grams REAL NOT NULL, isPackage INTEGER NOT NULL, PRIMARY KEY(id))",
+                )
+                db.execSQL(
+                    "INSERT INTO servings_new (id, foodId, labelEn, labelRo, grams, isPackage) " +
+                        "SELECT id, foodId, labelEn, labelRo, CAST(grams AS REAL), isPackage FROM servings",
+                )
+                db.execSQL("DROP TABLE servings")
+                db.execSQL("ALTER TABLE servings_new RENAME TO servings")
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_servings_foodId ON servings(foodId)")
             }
         }
     }

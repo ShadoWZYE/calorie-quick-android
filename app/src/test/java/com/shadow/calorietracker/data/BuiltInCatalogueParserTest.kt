@@ -21,7 +21,13 @@ class BuiltInCatalogueParserTest {
         assertTrue(catalogue.foods.any { it.id == "eggs" && it.preparations.size >= 2 })
         assertTrue(catalogue.foods.any { it.id == "telemea" && "branza telemea" in it.aliases })
         assertTrue(catalogue.foods.any { it.id == "sarmale" && it.categoryKey == "prepared-meals" })
-        assertTrue(catalogue.foods.any { it.id == "black-coffee" && it.servings.any { serving -> serving.grams == 240 } })
+        assertTrue(catalogue.foods.any { it.id == "black-coffee" && it.servings.any { serving -> serving.grams == 240.0 } })
+        assertTrue(catalogue.foods.any { it.id == "black-coffee" && it.servings.any { serving -> serving.labels.en == "ml" } })
+        assertEquals(
+            0.92,
+            catalogue.foods.first { it.id == "olive-oil" }.servings.first { it.labels.en == "ml" }.grams,
+            0.001,
+        )
         assertTrue(catalogue.foods.any { it.id == "salt" && it.servings.any { serving -> serving.id == "salt-teaspoon" } })
         assertTrue(catalogue.foods.any { it.id == "green-olives" && "olives" in it.aliases })
         assertTrue(catalogue.foods.any { it.id == "wheat-flour" && "faina alba" in it.aliases })

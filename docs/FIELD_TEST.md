@@ -10,6 +10,8 @@ adb install -r app/build/outputs/apk/debug/app-debug.apk
 
 `-r` preserves an existing installation's private data. Do not uninstall the app between updates. Keep the same application ID and signing identity throughout the test.
 
+Follow the versioning, signing, migration, and handoff rules in [UPDATES.md](UPDATES.md) for every tester update.
+
 ## Tester expectations
 
 - This is a private alpha, not medical advice and not a public-store release.

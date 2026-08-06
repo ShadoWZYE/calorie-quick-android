@@ -19,6 +19,7 @@
     <string name="retry">Reîncearcă</string>
     <string name="lookup_barcode">Caută codul de bare</string>
     <string name="search_open_food_facts">Caută în Open Food Facts</string>
+    <string name="open_food_facts_unavailable">Căutarea Open Food Facts este temporar indisponibilă. Scanarea codului de bare poate funcționa în continuare; încearcă din nou mai târziu.</string>
     <string name="open_food_facts_results">Open Food Facts</string>
     <string name="open_food_facts_error">Open Food Facts nu poate fi accesat. Verifică conexiunea și încearcă din nou.</string>
     <string name="open_food_facts_rate_limited">Open Food Facts primește prea multe solicitări. Așteaptă puțin și încearcă din nou.</string>
@@ -376,7 +377,7 @@
     <string name="catalogue_export_success">Au fost exportate %1$d înregistrări și %2$d imagini.</string>
     <string name="catalogue_export_empty">Exportul a fost creat, dar niciun element nu a fost selectat. Activează „Include în exportul pentru verificare” când editezi un aliment sau o rețetă.</string>
     <string name="catalogue_export_error">Exportul nu a putut fi creat. Alege altă locație și încearcă din nou.</string>
-    <string name="review_bundle_export_success">Au fost exportate %1$d înregistrări de catalog, %2$d imagini de catalog și %3$d scanări marcate.</string>
+    <string name="review_bundle_export_success">Au fost exportate %1$d înregistrări de catalog, %2$d imagini de catalog, %3$d scanări marcate și %4$d rapoarte de blocare UI.</string>
     <string name="feedback_optional">Feedback (opțional)</string>
     <string name="feedback">Feedback</string>
     <string name="feedback_message">Scrie un mesaj</string>
@@ -394,18 +395,28 @@
     <string name="nutrition_and_measures">Date nutriționale și unități</string>
     <string name="support_data">Date pentru suport</string>
     <string name="flagged_scan_images">Imagini scanate marcate</string>
+    <string name="ui_freeze_reports">Rapoarte de blocare UI</string>
     <string name="feedback_thread">Fir de feedback</string>
     <string name="item_count">%1$d elemente</string>
     <string name="message_count">%1$d mesaje</string>
     <string name="continue_to_save">Continuă la salvare</string>
+    <string name="custom_goal_change_title">Actualizezi obiectivele personalizate?</string>
+    <string name="custom_goal_change_explanation">Obiectivul se schimbă la „%1$s”. Recalculezi caloriile și macronutrienții pentru noul obiectiv sau păstrezi valorile introduse?</string>
+    <string name="recalculate_custom_targets">Recalculează</string>
+    <string name="keep_custom_targets">Păstrează valorile</string>
+    <string name="custom_targets_large_difference">Diferență mare față de estimarea curentă</string>
+    <string name="custom_targets_large_difference_hint">Obiectivele personalizate sunt permise. Verifică aceste diferențe pentru a confirma că sunt intenționate.</string>
     <plurals name="recipe_ingredient_count">
         <item quantity="one">%1$d ingredient</item>
         <item quantity="few">%1$d ingrediente</item>
         <item quantity="other">%1$d ingrediente</item>
     </plurals>
     <string name="saved_scan_diagnostics">%1$d imagini scanate marcate sunt salvate pe acest dispozitiv</string>
+    <string name="saved_freeze_diagnostics">%1$d rapoarte de blocare UI sunt salvate pe acest dispozitiv</string>
     <string name="delete_saved_diagnostics">Șterge scanările marcate</string>
     <string name="delete_saved_diagnostics_confirm">Ștergi definitiv toate imaginile scanate marcate acum pentru verificare?</string>
+    <string name="delete_saved_freezes">Șterge rapoartele de blocare UI</string>
+    <string name="delete_saved_freezes_confirm">Ștergi definitiv toate rapoartele de blocare UI înregistrate?</string>
     <string name="delete">Șterge</string>
     <string name="flag_failed_scan">Marchează imaginea pentru export</string>
     <string name="scan_saved_for_support">Imagine marcată. Va fi inclusă în următorul export pentru verificare.</string>

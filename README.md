@@ -51,3 +51,4 @@ and see the prototype's known limitations.
 See [docs/PRODUCT.md](docs/PRODUCT.md), [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md), [docs/ROADMAP.md](docs/ROADMAP.md), and [docs/RESEARCH.md](docs/RESEARCH.md).
 
 The offline food-data contract, licensing, and update workflow are documented in [docs/CATALOGUE.md](docs/CATALOGUE.md).
+Tester build versioning, signing, installation, and migration policy are documented in [docs/UPDATES.md](docs/UPDATES.md).

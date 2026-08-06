@@ -11,7 +11,11 @@ import java.util.zip.ZipOutputStream
 import org.json.JSONArray
 import org.json.JSONObject
 
-data class SupportExportResult(val diagnosticCount: Int, val hasFeedback: Boolean)
+data class SupportExportResult(
+    val diagnosticCount: Int,
+    val freezeCount: Int,
+    val hasFeedback: Boolean,
+)
 
 data class FeedbackMessage(
     val id: String,
@@ -22,6 +26,7 @@ data class FeedbackMessage(
 class SupportDiagnosticStore(private val context: Context) {
     private val stagingDirectory = File(context.cacheDir, "diagnostic-staging")
     private val flaggedDirectory = File(context.filesDir, "flagged-scan-diagnostics")
+    private val freezeDirectory = File(context.filesDir, "ui-freeze-diagnostics")
     private val feedbackPreferences = context.getSharedPreferences("support-feedback", Context.MODE_PRIVATE)
 
     fun feedbackMessages(): List<FeedbackMessage> = runCatching {
@@ -110,10 +115,36 @@ class SupportDiagnosticStore(private val context: Context) {
         flaggedDirectory.listFiles()?.forEach(File::delete)
     }
 
+    @Synchronized
+    fun recordUiFreeze(stalledForMillis: Long, threadState: String, stackTrace: String) {
+        freezeDirectory.mkdirs()
+        val detectedAt = System.currentTimeMillis()
+        val id = "$detectedAt-${UUID.randomUUID()}"
+        val report = JSONObject()
+            .put("id", id)
+            .put("detectedAtEpochMillis", detectedAt)
+            .put("stalledForMillis", stalledForMillis)
+            .put("threadState", threadState)
+            .put("mainThreadStackTrace", stackTrace.take(32_000))
+        File(freezeDirectory, "$id.json").writeText(report.toString(2))
+        freezeDirectory.listFiles { file -> file.extension == "json" }
+            .orEmpty()
+            .sortedByDescending(File::lastModified)
+            .drop(MAX_FREEZE_REPORTS)
+            .forEach(File::delete)
+    }
+
+    fun freezeCount(): Int = freezeDirectory.listFiles { file -> file.extension == "json" }?.size ?: 0
+
+    fun clearFreezes() {
+        freezeDirectory.listFiles()?.forEach(File::delete)
+    }
+
     fun appendTo(
         zip: ZipOutputStream,
         feedback: String = "",
         includeDiagnostics: Boolean = true,
+        includeFreezeReports: Boolean = true,
         includeFeedback: Boolean = true,
     ): SupportExportResult {
         val reports = if (includeDiagnostics) flaggedDirectory.listFiles { file -> file.extension == "json" }
@@ -125,6 +156,11 @@ class SupportDiagnosticStore(private val context: Context) {
                     if (image.isFile) metadata to image else null
                 }
             } else emptyList()
+        val freezeReports = if (includeFreezeReports) freezeDirectory.listFiles { file -> file.extension == "json" }
+            .orEmpty()
+            .sortedBy(File::getName)
+            .mapNotNull { file -> runCatching { JSONObject(file.readText()) }.getOrNull() }
+        else emptyList()
         val trimmedFeedback = feedback.trim()
         val feedbackThread = if (includeFeedback) feedbackMessages().let { messages ->
             if (trimmedFeedback.isEmpty()) messages else messages + FeedbackMessage(
@@ -135,7 +171,7 @@ class SupportDiagnosticStore(private val context: Context) {
         } else emptyList()
         val manifest = JSONObject()
             .put("schema", "calorie-quick-support-bundle")
-            .put("schemaVersion", 2)
+            .put("schemaVersion", 3)
             .put("generatedAtEpochMillis", System.currentTimeMillis())
             .put("appVersion", BuildConfig.VERSION_NAME)
             .put("appVersionCode", BuildConfig.VERSION_CODE)
@@ -158,6 +194,7 @@ class SupportDiagnosticStore(private val context: Context) {
                     put(JSONObject(metadata.toString()).put("bundlePath", "images/$index-${image.name}"))
                 }
             })
+            .put("uiFreezes", JSONArray(freezeReports))
         zip.putNextEntry(ZipEntry("support/support.json"))
         zip.write(manifest.toString(2).toByteArray())
         zip.closeEntry()
@@ -166,7 +203,11 @@ class SupportDiagnosticStore(private val context: Context) {
             image.inputStream().use { it.copyTo(zip) }
             zip.closeEntry()
         }
-        return SupportExportResult(reports.size, feedbackThread.isNotEmpty())
+        return SupportExportResult(reports.size, freezeReports.size, feedbackThread.isNotEmpty())
+    }
+
+    private companion object {
+        const val MAX_FREEZE_REPORTS = 20
     }
 }
 

@@ -37,7 +37,7 @@ data class BuiltInFoodRecord(
 data class BuiltInServingRecord(
     val id: String,
     val labels: LocalizedText,
-    val grams: Int,
+    val grams: Double,
     val suggestedAmounts: List<Double>,
 )
 
@@ -75,10 +75,10 @@ object BuiltInCatalogueParser {
             BuiltInServingRecord(
                 id = serving.getString("id"),
                 labels = serving.getJSONObject("label").localizedText(),
-                grams = serving.getInt("grams"),
+                grams = serving.getDouble("grams"),
                 suggestedAmounts = serving.optJSONArray("suggestedAmounts")?.doubles().orEmpty(),
             )
-        }.orEmpty(),
+        }.orEmpty() + json.getString("id").millilitreServing(),
         allergens = json.optJSONObject("allergens")?.let { declarations ->
             declarations.keys().asSequence().associate { key ->
                 Allergen.valueOf(key) to AllergenDeclaration.valueOf(declarations.getString(key))
@@ -111,9 +111,9 @@ object BuiltInCatalogueParser {
             require(food.servings.map(BuiltInServingRecord::id).distinct().size == food.servings.size)
             food.servings.forEach { serving ->
                 require(serving.id.startsWith("${food.id}-"))
-                require(serving.grams in 1..5_000)
+                require(serving.grams in 0.01..5_000.0)
                 require(serving.labels.en.isNotBlank() && serving.labels.ro.isNotBlank())
-                require(serving.suggestedAmounts.all { it > 0.0 && it <= 100.0 })
+                require(serving.suggestedAmounts.all { it > 0.0 && it <= 5_000.0 })
             }
             require(food.preparations.map(BuiltInPreparationRecord::id).distinct().size == food.preparations.size)
             food.preparations.forEach { preparation ->
@@ -132,6 +132,34 @@ object BuiltInCatalogueParser {
         require(nutrition.fiberGrams == null || nutrition.fiberGrams in 0.0..100.0)
     }
 }
+
+private fun String.millilitreServing(): List<BuiltInServingRecord> {
+    val densityGramsPerMl = LIQUID_DENSITIES_GRAMS_PER_ML[this] ?: return emptyList()
+    return listOf(
+        BuiltInServingRecord(
+            id = "$this-millilitre",
+            labels = LocalizedText("ml", "ml"),
+            grams = densityGramsPerMl,
+            suggestedAmounts = listOf(100.0, 200.0, 250.0),
+        ),
+    )
+}
+
+private val LIQUID_DENSITIES_GRAMS_PER_ML = mapOf(
+    "whole-milk" to 1.03,
+    "semi-skimmed-milk" to 1.03,
+    "skim-milk" to 1.03,
+    "black-coffee" to 1.0,
+    "tea" to 1.0,
+    "orange-juice" to 1.04,
+    "apple-juice" to 1.04,
+    "cola" to 1.04,
+    "beer" to 1.01,
+    "red-wine" to 0.99,
+    "olive-oil" to 0.92,
+    "sunflower-oil" to 0.92,
+    "coconut-milk" to 1.01,
+)
 
 class BuiltInCatalogueImporter(
     private val context: Context,

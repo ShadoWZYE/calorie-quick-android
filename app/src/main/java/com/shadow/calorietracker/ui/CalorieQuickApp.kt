@@ -175,7 +175,8 @@ private enum class AppScreen { TODAY, HISTORY, PROGRESS, SETTINGS, FEEDBACK, FOO
 private data class ExportSelection(
     val foodIds: Set<String>,
     val recipeIds: Set<String>,
-    val includeDiagnostics: Boolean,
+    val includeScanDiagnostics: Boolean,
+    val includeFreezeReports: Boolean,
     val includeFeedback: Boolean,
 )
 
@@ -227,11 +228,13 @@ fun CalorieQuickApp(viewModel: CalorieViewModel = viewModel()) {
                     uri,
                     selectedFoodIds = selection.foodIds,
                     selectedRecipeIds = selection.recipeIds,
-                    includeDiagnostics = selection.includeDiagnostics,
+                    includeDiagnostics = selection.includeScanDiagnostics,
+                    includeFreezeReports = selection.includeFreezeReports,
                     includeFeedback = selection.includeFeedback,
                 )
             },
             onClearSavedDiagnostics = viewModel::clearSavedDiagnostics,
+            onClearSavedFreezeReports = viewModel::clearSavedFreezeReports,
         )
         screenName == AppScreen.FEEDBACK.name -> FeedbackScreen(
             messages = feedbackMessages,
@@ -306,7 +309,10 @@ fun CalorieQuickApp(viewModel: CalorieViewModel = viewModel()) {
         )
         else -> TodayScreen(
             state = state,
-            onOpenSettings = { screenName = AppScreen.SETTINGS.name },
+            onOpenSettings = {
+                viewModel.refreshSupportState()
+                screenName = AppScreen.SETTINGS.name
+            },
             onOpenHistory = { screenName = AppScreen.HISTORY.name },
             onOpenProgress = { screenName = AppScreen.PROGRESS.name },
             onOpenFeedback = { screenName = AppScreen.FEEDBACK.name },
@@ -408,6 +414,7 @@ private fun SettingsScreen(
     onSave: (UserProfile) -> Unit,
     onExport: (Uri, ExportSelection) -> Unit,
     onClearSavedDiagnostics: () -> Unit,
+    onClearSavedFreezeReports: () -> Unit,
 ) {
     var showExportReview by rememberSaveable { mutableStateOf(false) }
     var pendingSelection by remember { mutableStateOf<ExportSelection?>(null) }
@@ -433,6 +440,7 @@ private fun SettingsScreen(
             showExportReview = true
         },
         onClearSavedDiagnostics = onClearSavedDiagnostics,
+        onClearSavedFreezeReports = onClearSavedFreezeReports,
     )
     if (showExportReview) {
         ExportReviewDialog(
@@ -440,6 +448,7 @@ private fun SettingsScreen(
             recipes = recipes,
             recipeFoods = foods.associateBy(Food::id),
             diagnosticCount = supportExportState.savedDiagnosticCount,
+            freezeCount = supportExportState.savedFreezeCount,
             feedbackCount = feedbackCount,
             onDismiss = { showExportReview = false },
             onContinue = { selection ->
@@ -457,6 +466,7 @@ private fun ExportReviewDialog(
     recipes: List<RecipeTemplate>,
     recipeFoods: Map<String, Food>,
     diagnosticCount: Int,
+    freezeCount: Int,
     feedbackCount: Int,
     onDismiss: () -> Unit,
     onContinue: (ExportSelection) -> Unit,
@@ -469,9 +479,11 @@ private fun ExportReviewDialog(
         mutableStateOf(recipes.filter { it.reviewStatus == ReviewStatus.READY_FOR_REVIEW }.map(RecipeTemplate::foodId).toSet())
     }
     var includeDiagnostics by remember(diagnosticCount) { mutableStateOf(diagnosticCount > 0) }
+    var includeFreezeReports by remember(freezeCount) { mutableStateOf(freezeCount > 0) }
     var includeFeedback by remember(feedbackCount) { mutableStateOf(feedbackCount > 0) }
     val anythingSelected = selectedFoodIds.isNotEmpty() || selectedRecipeIds.isNotEmpty() ||
-        includeDiagnostics && diagnosticCount > 0 || includeFeedback && feedbackCount > 0
+        includeDiagnostics && diagnosticCount > 0 || includeFreezeReports && freezeCount > 0 ||
+        includeFeedback && feedbackCount > 0
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -535,6 +547,15 @@ private fun ExportReviewDialog(
                 }
                 item {
                     ExportReviewRow(
+                        title = stringResource(R.string.ui_freeze_reports),
+                        subtitle = stringResource(R.string.item_count, freezeCount),
+                        selected = includeFreezeReports && freezeCount > 0,
+                        enabled = freezeCount > 0,
+                        onToggle = { includeFreezeReports = it },
+                    )
+                }
+                item {
+                    ExportReviewRow(
                         title = stringResource(R.string.feedback_thread),
                         subtitle = stringResource(R.string.message_count, feedbackCount),
                         selected = includeFeedback && feedbackCount > 0,
@@ -553,6 +574,7 @@ private fun ExportReviewDialog(
                             selectedFoodIds,
                             selectedRecipeIds,
                             includeDiagnostics && diagnosticCount > 0,
+                            includeFreezeReports && freezeCount > 0,
                             includeFeedback && feedbackCount > 0,
                         ),
                     )
@@ -641,7 +663,7 @@ private fun PersonalFoodEditorScreen(
     var measures by remember(initial?.id) {
         mutableStateOf(
             initial?.servings.orEmpty().filterNot { it.id == initialPackageMeasure?.id }.map {
-                PersonalMeasure(it.id.takeUnless { isTemplateCopy }, it.label, it.grams, it.suggestedAmounts)
+                PersonalMeasure(it.id.takeUnless { isTemplateCopy }, it.label, it.grams.roundToInt(), it.suggestedAmounts)
             },
         )
     }
@@ -1158,7 +1180,7 @@ private fun RecipeEditorScreen(
     onArchive: (String) -> Unit,
 ) {
     val locale = LocalLocale.current.platformLocale
-    val seedGrams = seedFood?.servings?.firstOrNull()?.grams ?: 100
+    val seedGrams = (seedFood?.servings?.firstOrNull()?.grams ?: 100.0).roundToInt()
     val seedRecipeName = seedFood?.let { stringResource(R.string.food_recipe_name, it.name(locale)) }.orEmpty()
     var name by rememberSaveable(initial?.activeBatchId, seedFood?.id) {
         mutableStateOf(initial?.name ?: seedRecipeName)
@@ -1300,7 +1322,7 @@ private fun RecipeEditorScreen(
                             food.names,
                             food.nutritionPer100g,
                             food.allergens,
-                            food.servings.firstOrNull()?.grams ?: 100,
+                            (food.servings.firstOrNull()?.grams ?: 100.0).roundToInt(),
                         ),
                     )
                     ingredientQuery = ""
@@ -1515,7 +1537,8 @@ private fun RecipeIngredientRow(
         ?: listOf(UnitChoice(GRAMS_UNIT_KEY, gramsLabel, null))
     val initialChoice = choices.firstOrNull { choice ->
         choice.serving?.let { serving ->
-            ingredient.grams % serving.grams == 0 && ingredient.grams / serving.grams in 1..100
+            val units = ingredient.grams / serving.grams
+            abs(units - units.roundToInt()) < 0.000_001 && units in 1.0..100.0
         } == true
     } ?: choices.first { it.key == GRAMS_UNIT_KEY }
     var selectedKey by remember(ingredient.foodId) { mutableStateOf(initialChoice.key) }
@@ -1573,7 +1596,7 @@ private fun RecipeIngredientRow(
                         if (filtered.count { it == '.' || it == ',' } <= 1) {
                             amountText = filtered
                             val amount = filtered.localizedDoubleOrNull()
-                            onGramsChange(amount?.let { (it * (selected.serving?.grams ?: 1)).roundToInt() } ?: 0)
+                            onGramsChange(amount?.let { (it * (selected.serving?.grams ?: 1.0)).roundToInt() } ?: 0)
                         }
                     },
                     label = { Text(stringResource(R.string.amount)) },
@@ -1645,6 +1668,7 @@ private fun ProfileForm(
     onExport: (() -> Unit)? = null,
     supportExportState: SupportExportState? = null,
     onClearSavedDiagnostics: (() -> Unit)? = null,
+    onClearSavedFreezeReports: (() -> Unit)? = null,
 ) {
     var displayName by rememberSaveable { mutableStateOf(initial?.displayName.orEmpty()) }
     var age by rememberSaveable { mutableStateOf((initial?.age ?: 30).toString()) }
@@ -1653,6 +1677,7 @@ private fun ProfileForm(
     var sexName by rememberSaveable { mutableStateOf((initial?.formulaSex ?: FormulaSex.FEMALE).name) }
     var activityName by rememberSaveable { mutableStateOf((initial?.activityLevel ?: ActivityLevel.LIGHT).name) }
     var goalName by rememberSaveable { mutableStateOf((initial?.goalType ?: GoalType.MAINTAIN).name) }
+    var pendingGoalName by rememberSaveable { mutableStateOf<String?>(null) }
     var targetModeName by rememberSaveable { mutableStateOf((initial?.targetMode ?: TargetMode.ESTIMATED).name) }
     var bodyLengthUnitName by rememberSaveable {
         mutableStateOf((initial?.bodyLengthUnit ?: BodyLengthUnit.CENTIMETERS).name)
@@ -1677,6 +1702,7 @@ private fun ProfileForm(
     var fatTarget by rememberSaveable { mutableStateOf(defaultTargets.fatGoalGrams.toString()) }
     var fiberTarget by rememberSaveable { mutableStateOf(defaultTargets.fiberGoalGrams.toString()) }
     var confirmClearDiagnostics by rememberSaveable { mutableStateOf(false) }
+    var confirmClearFreezeReports by rememberSaveable { mutableStateOf(false) }
 
     val ageValue = age.toIntOrNull()
     val heightValue = height.toIntOrNull()
@@ -1702,6 +1728,25 @@ private fun ProfileForm(
     val customTargetsValid = customCalories in 500..10_000 && customProtein in 1..1_000 &&
         customCarbs in 1..1_000 && customFat in 1..1_000 && customFiber in 1..200
     val valid = measurementsValid && (targetMode == TargetMode.ESTIMATED || customTargetsValid)
+    val customTargetDiscrepancies = estimatedTargets?.takeIf { targetMode == TargetMode.CUSTOM }?.let { estimate ->
+        listOfNotNull(
+            significantTargetDifference(
+                stringResource(R.string.calories), customCalories, estimate.calories, 250, 0.15, "kcal",
+            ),
+            significantTargetDifference(
+                stringResource(R.string.protein), customProtein, estimate.proteinGrams, 25, 0.25, "g",
+            ),
+            significantTargetDifference(
+                stringResource(R.string.carbs), customCarbs, estimate.carbsGrams, 50, 0.25, "g",
+            ),
+            significantTargetDifference(
+                stringResource(R.string.fat), customFat, estimate.fatGrams, 15, 0.25, "g",
+            ),
+            significantTargetDifference(
+                stringResource(R.string.fiber), customFiber, estimate.fiberGrams, 10, 0.35, "g",
+            ),
+        )
+    }.orEmpty()
     val updateMacrosAndCalories: (String, String, String) -> Unit = { newProtein, newCarbs, newFat ->
         proteinTarget = newProtein
         carbsTarget = newCarbs
@@ -1712,6 +1757,13 @@ private fun ProfileForm(
         if (parsedProtein != null && parsedCarbs != null && parsedFat != null) {
             calorieTarget = EnergyEstimator.caloriesForMacros(parsedProtein, parsedCarbs, parsedFat).toString()
         }
+    }
+    fun applyCustomTargets(targets: com.shadow.calorietracker.model.DailyTargets) {
+        calorieTarget = targets.calories.toString()
+        proteinTarget = targets.proteinGrams.toString()
+        carbsTarget = targets.carbsGrams.toString()
+        fatTarget = targets.fatGrams.toString()
+        fiberTarget = targets.fiberGrams.toString()
     }
     val profileDraft = if (valid) {
         val targets = if (targetMode == TargetMode.ESTIMATED) {
@@ -1833,7 +1885,13 @@ private fun ProfileForm(
                 values = GoalType.entries,
                 selected = goal,
                 label = { stringResource(it.labelResource()) },
-                onSelect = { goalName = it.name },
+                onSelect = { selectedGoal ->
+                    if (selectedGoal != goal && targetMode == TargetMode.CUSTOM) {
+                        pendingGoalName = selectedGoal.name
+                    } else {
+                        goalName = selectedGoal.name
+                    }
+                },
             )
         }
         item { SectionTitle(R.string.daily_targets, horizontalPadding = 0.dp) }
@@ -1842,7 +1900,12 @@ private fun ProfileForm(
                 values = TargetMode.entries,
                 selected = targetMode,
                 label = { stringResource(if (it == TargetMode.ESTIMATED) R.string.estimated else R.string.custom) },
-                onSelect = { targetModeName = it.name },
+                onSelect = { selectedMode ->
+                    if (selectedMode == TargetMode.CUSTOM && targetMode == TargetMode.ESTIMATED) {
+                        estimatedTargets?.let(::applyCustomTargets)
+                    }
+                    targetModeName = selectedMode.name
+                },
             )
         }
         item {
@@ -1922,6 +1985,33 @@ private fun ProfileForm(
                         if (!customTargetsValid) {
                             Text(stringResource(R.string.invalid_custom_targets), color = MaterialTheme.colorScheme.error)
                         }
+                        if (customTargetDiscrepancies.isNotEmpty()) {
+                            Card(
+                                colors = CardDefaults.cardColors(
+                                    containerColor = MaterialTheme.colorScheme.errorContainer,
+                                ),
+                            ) {
+                                Column(
+                                    Modifier.fillMaxWidth().padding(12.dp),
+                                    verticalArrangement = Arrangement.spacedBy(4.dp),
+                                ) {
+                                    Text(
+                                        stringResource(R.string.custom_targets_large_difference),
+                                        fontWeight = FontWeight.SemiBold,
+                                        color = MaterialTheme.colorScheme.onErrorContainer,
+                                    )
+                                    Text(
+                                        customTargetDiscrepancies.joinToString(" · "),
+                                        color = MaterialTheme.colorScheme.onErrorContainer,
+                                    )
+                                    Text(
+                                        stringResource(R.string.custom_targets_large_difference_hint),
+                                        color = MaterialTheme.colorScheme.onErrorContainer,
+                                        fontSize = 12.sp,
+                                    )
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -1947,6 +2037,21 @@ private fun ProfileForm(
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     fontSize = 13.sp,
                 )
+                Text(
+                    stringResource(
+                        R.string.saved_freeze_diagnostics,
+                        supportExportState?.savedFreezeCount ?: 0,
+                    ),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    fontSize = 13.sp,
+                )
+            }
+            if ((supportExportState?.savedFreezeCount ?: 0) > 0 && onClearSavedFreezeReports != null) {
+                item {
+                    TextButton(onClick = { confirmClearFreezeReports = true }) {
+                        Text(stringResource(R.string.delete_saved_freezes))
+                    }
+                }
             }
             if ((supportExportState?.savedDiagnosticCount ?: 0) > 0 && onClearSavedDiagnostics != null) {
                 item {
@@ -1977,7 +2082,8 @@ private fun ProfileForm(
                     val result = exportState.result
                     Text(
                         if (result == null ||
-                            result.itemCount == 0 && result.diagnosticCount == 0 && !result.hasFeedback
+                            result.itemCount == 0 && result.diagnosticCount == 0 &&
+                                result.freezeCount == 0 && !result.hasFeedback
                         ) {
                             stringResource(R.string.catalogue_export_empty)
                         } else {
@@ -1986,6 +2092,7 @@ private fun ProfileForm(
                                 result.itemCount,
                                 result.imageCount,
                                 result.diagnosticCount,
+                                result.freezeCount,
                             )
                         },
                         color = MaterialTheme.colorScheme.primary,
@@ -2028,6 +2135,67 @@ private fun ProfileForm(
             },
             dismissButton = {
                 TextButton(onClick = { confirmClearDiagnostics = false }) { Text(stringResource(R.string.cancel)) }
+            },
+        )
+    }
+    if (confirmClearFreezeReports && onClearSavedFreezeReports != null) {
+        AlertDialog(
+            onDismissRequest = { confirmClearFreezeReports = false },
+            title = { Text(stringResource(R.string.delete_saved_freezes)) },
+            text = { Text(stringResource(R.string.delete_saved_freezes_confirm)) },
+            confirmButton = {
+                TextButton(onClick = {
+                    onClearSavedFreezeReports()
+                    confirmClearFreezeReports = false
+                }) { Text(stringResource(R.string.delete)) }
+            },
+            dismissButton = {
+                TextButton(onClick = { confirmClearFreezeReports = false }) {
+                    Text(stringResource(R.string.cancel))
+                }
+            },
+        )
+    }
+    pendingGoalName?.let { pendingName ->
+        val pendingGoal = GoalType.valueOf(pendingName)
+        AlertDialog(
+            onDismissRequest = { pendingGoalName = null },
+            title = { Text(stringResource(R.string.custom_goal_change_title)) },
+            text = {
+                Text(
+                    stringResource(
+                        R.string.custom_goal_change_explanation,
+                        stringResource(pendingGoal.labelResource()),
+                    ),
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        goalName = pendingName
+                        if (measurementsValid) {
+                            applyCustomTargets(
+                                EnergyEstimator.dailyTargets(
+                                    validatedAge,
+                                    validatedHeight,
+                                    validatedWeight,
+                                    sex,
+                                    activity,
+                                    pendingGoal,
+                                ),
+                            )
+                        }
+                        pendingGoalName = null
+                    },
+                ) { Text(stringResource(R.string.recalculate_custom_targets)) }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = {
+                        goalName = pendingName
+                        pendingGoalName = null
+                    },
+                ) { Text(stringResource(R.string.keep_custom_targets)) }
             },
         )
     }
@@ -2101,6 +2269,22 @@ private fun String.withSingleDecimalSeparator(): String {
             true
         }
     }
+}
+
+private fun significantTargetDifference(
+    label: String,
+    current: Int?,
+    estimated: Int,
+    minimumDifference: Int,
+    ratio: Double,
+    unit: String,
+): String? {
+    val value = current ?: return null
+    val difference = value - estimated
+    val threshold = max(minimumDifference, (estimated * ratio).roundToInt())
+    if (abs(difference) < threshold) return null
+    val signedDifference = if (difference > 0) "+$difference" else difference.toString()
+    return "$label $signedDifference $unit"
 }
 
 @OptIn(ExperimentalLayoutApi::class)
@@ -3268,17 +3452,10 @@ private fun TodayScreen(
             .sortedBy { it.name(locale) }
         else -> FoodRecommender.rankPreviouslyUsed(state.foods, selectedTotals, profile, frequencyByFoodId)
     }
-    val exactFoodExists = query.isNotBlank() && state.foods.any { it.hasExactName(query) }
     val currentLookup = lookupState.takeIf { it.query.equals(query.trim(), ignoreCase = true) }
     val remoteResults = currentLookup?.results.orEmpty().filterNot { remote ->
         state.foods.any { local -> local.hasSameCatalogueIdentity(remote) }
     }
-    val globalResultAlreadySaved = currentLookup?.results.orEmpty().any { remote ->
-        state.foods.any { local -> local.hasSameCatalogueIdentity(remote) }
-    }
-    val exactRemoteFoodExists = remoteResults.any { it.hasExactName(query) }
-    val globalMatchExists = exactRemoteFoodExists || currentLookup?.isBarcodeLookup == true && remoteResults.isNotEmpty()
-
     fun runGlobalSearch() {
         val normalized = query.trim()
         if (normalized.all(Char::isDigit) && normalized.length in 8..14) {
@@ -3644,14 +3821,19 @@ private fun TodayScreen(
                     OpenFoodFactsRow(food, locale) { onImportFood(food) }
                 }
             }
-            if (currentLookup?.status == FoodLookupStatus.ERROR || currentLookup?.status == FoodLookupStatus.RATE_LIMITED) {
+            if (currentLookup?.status in setOf(
+                    FoodLookupStatus.ERROR,
+                    FoodLookupStatus.RATE_LIMITED,
+                    FoodLookupStatus.SERVICE_UNAVAILABLE,
+                )
+            ) {
                 item {
                     Text(
                         stringResource(
-                            if (currentLookup.status == FoodLookupStatus.RATE_LIMITED) {
-                                R.string.open_food_facts_rate_limited
-                            } else {
-                                R.string.open_food_facts_error
+                            when (currentLookup?.status) {
+                                FoodLookupStatus.RATE_LIMITED -> R.string.open_food_facts_rate_limited
+                                FoodLookupStatus.SERVICE_UNAVAILABLE -> R.string.open_food_facts_unavailable
+                                else -> R.string.open_food_facts_error
                             },
                         ),
                         Modifier.padding(horizontal = 20.dp),
@@ -3659,13 +3841,11 @@ private fun TodayScreen(
                     )
                 }
             }
-            if (query.isNotBlank() && !exactFoodExists && !globalMatchExists && !globalResultAlreadySaved &&
-                currentLookup?.status == FoodLookupStatus.SUCCESS
-            ) {
+            if (query.isNotBlank()) {
                 item {
                     OutlinedButton(
                         onClick = {
-                            if (currentLookup.isBarcodeLookup) {
+                            if (query.trim().all(Char::isDigit) && query.trim().length in 8..14) {
                                 onCreateFood("" to query.trim())
                             } else {
                                 onCreateFood(query.trim() to null)
@@ -3675,7 +3855,7 @@ private fun TodayScreen(
                     ) {
                         Text(
                             stringResource(
-                                if (currentLookup.isBarcodeLookup) {
+                                if (query.trim().all(Char::isDigit) && query.trim().length in 8..14) {
                                     R.string.add_missing_barcode_food
                                 } else {
                                     R.string.add_missing_personal_food
@@ -4489,6 +4669,8 @@ private fun EntryRow(
             val time = DateFormat.getTimeInstance(DateFormat.SHORT, locale).format(Date(entry.consumedAtEpochMillis))
             val amount = if (entry.unitKey == GRAMS_UNIT_KEY) {
                 "${entry.grams}g"
+            } else if (entry.unitLabel.en.equals("ml", ignoreCase = true)) {
+                "${formatAmount(entry.enteredAmount, locale)} ml · ${entry.grams}g"
             } else {
                 "${formatAmount(entry.enteredAmount, locale)} × ${entry.unitLabel.forLocale(locale)} · ${entry.grams}g"
             }
@@ -4547,7 +4729,7 @@ private fun QuickAddSheet(
         preparedFood.copy(
             nutritionPer100g = selectedBatch.nutritionPer100g,
             servings = food.servings.map { serving ->
-                if (serving.id == "${food.id}-portion") serving.copy(grams = selectedBatch.portionGrams) else serving
+                if (serving.id == "${food.id}-portion") serving.copy(grams = selectedBatch.portionGrams.toDouble()) else serving
             },
         )
     }
@@ -4560,7 +4742,7 @@ private fun QuickAddSheet(
     var unitMenuOpen by remember { mutableStateOf(false) }
     val selected = choices.firstOrNull { it.key == selectedKey } ?: choices.first()
     val amount = amountText.replace(',', '.').toDoubleOrNull()
-    val grams = amount?.let { (it * (selected.serving?.grams ?: 1)).roundToInt() } ?: 0
+    val grams = amount?.let { (it * (selected.serving?.grams ?: 1.0)).roundToInt() } ?: 0
     val remainingGrams = selectedBatch?.remainingGrams
     val valid = amount != null && amount > 0.0 && grams in 1..5_000 &&
         (remainingGrams == null || grams <= remainingGrams)
