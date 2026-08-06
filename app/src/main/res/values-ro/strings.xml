@@ -119,6 +119,7 @@
     <string name="personal_variant_name">%1$s — varianta mea</string>
     <string name="customize_food">Personalizează %1$s</string>
     <string name="customize_food_action">Personalizează alimentul sau construiește o rețetă</string>
+    <string name="customize">Personalizează</string>
     <string name="customize_food_explanation">Editează o copie personală a alimentului sau folosește-l ca prim ingredient într-o rețetă și adaugă lapte, zahăr, ulei ori orice altceva.</string>
     <string name="create_recipe_from_food">Construiește rețetă</string>
     <string name="food_recipe_name">%1$s mea</string>
@@ -356,6 +357,7 @@
     <string name="default_method">Implicită</string>
     <string name="change_cooking_method">Schimbă metoda de preparare</string>
     <string name="food_photo">Fotografia alimentului</string>
+    <string name="food_photo_add_hint">Fotografiază acum sau alege o imagine din galerie.</string>
     <string name="choose_photo">Alege fotografia</string>
     <string name="replace_photo">Înlocuiește fotografia</string>
     <string name="remove_photo">Elimină fotografia</string>

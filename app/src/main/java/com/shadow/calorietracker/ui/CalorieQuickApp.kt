@@ -37,6 +37,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.AddAPhoto
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Delete
@@ -411,6 +412,7 @@ private fun PersonalFoodEditorScreen(
     onFlagScan: () -> Unit,
     onOpenExistingFood: (Food) -> Unit,
 ) {
+    val context = LocalContext.current
     val locale = LocalLocale.current.platformLocale
     val variantName = initial?.let { stringResource(R.string.personal_variant_name, it.name(locale)) }.orEmpty()
     val initialPackageMeasure = initial?.takeIf(Food::isPackaged)?.servings?.firstOrNull(Serving::isPackage)
@@ -466,6 +468,7 @@ private fun PersonalFoodEditorScreen(
     var selectedCommonMeasureName by rememberSaveable(initial?.id) { mutableStateOf<String?>(null) }
     var confirmArchive by remember { mutableStateOf(false) }
     var pendingImageUri by rememberSaveable(initial?.id) { mutableStateOf<String?>(null) }
+    var pendingFoodCameraUri by rememberSaveable(initial?.id) { mutableStateOf<String?>(null) }
     var keepExistingImage by rememberSaveable(initial?.id) { mutableStateOf(true) }
     var shareForReview by rememberSaveable(initial?.id) {
         mutableStateOf(initial?.reviewStatus == ReviewStatus.READY_FOR_REVIEW)
@@ -475,6 +478,17 @@ private fun PersonalFoodEditorScreen(
             pendingImageUri = uri.toString()
             keepExistingImage = true
         }
+    }
+    val foodCamera = rememberLauncherForActivityResult(ActivityResultContracts.TakePicture()) { captured ->
+        pendingFoodCameraUri?.let(Uri::parse)?.let { uri ->
+            if (captured) {
+                pendingImageUri = uri.toString()
+                keepExistingImage = true
+            } else {
+                runCatching { context.contentResolver.delete(uri, null, null) }
+            }
+        }
+        pendingFoodCameraUri = null
     }
     val shownImage = pendingImageUri ?: initial?.image?.localPath?.takeIf { keepExistingImage }
     val caloriesValue = calories.toIntOrNull()
@@ -587,6 +601,57 @@ private fun PersonalFoodEditorScreen(
             }
         }
         item {
+            Card(
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer),
+                shape = RoundedCornerShape(18.dp),
+            ) {
+                Column(Modifier.fillMaxWidth().padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(Icons.Default.AddAPhoto, null, tint = MaterialTheme.colorScheme.primary)
+                        Column(Modifier.padding(start = 10.dp)) {
+                            Text(stringResource(R.string.food_photo), fontWeight = FontWeight.SemiBold)
+                            Text(
+                                stringResource(R.string.food_photo_add_hint),
+                                color = MaterialTheme.colorScheme.onSecondaryContainer,
+                                fontSize = 13.sp,
+                            )
+                        }
+                    }
+                    shownImage?.let { source ->
+                        FoodImagePreview(
+                            source = source,
+                            modifier = Modifier.fillMaxWidth().height(180.dp).clip(RoundedCornerShape(14.dp)),
+                        )
+                    }
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Button(onClick = {
+                            val directory = File(context.cacheDir, "label-captures").apply { mkdirs() }
+                            val file = File.createTempFile("food-photo-", ".jpg", directory)
+                            val uri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
+                            pendingFoodCameraUri = uri.toString()
+                            foodCamera.launch(uri)
+                        }) {
+                            Icon(Icons.Default.AddAPhoto, null)
+                            Text(stringResource(R.string.take_photo), Modifier.padding(start = 6.dp))
+                        }
+                        OutlinedButton(onClick = {
+                            imagePicker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
+                        }) { Text(stringResource(R.string.choose_photo)) }
+                    }
+                    if (shownImage != null) {
+                        TextButton(onClick = { pendingImageUri = null; keepExistingImage = false }) {
+                            Text(stringResource(R.string.remove_photo))
+                        }
+                    }
+                    Text(
+                        stringResource(R.string.food_photo_private_hint),
+                        color = MaterialTheme.colorScheme.onSecondaryContainer,
+                        fontSize = 12.sp,
+                    )
+                }
+            }
+        }
+        item {
             OutlinedTextField(
                 value = name,
                 onValueChange = { name = it },
@@ -612,30 +677,6 @@ private fun PersonalFoodEditorScreen(
                     modifier = Modifier.weight(1f),
                     singleLine = true,
                 )
-            }
-        }
-        item { SectionTitle(R.string.food_photo, horizontalPadding = 0.dp) }
-        item {
-            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                shownImage?.let { source ->
-                    FoodImagePreview(
-                        source = source,
-                        modifier = Modifier.fillMaxWidth().height(180.dp).clip(RoundedCornerShape(18.dp)),
-                    )
-                }
-                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    OutlinedButton(
-                        onClick = {
-                            imagePicker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
-                        },
-                    ) { Text(stringResource(if (shownImage == null) R.string.choose_photo else R.string.replace_photo)) }
-                    if (shownImage != null) {
-                        TextButton(onClick = { pendingImageUri = null; keepExistingImage = false }) {
-                            Text(stringResource(R.string.remove_photo))
-                        }
-                    }
-                }
-                Text(stringResource(R.string.food_photo_private_hint), color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
         barcodeConflict?.let { conflict ->
@@ -1065,7 +1106,7 @@ private fun RecipeEditorScreen(
                             food.names,
                             food.nutritionPer100g,
                             food.allergens,
-                            100,
+                            food.servings.firstOrNull()?.grams ?: 100,
                         ),
                     )
                     ingredientQuery = ""
@@ -1096,34 +1137,19 @@ private fun RecipeEditorScreen(
             item { Text(stringResource(R.string.no_saved_ingredient), color = MaterialTheme.colorScheme.onSurfaceVariant) }
         }
         items(ingredients, key = { "recipe-ingredient-${it.foodId}" }) { ingredient ->
-            Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
-                Row(
-                    Modifier.fillMaxWidth().padding(start = 14.dp, top = 8.dp, bottom = 8.dp, end = 4.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
-                    Column(Modifier.weight(1f)) {
-                        Text(ingredient.foodName.forLocale(locale), fontWeight = FontWeight.SemiBold)
-                        Text(
-                            "${ingredient.nutritionPer100g.forGrams(ingredient.grams).calories} ${stringResource(R.string.kcal)}",
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            fontSize = 12.sp,
-                        )
-                    }
-                    NumericField(
-                        value = ingredient.grams.takeIf { it > 0 }?.toString().orEmpty(),
-                        onChange = { value ->
-                            val grams = value.toIntOrNull() ?: 0
-                            updateIngredients(ingredients.map { if (it.foodId == ingredient.foodId) it.copy(grams = grams) else it })
+            RecipeIngredientRow(
+                ingredient = ingredient,
+                food = foods.firstOrNull { it.id == ingredient.foodId },
+                locale = locale,
+                onGramsChange = { grams ->
+                    updateIngredients(
+                        ingredients.map { current ->
+                            if (current.foodId == ingredient.foodId) current.copy(grams = grams) else current
                         },
-                        label = R.string.grams_short,
-                        modifier = Modifier.weight(0.55f),
                     )
-                    IconButton(onClick = { updateIngredients(ingredients - ingredient) }) {
-                        Icon(Icons.Default.Delete, stringResource(R.string.remove_ingredient))
-                    }
-                }
-            }
+                },
+                onRemove = { updateIngredients(ingredients - ingredient) },
+            )
         }
         if (ingredients.isEmpty()) {
             item { Text(stringResource(R.string.no_recipe_ingredients), color = MaterialTheme.colorScheme.onSurfaceVariant) }
@@ -1270,6 +1296,85 @@ private fun RecipeEditorScreen(
                 TextButton(onClick = { confirmArchive = false }) { Text(stringResource(R.string.cancel)) }
             },
         )
+    }
+}
+
+@Composable
+private fun RecipeIngredientRow(
+    ingredient: RecipeIngredientDraft,
+    food: Food?,
+    locale: Locale,
+    onGramsChange: (Int) -> Unit,
+    onRemove: () -> Unit,
+) {
+    val gramsLabel = stringResource(R.string.grams_short)
+    val choices = food?.let { buildUnitChoices(it, emptyList(), locale, gramsLabel) }
+        ?: listOf(UnitChoice(GRAMS_UNIT_KEY, gramsLabel, null))
+    val initialChoice = choices.firstOrNull { choice ->
+        choice.serving?.let { serving ->
+            ingredient.grams % serving.grams == 0 && ingredient.grams / serving.grams in 1..100
+        } == true
+    } ?: choices.first { it.key == GRAMS_UNIT_KEY }
+    var selectedKey by remember(ingredient.foodId) { mutableStateOf(initialChoice.key) }
+    var amountText by remember(ingredient.foodId) {
+        mutableStateOf(
+            formatEditableAmount(ingredient.grams / (initialChoice.serving?.grams ?: 1).toDouble()),
+        )
+    }
+    var unitMenuOpen by remember(ingredient.foodId) { mutableStateOf(false) }
+    val selected = choices.firstOrNull { it.key == selectedKey } ?: choices.last()
+
+    Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
+        Row(
+            Modifier.fillMaxWidth().padding(start = 14.dp, top = 8.dp, bottom = 8.dp, end = 4.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            Column(Modifier.weight(1f)) {
+                Text(ingredient.foodName.forLocale(locale), fontWeight = FontWeight.SemiBold)
+                Text(
+                    "${ingredient.nutritionPer100g.forGrams(ingredient.grams).calories} ${stringResource(R.string.kcal)} · " +
+                        "${ingredient.grams} $gramsLabel",
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    fontSize = 12.sp,
+                )
+            }
+            OutlinedTextField(
+                value = amountText,
+                onValueChange = { candidate ->
+                    val filtered = candidate.filter { it.isDigit() || it == '.' || it == ',' }
+                    if (filtered.count { it == '.' || it == ',' } <= 1) {
+                        amountText = filtered
+                        val amount = filtered.localizedDoubleOrNull()
+                        onGramsChange(amount?.let { (it * (selected.serving?.grams ?: 1)).roundToInt() } ?: 0)
+                    }
+                },
+                label = { Text(stringResource(R.string.amount)) },
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                modifier = Modifier.width(92.dp),
+                singleLine = true,
+            )
+            Box {
+                OutlinedButton(onClick = { unitMenuOpen = true }) { Text(selected.label) }
+                DropdownMenu(expanded = unitMenuOpen, onDismissRequest = { unitMenuOpen = false }) {
+                    choices.forEach { choice ->
+                        DropdownMenuItem(
+                            text = { Text(choice.label) },
+                            onClick = {
+                                selectedKey = choice.key
+                                amountText = formatEditableAmount(
+                                    ingredient.grams / (choice.serving?.grams ?: 1).toDouble(),
+                                )
+                                unitMenuOpen = false
+                            },
+                        )
+                    }
+                }
+            }
+            IconButton(onClick = onRemove) {
+                Icon(Icons.Default.Delete, stringResource(R.string.remove_ingredient))
+            }
+        }
     }
 }
 
@@ -3942,8 +4047,9 @@ private fun QuickAddSheet(
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(food.name(locale), Modifier.weight(1f), fontSize = 24.sp, fontWeight = FontWeight.Bold)
                 onCustomize?.let {
-                    IconButton(onClick = it) {
-                        Icon(Icons.Default.ContentCopy, stringResource(R.string.customize_food_action))
+                    TextButton(onClick = it) {
+                        Icon(Icons.Default.ContentCopy, null)
+                        Text(stringResource(R.string.customize), Modifier.padding(start = 6.dp))
                     }
                 }
             }

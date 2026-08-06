@@ -244,8 +244,12 @@ class CalorieViewModel(application: Application) : AndroidViewModel(application)
 
     fun savePersonalFood(draft: PersonalFoodDraft) {
         viewModelScope.launch {
-            val image = draft.pendingImageUri?.let { foodImageStore.import(Uri.parse(it)) } ?: draft.image
+            val pendingUri = draft.pendingImageUri?.let(Uri::parse)
+            val image = pendingUri?.let(foodImageStore::import) ?: draft.image
             repository.savePersonalFood(draft.copy(image = image, pendingImageUri = null))
+            if (pendingUri?.authority == "${getApplication<Application>().packageName}.fileprovider") {
+                runCatching { getApplication<Application>().contentResolver.delete(pendingUri, null, null) }
+            }
         }
     }
 

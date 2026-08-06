@@ -117,6 +117,7 @@
     <string name="personal_variant_name">%1$s — my variant</string>
     <string name="customize_food">Customize %1$s</string>
     <string name="customize_food_action">Customize food or build recipe</string>
+    <string name="customize">Customize</string>
     <string name="customize_food_explanation">Edit a personal copy of this food, or use it as the first ingredient in a recipe and add milk, sugar, oil, or anything else.</string>
     <string name="create_recipe_from_food">Build recipe</string>
     <string name="food_recipe_name">My %1$s</string>
@@ -352,6 +353,7 @@
     <string name="default_method">Default</string>
     <string name="change_cooking_method">Change cooking method</string>
     <string name="food_photo">Food photo</string>
+    <string name="food_photo_add_hint">Take a photo now or choose one from your gallery.</string>
     <string name="choose_photo">Choose photo</string>
     <string name="replace_photo">Replace photo</string>
     <string name="remove_photo">Remove photo</string>
