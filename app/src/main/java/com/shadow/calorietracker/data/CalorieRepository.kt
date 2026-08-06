@@ -569,6 +569,7 @@ private fun UserProfileEntity.toModel() = UserProfile(
     fiberGoalGrams = fiberGoalGrams,
     targetMode = TargetMode.valueOf(targetMode),
     displayName = displayName,
+    lastGoalReviewAtEpochMillis = lastGoalReviewAtEpochMillis,
 )
 
 private fun UserProfile.toEntity() = UserProfileEntity(
@@ -586,6 +587,7 @@ private fun UserProfile.toEntity() = UserProfileEntity(
     fatGoalGrams = fatGoalGrams,
     fiberGoalGrams = fiberGoalGrams,
     displayName = displayName.trim(),
+    lastGoalReviewAtEpochMillis = lastGoalReviewAtEpochMillis,
 )
 
 private fun BodyMeasurementEntity.toModel() = BodyMeasurement(
@@ -608,6 +610,13 @@ private fun BodyMeasurementEntity.toModel() = BodyMeasurement(
     visceralFat = visceralFatMilliUnits?.div(1_000.0),
     bmrCalories = bmrCalories,
     bodyAge = bodyAge,
+    neckCm = neckMillimeters?.div(10.0),
+    chestCm = chestMillimeters?.div(10.0),
+    waistCm = waistMillimeters?.div(10.0),
+    hipsCm = hipsMillimeters?.div(10.0),
+    upperArmCm = upperArmMillimeters?.div(10.0),
+    thighCm = thighMillimeters?.div(10.0),
+    calfCm = calfMillimeters?.div(10.0),
     source = runCatching { BodyMeasurementSource.valueOf(source) }.getOrDefault(BodyMeasurementSource.MANUAL),
 )
 
@@ -631,6 +640,13 @@ private fun BodyMeasurement.toEntity() = BodyMeasurementEntity(
     visceralFatMilliUnits = visceralFat?.let { (it * 1_000).roundToInt() },
     bmrCalories = bmrCalories,
     bodyAge = bodyAge,
+    neckMillimeters = neckCm?.let { (it * 10).roundToInt() },
+    chestMillimeters = chestCm?.let { (it * 10).roundToInt() },
+    waistMillimeters = waistCm?.let { (it * 10).roundToInt() },
+    hipsMillimeters = hipsCm?.let { (it * 10).roundToInt() },
+    upperArmMillimeters = upperArmCm?.let { (it * 10).roundToInt() },
+    thighMillimeters = thighCm?.let { (it * 10).roundToInt() },
+    calfMillimeters = calfCm?.let { (it * 10).roundToInt() },
     source = source.name,
 )
 

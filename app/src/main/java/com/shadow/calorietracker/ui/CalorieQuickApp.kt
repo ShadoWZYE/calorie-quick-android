@@ -44,6 +44,8 @@ import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.MonitorWeight
 import androidx.compose.material.icons.filled.QrCodeScanner
 import androidx.compose.material.icons.filled.DocumentScanner
+import androidx.compose.material.icons.filled.ExpandLess
+import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.RestaurantMenu
 import androidx.compose.material3.Button
 import androidx.compose.material3.AlertDialog
@@ -93,6 +95,8 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.shadow.calorietracker.R
 import com.shadow.calorietracker.model.ActivityLevel
+import com.shadow.calorietracker.model.AdaptiveGoalReview
+import com.shadow.calorietracker.model.AdaptiveGoalReviewer
 import com.shadow.calorietracker.model.BodyMeasurement
 import com.shadow.calorietracker.model.BodyMeasurementSource
 import com.shadow.calorietracker.model.Allergen
@@ -200,6 +204,7 @@ fun CalorieQuickApp(viewModel: CalorieViewModel = viewModel()) {
             onDelete = viewModel::deleteBodyMeasurement,
             onScan = viewModel::scanBodyScaleReport,
             onClearScan = viewModel::clearBodyScaleScan,
+            onSaveProfile = viewModel::saveProfile,
         )
         screenName == AppScreen.FOOD_EDITOR.name -> PersonalFoodEditorScreen(
             initial = editingFood,
@@ -1387,6 +1392,7 @@ private fun ProfileForm(
                             targets.fiberGrams,
                             targetMode,
                             displayName.trim(),
+                            initial?.lastGoalReviewAtEpochMillis,
                         ),
                     )
                 },
@@ -1477,6 +1483,7 @@ private fun BodyProgressScreen(
     onDelete: (BodyMeasurement) -> Unit,
     onScan: (Uri) -> Unit,
     onClearScan: () -> Unit,
+    onSaveProfile: (UserProfile) -> Unit,
 ) {
     val locale = LocalLocale.current.platformLocale
     val profile = requireNotNull(state.profile)
@@ -1497,6 +1504,12 @@ private fun BodyProgressScreen(
     val latest = state.bodyMeasurements.firstOrNull()
     val previous = state.bodyMeasurements.getOrNull(1)
     val change = if (latest != null && previous != null) latest.weightKg - previous.weightKg else null
+    val adaptiveReview = AdaptiveGoalReviewer.review(
+        profile = profile,
+        measurements = state.bodyMeasurements,
+        loggedDates = state.historyDays.map { it.date }.toSet(),
+        zoneId = ZoneId.systemDefault(),
+    )
 
     LazyColumn(
         modifier = Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding(),
@@ -1564,6 +1577,33 @@ private fun BodyProgressScreen(
         }
         if (state.bodyMeasurements.size >= 2) {
             item { WeightTrendCard(state.bodyMeasurements, locale) }
+        }
+        item {
+            AdaptiveGoalReviewCard(
+                review = adaptiveReview,
+                profile = profile,
+                latestMeasurement = latest,
+                locale = locale,
+                onApply = { proposedCalories ->
+                    val macros = EnergyEstimator.redistributeMacros(
+                        calorieTarget = proposedCalories,
+                        proteinGrams = profile.proteinGoalGrams,
+                        carbsGrams = profile.carbsGoalGrams,
+                        fatGrams = profile.fatGoalGrams,
+                    )
+                    onSaveProfile(
+                        profile.copy(
+                            weightKg = latest?.weightKg ?: profile.weightKg,
+                            calorieGoal = proposedCalories,
+                            proteinGoalGrams = macros?.proteinGrams ?: profile.proteinGoalGrams,
+                            carbsGoalGrams = macros?.carbsGrams ?: profile.carbsGoalGrams,
+                            fatGoalGrams = macros?.fatGrams ?: profile.fatGoalGrams,
+                            targetMode = TargetMode.CUSTOM,
+                            lastGoalReviewAtEpochMillis = System.currentTimeMillis(),
+                        ),
+                    )
+                },
+            )
         }
         item {
             Row(
@@ -1665,6 +1705,77 @@ private fun BodyMetricLabel(label: Int, value: Double, suffix: String) {
 }
 
 @Composable
+private fun AdaptiveGoalReviewCard(
+    review: AdaptiveGoalReview,
+    profile: UserProfile,
+    latestMeasurement: BodyMeasurement?,
+    locale: Locale,
+    onApply: (Int) -> Unit,
+) {
+    val lastApplied = profile.lastGoalReviewAtEpochMillis
+    val waitingForNewEvidence = lastApplied != null &&
+        (latestMeasurement == null || latestMeasurement.measuredAtEpochMillis < lastApplied + 7L * 86_400_000L)
+    Card(Modifier.fillMaxWidth().padding(horizontal = 20.dp)) {
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text(stringResource(R.string.adaptive_goal_review), fontWeight = FontWeight.Bold)
+            Text(
+                stringResource(R.string.adaptive_goal_review_explanation),
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                fontSize = 13.sp,
+            )
+            when {
+                waitingForNewEvidence -> Text(stringResource(R.string.adaptive_review_waiting))
+                review is AdaptiveGoalReview.NeedMoreCheckIns -> Text(
+                    stringResource(R.string.adaptive_need_check_ins, review.current, review.required),
+                )
+                review is AdaptiveGoalReview.NeedMoreTime -> Text(
+                    stringResource(R.string.adaptive_need_time, review.spanDays, review.requiredDays),
+                )
+                review is AdaptiveGoalReview.NeedMoreDiaryDays -> Text(
+                    stringResource(R.string.adaptive_need_diary, review.current, review.required),
+                )
+                review is AdaptiveGoalReview.OnTrack -> Text(
+                    stringResource(
+                        R.string.adaptive_on_track,
+                        signedAmount(review.weeklyChangeKg, locale),
+                    ),
+                    color = MaterialTheme.colorScheme.primary,
+                )
+                review is AdaptiveGoalReview.Suggestion -> {
+                    Text(
+                        stringResource(
+                            R.string.adaptive_trend_evidence,
+                            signedAmount(review.weeklyChangeKg, locale),
+                            review.checkInCount,
+                            review.spanDays,
+                        ),
+                    )
+                    Text(
+                        stringResource(
+                            R.string.adaptive_calorie_proposal,
+                            review.proposedCalories,
+                            if (review.calorieAdjustment > 0) "+${review.calorieAdjustment}" else review.calorieAdjustment,
+                        ),
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                    Button(onClick = { onApply(review.proposedCalories) }, Modifier.fillMaxWidth()) {
+                        Text(stringResource(R.string.apply_adaptive_targets))
+                    }
+                }
+            }
+            Text(
+                stringResource(R.string.adaptive_review_safety),
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                fontSize = 12.sp,
+            )
+        }
+    }
+}
+
+private fun signedAmount(value: Double, locale: Locale): String =
+    (if (value > 0) "+" else "") + formatAmount(value, locale)
+
+@Composable
 private fun WeightTrendCard(measurements: List<BodyMeasurement>, locale: Locale) {
     val points = measurements.take(30).reversed()
     val minimum = points.minOf(BodyMeasurement::weightKg)
@@ -1718,6 +1829,7 @@ private fun BodyMeasurementRow(
             val details = buildList {
                 measurement.bodyFatPercent?.let { add("${stringResource(R.string.body_fat)} ${formatAmount(it, locale)}%") }
                 measurement.muscleMassKg?.let { add("${stringResource(R.string.muscle_mass)} ${formatAmount(it, locale)} kg") }
+                measurement.waistCm?.let { add("${stringResource(R.string.waist_cm)} ${formatAmount(it, locale)}") }
             }
             if (details.isNotEmpty()) Text(details.joinToString(" · "), fontSize = 12.sp)
         }
@@ -1769,6 +1881,25 @@ private fun BodyMeasurementEditorSheet(
     var visceralFat by remember(initial.id, initial.measuredAtEpochMillis) { mutableStateOf(initial.visceralFat.editableValue()) }
     var bmr by remember(initial.id, initial.measuredAtEpochMillis) { mutableStateOf(initial.bmrCalories?.toString().orEmpty()) }
     var bodyAge by remember(initial.id, initial.measuredAtEpochMillis) { mutableStateOf(initial.bodyAge?.toString().orEmpty()) }
+    var neck by remember(initial.id, initial.measuredAtEpochMillis) { mutableStateOf(initial.neckCm.editableValue()) }
+    var chest by remember(initial.id, initial.measuredAtEpochMillis) { mutableStateOf(initial.chestCm.editableValue()) }
+    var waist by remember(initial.id, initial.measuredAtEpochMillis) { mutableStateOf(initial.waistCm.editableValue()) }
+    var hips by remember(initial.id, initial.measuredAtEpochMillis) { mutableStateOf(initial.hipsCm.editableValue()) }
+    var upperArm by remember(initial.id, initial.measuredAtEpochMillis) { mutableStateOf(initial.upperArmCm.editableValue()) }
+    var thigh by remember(initial.id, initial.measuredAtEpochMillis) { mutableStateOf(initial.thighCm.editableValue()) }
+    var calf by remember(initial.id, initial.measuredAtEpochMillis) { mutableStateOf(initial.calfCm.editableValue()) }
+    var showTape by rememberSaveable(initial.id) {
+        mutableStateOf(listOf(initial.neckCm, initial.chestCm, initial.waistCm, initial.hipsCm, initial.upperArmCm, initial.thighCm, initial.calfCm).any { it != null })
+    }
+    var showAdvanced by rememberSaveable(initial.id) {
+        mutableStateOf(
+            initial.source == BodyMeasurementSource.OCR || initial.id != null &&
+                (listOf(initial.bodyFatPercent, initial.fatMassKg, initial.fatFreeMassKg, initial.muscleMassKg,
+                    initial.musclePercent, initial.skeletalMusclePercent, initial.boneMassKg, initial.proteinMassKg,
+                    initial.proteinPercent, initial.waterMassKg, initial.bodyWaterPercent, initial.subcutaneousFatPercent,
+                    initial.visceralFat, initial.bmi).any { it != null } || initial.bmrCalories != null || initial.bodyAge != null),
+        )
+    }
     val date = LocalDate.ofEpochDay(dateEpochDay)
     val timestamp = date.atTime(hour, minute).atZone(zoneId).toInstant().toEpochMilli()
     val weightValue = weight.localizedDoubleOrNull()
@@ -1780,6 +1911,7 @@ private fun BodyMeasurementEditorSheet(
         listOf(musclePercent, skeletalMuscle, proteinPercent, bodyWater, subcutaneousFat).all {
             optionalValid(it, 0.0..100.0)
         } && optionalValid(visceralFat, 0.0..100.0) &&
+        listOf(neck, chest, waist, hips, upperArm, thigh, calf).all { optionalValid(it, 5.0..300.0) } &&
         (bmr.isBlank() || bmr.toIntOrNull() in 500..5_000) && (bodyAge.isBlank() || bodyAge.toIntOrNull() in 1..120)
 
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheetState) {
@@ -1829,44 +1961,47 @@ private fun BodyMeasurementEditorSheet(
                 ) { Text(String.format(locale, "%02d:%02d", hour, minute)) }
             }
             NumericField(weight, { weight = it }, R.string.weight_kg, Modifier.fillMaxWidth(), decimal = true)
-            Text(stringResource(R.string.composition_optional_hint), color = MaterialTheme.colorScheme.onSurfaceVariant)
-            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                NumericField(bmi, { bmi = it }, R.string.bmi, Modifier.weight(1f), decimal = true)
-                NumericField(bodyFat, { bodyFat = it }, R.string.body_fat_percent, Modifier.weight(1f), decimal = true)
-            }
-            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                NumericField(fatMass, { fatMass = it }, R.string.fat_mass_kg, Modifier.weight(1f), decimal = true)
-                NumericField(fatFreeMass, { fatFreeMass = it }, R.string.fat_free_mass_kg, Modifier.weight(1f), decimal = true)
-            }
-            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                NumericField(muscleMass, { muscleMass = it }, R.string.muscle_mass_kg, Modifier.weight(1f), decimal = true)
-                NumericField(musclePercent, { musclePercent = it }, R.string.muscle_percent, Modifier.weight(1f), decimal = true)
-            }
-            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                NumericField(skeletalMuscle, { skeletalMuscle = it }, R.string.skeletal_muscle_percent, Modifier.weight(1f), decimal = true)
-                NumericField(boneMass, { boneMass = it }, R.string.bone_mass_kg, Modifier.weight(1f), decimal = true)
-            }
-            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                NumericField(proteinMass, { proteinMass = it }, R.string.protein_mass_kg, Modifier.weight(1f), decimal = true)
-                NumericField(proteinPercent, { proteinPercent = it }, R.string.protein_percent, Modifier.weight(1f), decimal = true)
-            }
-            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                NumericField(waterMass, { waterMass = it }, R.string.water_mass_kg, Modifier.weight(1f), decimal = true)
-                NumericField(bodyWater, { bodyWater = it }, R.string.body_water_percent, Modifier.weight(1f), decimal = true)
-            }
-            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                NumericField(
-                    subcutaneousFat,
-                    { subcutaneousFat = it },
-                    R.string.subcutaneous_fat_percent,
-                    Modifier.weight(1f),
-                    decimal = true,
+            OptionalMeasurementSection(
+                title = stringResource(R.string.tape_measurements),
+                subtitle = stringResource(R.string.tape_measurements_subtitle),
+                expanded = showTape,
+                onToggle = { showTape = !showTape },
+            ) {
+                Text(
+                    stringResource(R.string.tape_measurement_general_instruction),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    fontSize = 13.sp,
                 )
-                NumericField(visceralFat, { visceralFat = it }, R.string.visceral_fat, Modifier.weight(1f), decimal = true)
+                ExplainedNumericField(neck, { neck = it }, R.string.neck_cm, R.string.neck_measure_instruction)
+                ExplainedNumericField(chest, { chest = it }, R.string.chest_cm, R.string.chest_measure_instruction)
+                ExplainedNumericField(waist, { waist = it }, R.string.waist_cm, R.string.waist_measure_instruction)
+                ExplainedNumericField(hips, { hips = it }, R.string.hips_cm, R.string.hips_measure_instruction)
+                ExplainedNumericField(upperArm, { upperArm = it }, R.string.upper_arm_cm, R.string.upper_arm_measure_instruction)
+                ExplainedNumericField(thigh, { thigh = it }, R.string.thigh_cm, R.string.thigh_measure_instruction)
+                ExplainedNumericField(calf, { calf = it }, R.string.calf_cm, R.string.calf_measure_instruction)
             }
-            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                NumericField(bmr, { bmr = it }, R.string.bmr_kcal, Modifier.weight(1f))
-                NumericField(bodyAge, { bodyAge = it }, R.string.body_age, Modifier.weight(1f))
+            OptionalMeasurementSection(
+                title = stringResource(R.string.advanced_composition),
+                subtitle = stringResource(R.string.composition_optional_hint),
+                expanded = showAdvanced,
+                onToggle = { showAdvanced = !showAdvanced },
+            ) {
+                ExplainedNumericField(bmi, { bmi = it }, R.string.bmi, R.string.bmi_explanation)
+                ExplainedNumericField(bodyFat, { bodyFat = it }, R.string.body_fat_percent, R.string.body_fat_explanation)
+                ExplainedNumericField(fatMass, { fatMass = it }, R.string.fat_mass_kg, R.string.fat_mass_explanation)
+                ExplainedNumericField(fatFreeMass, { fatFreeMass = it }, R.string.fat_free_mass_kg, R.string.fat_free_mass_explanation)
+                ExplainedNumericField(muscleMass, { muscleMass = it }, R.string.muscle_mass_kg, R.string.muscle_mass_explanation)
+                ExplainedNumericField(musclePercent, { musclePercent = it }, R.string.muscle_percent, R.string.muscle_percent_explanation)
+                ExplainedNumericField(skeletalMuscle, { skeletalMuscle = it }, R.string.skeletal_muscle_percent, R.string.skeletal_muscle_explanation)
+                ExplainedNumericField(boneMass, { boneMass = it }, R.string.bone_mass_kg, R.string.bone_mass_explanation)
+                ExplainedNumericField(proteinMass, { proteinMass = it }, R.string.protein_mass_kg, R.string.protein_mass_explanation)
+                ExplainedNumericField(proteinPercent, { proteinPercent = it }, R.string.protein_percent, R.string.protein_percent_explanation)
+                ExplainedNumericField(waterMass, { waterMass = it }, R.string.water_mass_kg, R.string.water_mass_explanation)
+                ExplainedNumericField(bodyWater, { bodyWater = it }, R.string.body_water_percent, R.string.body_water_explanation)
+                ExplainedNumericField(subcutaneousFat, { subcutaneousFat = it }, R.string.subcutaneous_fat_percent, R.string.subcutaneous_fat_explanation)
+                ExplainedNumericField(visceralFat, { visceralFat = it }, R.string.visceral_fat, R.string.visceral_fat_explanation)
+                ExplainedNumericField(bmr, { bmr = it }, R.string.bmr_kcal, R.string.bmr_explanation, decimal = false)
+                ExplainedNumericField(bodyAge, { bodyAge = it }, R.string.body_age, R.string.body_age_explanation, decimal = false)
             }
             if (!valid) Text(stringResource(R.string.invalid_body_measurement), color = MaterialTheme.colorScheme.error)
             Button(
@@ -1893,6 +2028,13 @@ private fun BodyMeasurementEditorSheet(
                             visceralFat = visceralFat.localizedDoubleOrNull(),
                             bmrCalories = bmr.toIntOrNull(),
                             bodyAge = bodyAge.toIntOrNull(),
+                            neckCm = neck.localizedDoubleOrNull(),
+                            chestCm = chest.localizedDoubleOrNull(),
+                            waistCm = waist.localizedDoubleOrNull(),
+                            hipsCm = hips.localizedDoubleOrNull(),
+                            upperArmCm = upperArm.localizedDoubleOrNull(),
+                            thighCm = thigh.localizedDoubleOrNull(),
+                            calfCm = calf.localizedDoubleOrNull(),
                             source = initial.source,
                         ),
                     )
@@ -1901,6 +2043,54 @@ private fun BodyMeasurementEditorSheet(
             ) { Text(stringResource(R.string.save_check_in)) }
             Spacer(Modifier.height(8.dp))
         }
+    }
+}
+
+@Composable
+private fun OptionalMeasurementSection(
+    title: String,
+    subtitle: String,
+    expanded: Boolean,
+    onToggle: () -> Unit,
+    content: @Composable () -> Unit,
+) {
+    Card(Modifier.fillMaxWidth()) {
+        Column(Modifier.padding(horizontal = 12.dp, vertical = 6.dp)) {
+            TextButton(onClick = onToggle, Modifier.fillMaxWidth()) {
+                Column(Modifier.weight(1f), horizontalAlignment = Alignment.Start) {
+                    Text(title, fontWeight = FontWeight.SemiBold)
+                    Text(subtitle, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+                Icon(
+                    if (expanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
+                    stringResource(if (expanded) R.string.collapse else R.string.expand),
+                )
+            }
+            if (expanded) {
+                Column(
+                    Modifier.padding(start = 4.dp, end = 4.dp, bottom = 10.dp),
+                    verticalArrangement = Arrangement.spacedBy(10.dp),
+                ) { content() }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ExplainedNumericField(
+    value: String,
+    onValueChange: (String) -> Unit,
+    label: Int,
+    explanation: Int,
+    decimal: Boolean = true,
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
+        NumericField(value, onValueChange, label, Modifier.fillMaxWidth(), decimal = decimal)
+        Text(
+            stringResource(explanation),
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            fontSize = 12.sp,
+        )
     }
 }
 

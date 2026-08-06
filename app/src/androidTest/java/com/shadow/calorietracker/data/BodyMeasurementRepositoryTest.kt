@@ -48,6 +48,8 @@ class BodyMeasurementRepositoryTest {
                 visceralFat = 7.3,
                 bmrCalories = 1_751,
                 bodyAge = 26,
+                waistCm = 81.4,
+                upperArmCm = 31.2,
                 source = BodyMeasurementSource.OCR,
             ),
         )
@@ -57,6 +59,8 @@ class BodyMeasurementRepositoryTest {
         assertEquals(17.0, saved.bodyFatPercent!!, 0.001)
         assertEquals(60.8, saved.muscleMassKg!!, 0.001)
         assertEquals(BodyMeasurementSource.OCR, saved.source)
+        assertEquals(81.4, saved.waistCm!!, 0.001)
+        assertEquals(31.2, saved.upperArmCm!!, 0.001)
 
         repository.saveBodyMeasurement(saved.copy(weightKg = 76.4))
         assertEquals(76.4, repository.bodyMeasurements.first().single().weightKg, 0.001)
@@ -82,11 +86,13 @@ class BodyMeasurementRepositoryTest {
                 fatGoalGrams = 70,
                 targetMode = TargetMode.CUSTOM,
                 displayName = "Local profile",
+                lastGoalReviewAtEpochMillis = 1_786_000_000_000L,
             ),
         )
 
         val profile = repository.profile.first()!!
         assertEquals("Local profile", profile.displayName)
         assertEquals(2_000, profile.calorieGoal)
+        assertEquals(1_786_000_000_000L, profile.lastGoalReviewAtEpochMillis)
     }
 }

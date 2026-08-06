@@ -185,6 +185,7 @@ data class UserProfileEntity(
     val fatGoalGrams: Int,
     val fiberGoalGrams: Int = 25,
     val displayName: String = "",
+    val lastGoalReviewAtEpochMillis: Long? = null,
 )
 
 @Entity(tableName = "body_measurements", indices = [Index("measuredAtEpochMillis")])
@@ -208,5 +209,12 @@ data class BodyMeasurementEntity(
     val visceralFatMilliUnits: Int?,
     val bmrCalories: Int?,
     val bodyAge: Int?,
+    val neckMillimeters: Int?,
+    val chestMillimeters: Int?,
+    val waistMillimeters: Int?,
+    val hipsMillimeters: Int?,
+    val upperArmMillimeters: Int?,
+    val thighMillimeters: Int?,
+    val calfMillimeters: Int?,
     val source: String,
 )

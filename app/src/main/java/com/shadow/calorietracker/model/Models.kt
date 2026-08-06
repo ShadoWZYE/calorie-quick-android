@@ -321,6 +321,7 @@ data class UserProfile(
     val fiberGoalGrams: Int = 25,
     val targetMode: TargetMode = TargetMode.ESTIMATED,
     val displayName: String = "",
+    val lastGoalReviewAtEpochMillis: Long? = null,
 )
 
 enum class BodyMeasurementSource { MANUAL, OCR }
@@ -345,6 +346,13 @@ data class BodyMeasurement(
     val visceralFat: Double? = null,
     val bmrCalories: Int? = null,
     val bodyAge: Int? = null,
+    val neckCm: Double? = null,
+    val chestCm: Double? = null,
+    val waistCm: Double? = null,
+    val hipsCm: Double? = null,
+    val upperArmCm: Double? = null,
+    val thighCm: Double? = null,
+    val calfCm: Double? = null,
     val source: BodyMeasurementSource = BodyMeasurementSource.MANUAL,
 )
 

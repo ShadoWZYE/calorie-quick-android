@@ -24,7 +24,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         RecipeIngredientAllergenEntity::class,
         BodyMeasurementEntity::class,
     ],
-    version = 10,
+    version = 11,
     exportSchema = true,
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -54,6 +54,7 @@ abstract class AppDatabase : RoomDatabase() {
                 MIGRATION_7_8,
                 MIGRATION_8_9,
                 MIGRATION_9_10,
+                MIGRATION_10_11,
             ).build().also { instance = it }
         }
 
@@ -242,6 +243,23 @@ abstract class AppDatabase : RoomDatabase() {
                     "CREATE INDEX IF NOT EXISTS index_body_measurements_measuredAtEpochMillis " +
                         "ON body_measurements(measuredAtEpochMillis)",
                 )
+            }
+        }
+
+        private val MIGRATION_10_11 = object : Migration(10, 11) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE user_profile ADD COLUMN lastGoalReviewAtEpochMillis INTEGER")
+                listOf(
+                    "neckMillimeters",
+                    "chestMillimeters",
+                    "waistMillimeters",
+                    "hipsMillimeters",
+                    "upperArmMillimeters",
+                    "thighMillimeters",
+                    "calfMillimeters",
+                ).forEach { column ->
+                    db.execSQL("ALTER TABLE body_measurements ADD COLUMN $column INTEGER")
+                }
             }
         }
     }
