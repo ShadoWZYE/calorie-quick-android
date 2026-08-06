@@ -2,6 +2,7 @@ package com.shadow.calorietracker.ui
 
 import android.net.Uri
 import android.graphics.BitmapFactory
+import android.widget.Toast
 import androidx.appcompat.app.AppCompatDelegate
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
@@ -190,6 +191,7 @@ fun CalorieQuickApp(viewModel: CalorieViewModel = viewModel()) {
     val bodyScaleScanState by viewModel.bodyScaleScanState.collectAsStateWithLifecycle()
     val catalogueExportState by viewModel.catalogueExportState.collectAsStateWithLifecycle()
     val supportExportState by viewModel.supportExportState.collectAsStateWithLifecycle()
+    val fullBackupState by viewModel.fullBackupState.collectAsStateWithLifecycle()
     val feedbackMessages by viewModel.feedbackMessages.collectAsStateWithLifecycle()
     val profile = state.profile
     var screenName by rememberSaveable { mutableStateOf(AppScreen.TODAY.name) }
@@ -223,6 +225,7 @@ fun CalorieQuickApp(viewModel: CalorieViewModel = viewModel()) {
             feedbackCount = feedbackMessages.size,
             exportState = catalogueExportState,
             supportExportState = supportExportState,
+            fullBackupState = fullBackupState,
             onBack = { screenName = AppScreen.TODAY.name },
             onSave = viewModel::saveProfile,
             onExport = { uri, selection ->
@@ -239,6 +242,10 @@ fun CalorieQuickApp(viewModel: CalorieViewModel = viewModel()) {
             onClearSavedDiagnostics = viewModel::clearSavedDiagnostics,
             onClearSavedFreezeReports = viewModel::clearSavedFreezeReports,
             onClearSavedCrashReports = viewModel::clearSavedCrashReports,
+            onExportFullBackup = viewModel::exportFullBackup,
+            onInspectFullBackup = viewModel::inspectFullBackup,
+            onRestoreFullBackup = viewModel::restoreInspectedFullBackup,
+            onClearFullBackupState = viewModel::clearFullBackupState,
         )
         screenName == AppScreen.FEEDBACK.name -> FeedbackScreen(
             messages = feedbackMessages,
@@ -414,13 +421,19 @@ private fun SettingsScreen(
     feedbackCount: Int,
     exportState: CatalogueExportState,
     supportExportState: SupportExportState,
+    fullBackupState: FullBackupState,
     onBack: () -> Unit,
     onSave: (UserProfile) -> Unit,
     onExport: (Uri, ExportSelection) -> Unit,
     onClearSavedDiagnostics: () -> Unit,
     onClearSavedFreezeReports: () -> Unit,
     onClearSavedCrashReports: () -> Unit,
+    onExportFullBackup: (Uri, String) -> Unit,
+    onInspectFullBackup: (Uri) -> Unit,
+    onRestoreFullBackup: () -> Unit,
+    onClearFullBackupState: () -> Unit,
 ) {
+    val context = LocalContext.current
     var showExportReview by rememberSaveable { mutableStateOf(false) }
     var pendingSelection by remember { mutableStateOf<ExportSelection?>(null) }
     val exportLauncher = rememberLauncherForActivityResult(
@@ -429,6 +442,26 @@ private fun SettingsScreen(
         val selection = pendingSelection
         if (uri != null && selection != null) onExport(uri, selection)
         pendingSelection = null
+    }
+    val fullBackupExportLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.CreateDocument("application/zip"),
+    ) { uri ->
+        if (uri != null) {
+            onExportFullBackup(uri, AppCompatDelegate.getApplicationLocales().toLanguageTags())
+        }
+    }
+    val fullBackupImportLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.OpenDocument(),
+    ) { uri -> if (uri != null) onInspectFullBackup(uri) }
+
+    LaunchedEffect(fullBackupState.status) {
+        if (fullBackupState.status == FullBackupStatus.RESTORED) {
+            Toast.makeText(context, R.string.full_backup_restore_success, Toast.LENGTH_LONG).show()
+            val languageTags = fullBackupState.preview?.languageTags.orEmpty()
+            onClearFullBackupState()
+            onBack()
+            if (languageTags.isNotBlank()) setLanguage(languageTags)
+        }
     }
     ProfileForm(
         title = stringResource(R.string.settings),
@@ -441,12 +474,19 @@ private fun SettingsScreen(
         onSave = onSave,
         exportState = exportState,
         supportExportState = supportExportState,
+        fullBackupState = fullBackupState,
         onExport = {
             showExportReview = true
         },
         onClearSavedDiagnostics = onClearSavedDiagnostics,
         onClearSavedFreezeReports = onClearSavedFreezeReports,
         onClearSavedCrashReports = onClearSavedCrashReports,
+        onCreateFullBackup = {
+            fullBackupExportLauncher.launch("calorie-quick-backup-${LocalDate.now()}.zip")
+        },
+        onChooseFullBackup = {
+            fullBackupImportLauncher.launch(arrayOf("application/zip", "application/octet-stream"))
+        },
     )
     if (showExportReview) {
         ExportReviewDialog(
@@ -465,6 +505,48 @@ private fun SettingsScreen(
             },
         )
     }
+    if (fullBackupState.status == FullBackupStatus.PREVIEW_READY && fullBackupState.preview != null) {
+        FullBackupRestoreDialog(
+            preview = fullBackupState.preview,
+            onDismiss = onClearFullBackupState,
+            onRestore = onRestoreFullBackup,
+        )
+    }
+}
+
+@Composable
+private fun FullBackupRestoreDialog(
+    preview: com.shadow.calorietracker.data.FullBackupPreview,
+    onDismiss: () -> Unit,
+    onRestore: () -> Unit,
+) {
+    val locale = LocalLocale.current.platformLocale
+    val created = DateFormat.getDateTimeInstance(DateFormat.MEDIUM, DateFormat.SHORT, locale)
+        .format(Date(preview.createdAtEpochMillis))
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.restore_backup_preview)) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(stringResource(R.string.backup_created_by, created, preview.appVersion))
+                Text(stringResource(R.string.backup_diary_count, preview.diaryEntryCount))
+                Text(stringResource(R.string.backup_personal_food_count, preview.personalFoodCount))
+                Text(stringResource(R.string.backup_recipe_count, preview.recipeCount))
+                Text(stringResource(R.string.backup_measurement_count, preview.bodyMeasurementCount))
+                Text(stringResource(R.string.backup_image_count, preview.imageCount))
+                Text(stringResource(R.string.backup_feedback_count, preview.feedbackMessageCount))
+                Text(
+                    stringResource(R.string.restore_backup_warning),
+                    color = MaterialTheme.colorScheme.error,
+                    fontWeight = FontWeight.SemiBold,
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onRestore) { Text(stringResource(R.string.restore_backup)) }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) } },
+    )
 }
 
 @Composable
@@ -1687,9 +1769,12 @@ private fun ProfileForm(
     exportState: CatalogueExportState? = null,
     onExport: (() -> Unit)? = null,
     supportExportState: SupportExportState? = null,
+    fullBackupState: FullBackupState? = null,
     onClearSavedDiagnostics: (() -> Unit)? = null,
     onClearSavedFreezeReports: (() -> Unit)? = null,
     onClearSavedCrashReports: (() -> Unit)? = null,
+    onCreateFullBackup: (() -> Unit)? = null,
+    onChooseFullBackup: (() -> Unit)? = null,
 ) {
     var displayName by rememberSaveable { mutableStateOf(initial?.displayName.orEmpty()) }
     var age by rememberSaveable { mutableStateOf((initial?.age ?: 30).toString()) }
@@ -2036,6 +2121,65 @@ private fun ProfileForm(
                         }
                     }
                 }
+            }
+        }
+        if (onCreateFullBackup != null && onChooseFullBackup != null && fullBackupState != null) {
+            item { SectionTitle(R.string.backup_and_restore, horizontalPadding = 0.dp) }
+            item {
+                Text(
+                    stringResource(R.string.backup_and_restore_explanation),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            item {
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    OutlinedButton(
+                        onClick = onCreateFullBackup,
+                        enabled = fullBackupState.status !in setOf(
+                            FullBackupStatus.EXPORTING,
+                            FullBackupStatus.INSPECTING,
+                            FullBackupStatus.RESTORING,
+                        ),
+                        modifier = Modifier.weight(1f),
+                    ) { Text(stringResource(R.string.create_full_backup)) }
+                    OutlinedButton(
+                        onClick = onChooseFullBackup,
+                        enabled = fullBackupState.status !in setOf(
+                            FullBackupStatus.EXPORTING,
+                            FullBackupStatus.INSPECTING,
+                            FullBackupStatus.RESTORING,
+                        ),
+                        modifier = Modifier.weight(1f),
+                    ) { Text(stringResource(R.string.restore_from_backup)) }
+                }
+            }
+            when (fullBackupState.status) {
+                FullBackupStatus.EXPORTING -> item {
+                    Text(stringResource(R.string.creating_full_backup), color = MaterialTheme.colorScheme.primary)
+                }
+                FullBackupStatus.EXPORTED -> item {
+                    Text(
+                        stringResource(
+                            R.string.full_backup_created,
+                            fullBackupState.preview?.diaryEntryCount ?: 0,
+                            fullBackupState.preview?.personalFoodCount ?: 0,
+                        ),
+                        color = MaterialTheme.colorScheme.primary,
+                    )
+                }
+                FullBackupStatus.INSPECTING -> item {
+                    Text(stringResource(R.string.inspecting_full_backup), color = MaterialTheme.colorScheme.primary)
+                }
+                FullBackupStatus.RESTORING -> item {
+                    Text(stringResource(R.string.restoring_full_backup), color = MaterialTheme.colorScheme.primary)
+                }
+                FullBackupStatus.INVALID -> item {
+                    Text(stringResource(R.string.invalid_full_backup), color = MaterialTheme.colorScheme.error)
+                }
+                FullBackupStatus.ERROR -> item {
+                    Text(stringResource(R.string.full_backup_error), color = MaterialTheme.colorScheme.error)
+                }
+                else -> Unit
             }
         }
         if (onExport != null && exportState != null) {
@@ -3327,37 +3471,69 @@ private fun HistoryScreen(
 private fun FeedbackScreen(
     messages: List<FeedbackMessage>,
     onBack: () -> Unit,
-    onSend: (String) -> Unit,
+    onSend: (String, Uri?) -> Unit,
     onDelete: (String) -> Unit,
 ) {
     var draft by rememberSaveable { mutableStateOf("") }
+    var draftImageUri by rememberSaveable { mutableStateOf<String?>(null) }
+    val imagePicker = rememberLauncherForActivityResult(
+        ActivityResultContracts.PickVisualMedia(),
+    ) { uri -> draftImageUri = uri?.toString() }
     Scaffold(
         modifier = Modifier.fillMaxSize(),
         bottomBar = {
-            Row(
+            Column(
                 modifier = Modifier
                     .fillMaxWidth()
                     .navigationBarsPadding()
                     .padding(horizontal = 16.dp, vertical = 10.dp),
-                verticalAlignment = Alignment.Bottom,
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                OutlinedTextField(
-                    value = draft,
-                    onValueChange = { if (it.length <= 2_000) draft = it },
-                    modifier = Modifier.weight(1f),
-                    label = { Text(stringResource(R.string.feedback_message)) },
-                    minLines = 1,
-                    maxLines = 5,
-                )
-                IconButton(
-                    enabled = draft.isNotBlank(),
-                    onClick = {
-                        onSend(draft)
-                        draft = ""
-                    },
+                draftImageUri?.let { imageUri ->
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    ) {
+                        FoodImagePreview(
+                            imageUri,
+                            Modifier.width(64.dp).height(64.dp).clip(RoundedCornerShape(10.dp)),
+                        )
+                        Text(stringResource(R.string.feedback_image_attached), Modifier.weight(1f))
+                        IconButton(onClick = { draftImageUri = null }) {
+                            Icon(Icons.Default.Close, stringResource(R.string.remove_feedback_image))
+                        }
+                    }
+                }
+                Row(
+                    verticalAlignment = Alignment.Bottom,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
-                    Icon(Icons.AutoMirrored.Filled.Send, stringResource(R.string.send_feedback))
+                    IconButton(
+                        onClick = {
+                            imagePicker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
+                        },
+                    ) {
+                        Icon(Icons.Default.AddAPhoto, stringResource(R.string.attach_feedback_image))
+                    }
+                    OutlinedTextField(
+                        value = draft,
+                        onValueChange = { if (it.length <= 2_000) draft = it },
+                        modifier = Modifier.weight(1f),
+                        label = { Text(stringResource(R.string.feedback_message)) },
+                        minLines = 1,
+                        maxLines = 5,
+                    )
+                    IconButton(
+                        enabled = draft.isNotBlank() || draftImageUri != null,
+                        onClick = {
+                            onSend(draft, draftImageUri?.let(Uri::parse))
+                            draft = ""
+                            draftImageUri = null
+                        },
+                    ) {
+                        Icon(Icons.AutoMirrored.Filled.Send, stringResource(R.string.send_feedback))
+                    }
                 }
             }
         },
@@ -3398,6 +3574,13 @@ private fun FeedbackScreen(
                     modifier = Modifier.fillMaxWidth(),
                 ) {
                     Column(Modifier.padding(start = 16.dp, top = 12.dp, end = 6.dp, bottom = 6.dp)) {
+                        message.imageLocalPath?.let { path ->
+                            FoodImagePreview(
+                                path,
+                                Modifier.fillMaxWidth().heightIn(max = 260.dp).clip(RoundedCornerShape(12.dp)),
+                            )
+                            Spacer(Modifier.height(8.dp))
+                        }
                         Text(message.text, modifier = Modifier.padding(end = 10.dp))
                         Row(
                             modifier = Modifier.fillMaxWidth(),
@@ -3531,12 +3714,13 @@ private fun TodayScreen(
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             item {
-                Column(
+                Row(
                     modifier = Modifier.fillMaxWidth().padding(start = 20.dp, end = 10.dp, top = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Column(
                         Modifier
-                            .fillMaxWidth()
+                            .weight(1f)
                             .clip(RoundedCornerShape(12.dp))
                             .clickable {
                                 android.app.DatePickerDialog(
@@ -3578,7 +3762,6 @@ private fun TodayScreen(
                         )
                     }
                     Row(
-                        modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.End,
                     ) {
                         IconButton(onClick = onOpenHistory) {

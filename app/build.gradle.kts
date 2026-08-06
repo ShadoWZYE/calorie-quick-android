@@ -12,8 +12,8 @@ android {
         applicationId = "com.shadow.calorietracker"
         minSdk = 23
         targetSdk = 37
-        versionCode = 4
-        versionName = "0.2.0-alpha03"
+        versionCode = 5
+        versionName = "0.2.0-alpha04"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -32,6 +32,10 @@ android {
                 "proguard-rules.pro",
             )
         }
+    }
+
+    testOptions {
+        unitTests.isIncludeAndroidResources = true
     }
 
     compileOptions {
@@ -71,6 +75,8 @@ dependencies {
     testImplementation("junit:junit:4.13.2")
     testImplementation("org.json:json:20250517")
     testImplementation("androidx.room:room-testing:$roomVersion")
+    testImplementation("androidx.test:core:1.7.0")
+    testImplementation("org.robolectric:robolectric:4.16.1")
     androidTestImplementation("androidx.test.ext:junit:1.3.0")
     androidTestImplementation("androidx.compose.ui:ui-test-junit4")
 }

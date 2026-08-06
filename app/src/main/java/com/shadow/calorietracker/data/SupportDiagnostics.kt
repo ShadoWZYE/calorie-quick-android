@@ -22,6 +22,7 @@ data class FeedbackMessage(
     val id: String,
     val text: String,
     val createdAtEpochMillis: Long,
+    val imageLocalPath: String? = null,
 )
 
 class SupportDiagnosticStore(private val context: Context) {
@@ -29,6 +30,7 @@ class SupportDiagnosticStore(private val context: Context) {
     private val flaggedDirectory = File(context.filesDir, "flagged-scan-diagnostics")
     private val freezeDirectory = File(context.filesDir, "ui-freeze-diagnostics")
     private val crashDirectory = File(context.filesDir, "crash-diagnostics")
+    private val feedbackImageDirectory = File(context.filesDir, "feedback-images")
     private val feedbackPreferences = context.getSharedPreferences("support-feedback", Context.MODE_PRIVATE)
 
     fun feedbackMessages(): List<FeedbackMessage> = runCatching {
@@ -41,25 +43,53 @@ class SupportDiagnosticStore(private val context: Context) {
                         id = item.getString("id"),
                         text = item.getString("text"),
                         createdAtEpochMillis = item.getLong("createdAtEpochMillis"),
+                        imageLocalPath = (item.opt("imageLocalPath") as? String)?.takeIf(String::isNotBlank),
                     ),
                 )
             }
         }
     }.getOrDefault(emptyList())
 
-    fun addFeedback(text: String): List<FeedbackMessage> {
+    fun addFeedback(text: String, image: Uri? = null): List<FeedbackMessage> {
         val normalized = text.trim().take(2_000)
-        if (normalized.isEmpty()) return feedbackMessages()
+        if (normalized.isEmpty() && image == null) return feedbackMessages()
+        val id = UUID.randomUUID().toString()
+        val imagePath = image?.let { importFeedbackImage(it, id) }
         return (feedbackMessages() + FeedbackMessage(
-            id = UUID.randomUUID().toString(),
+            id = id,
             text = normalized,
             createdAtEpochMillis = System.currentTimeMillis(),
+            imageLocalPath = imagePath,
         )).also(::saveFeedbackMessages)
     }
 
-    fun deleteFeedback(id: String): List<FeedbackMessage> = feedbackMessages()
-        .filterNot { it.id == id }
-        .also(::saveFeedbackMessages)
+    fun deleteFeedback(id: String): List<FeedbackMessage> {
+        val messages = feedbackMessages()
+        messages.firstOrNull { it.id == id }?.imageLocalPath?.let { runCatching { File(it).delete() } }
+        return messages.filterNot { it.id == id }.also(::saveFeedbackMessages)
+    }
+
+    fun replaceFeedbackMessages(messages: List<FeedbackMessage>) {
+        val retained = messages.mapNotNull(FeedbackMessage::imageLocalPath).toSet()
+        feedbackMessages().mapNotNull(FeedbackMessage::imageLocalPath)
+            .filterNot(retained::contains)
+            .forEach { runCatching { File(it).delete() } }
+        saveFeedbackMessages(messages)
+    }
+
+    private fun importFeedbackImage(source: Uri, id: String): String {
+        feedbackImageDirectory.mkdirs()
+        val extension = when (context.contentResolver.getType(source)) {
+            "image/png" -> "png"
+            "image/webp" -> "webp"
+            else -> "jpg"
+        }
+        val destination = File(feedbackImageDirectory, "feedback-$id.$extension")
+        requireNotNull(context.contentResolver.openInputStream(source)).use { input ->
+            destination.outputStream().use(input::copyTo)
+        }
+        return destination.absolutePath
+    }
 
     private fun saveFeedbackMessages(messages: List<FeedbackMessage>) {
         val json = JSONArray().apply {
@@ -68,7 +98,8 @@ class SupportDiagnosticStore(private val context: Context) {
                     JSONObject()
                         .put("id", message.id)
                         .put("text", message.text)
-                        .put("createdAtEpochMillis", message.createdAtEpochMillis),
+                        .put("createdAtEpochMillis", message.createdAtEpochMillis)
+                        .put("imageLocalPath", message.imageLocalPath ?: JSONObject.NULL),
                 )
             }
         }
@@ -205,7 +236,7 @@ class SupportDiagnosticStore(private val context: Context) {
         } else emptyList()
         val manifest = JSONObject()
             .put("schema", "calorie-quick-support-bundle")
-            .put("schemaVersion", 4)
+            .put("schemaVersion", 5)
             .put("generatedAtEpochMillis", System.currentTimeMillis())
             .put("appVersion", BuildConfig.VERSION_NAME)
             .put("appVersionCode", BuildConfig.VERSION_CODE)
@@ -214,12 +245,17 @@ class SupportDiagnosticStore(private val context: Context) {
             .put("deviceModel", Build.MODEL)
             .put("feedback", trimmedFeedback.takeIf(String::isNotEmpty) ?: JSONObject.NULL)
             .put("feedbackThread", JSONArray().apply {
-                feedbackThread.forEach { message ->
+                feedbackThread.forEachIndexed { index, message ->
+                    val image = message.imageLocalPath?.let(::File)?.takeIf(File::isFile)
                     put(
                         JSONObject()
                             .put("id", message.id)
                             .put("text", message.text)
-                            .put("createdAtEpochMillis", message.createdAtEpochMillis),
+                            .put("createdAtEpochMillis", message.createdAtEpochMillis)
+                            .put(
+                                "imageBundlePath",
+                                image?.let { "feedback-images/$index-${it.name.safeName()}" } ?: JSONObject.NULL,
+                            ),
                     )
                 }
             })
@@ -235,6 +271,12 @@ class SupportDiagnosticStore(private val context: Context) {
         zip.closeEntry()
         reports.forEachIndexed { index, (_, image) ->
             zip.putNextEntry(ZipEntry("support/images/$index-${image.name}"))
+            image.inputStream().use { it.copyTo(zip) }
+            zip.closeEntry()
+        }
+        feedbackThread.forEachIndexed { index, message ->
+            val image = message.imageLocalPath?.let(::File)?.takeIf(File::isFile) ?: return@forEachIndexed
+            zip.putNextEntry(ZipEntry("support/feedback-images/$index-${image.name.safeName()}"))
             image.inputStream().use { it.copyTo(zip) }
             zip.closeEntry()
         }

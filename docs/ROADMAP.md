@@ -23,6 +23,8 @@ Implemented:
 - Versioned offline catalogue of 191 English/Romanian generic foods across 15 categories, with aliases, fibre, allergens, measures, cooking ingredients, and common Romanian foods.
 - Density-aware millilitre input for common bundled liquids without treating cooking oil as water.
 - One offline review ZIP with explicitly opted-in foods/recipes, explicitly flagged failed-scan images, optional feedback, capped UI-freeze/crash reports, and separate machine-readable catalogue/support manifests.
+- Versioned full backup/restore with preview, transactional user-data replacement, cross-device image remapping, and current built-in catalogue preservation. Backups are currently unencrypted ZIPs and must be stored securely.
+- Feedback threads support contextual image attachments that travel with review exports and full backups.
 
 Private-alpha exit gate:
 

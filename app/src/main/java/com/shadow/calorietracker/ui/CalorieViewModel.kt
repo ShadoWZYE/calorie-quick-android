@@ -10,6 +10,10 @@ import com.shadow.calorietracker.data.CalorieRepository
 import com.shadow.calorietracker.data.CatalogueExporter
 import com.shadow.calorietracker.data.CatalogueExportResult
 import com.shadow.calorietracker.data.FoodImageStore
+import com.shadow.calorietracker.data.FullBackupExportResult
+import com.shadow.calorietracker.data.FullBackupManager
+import com.shadow.calorietracker.data.FullBackupPreview
+import com.shadow.calorietracker.data.InvalidFullBackupException
 import com.shadow.calorietracker.data.OpenFoodFactsClient
 import com.shadow.calorietracker.data.OpenFoodFactsException
 import com.shadow.calorietracker.data.NutritionLabelOcr
@@ -40,6 +44,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import java.time.LocalDate
 import java.time.ZoneId
@@ -117,6 +122,14 @@ data class SupportExportState(
     val savedCrashCount: Int = 0,
 )
 
+enum class FullBackupStatus { IDLE, EXPORTING, EXPORTED, INSPECTING, PREVIEW_READY, RESTORING, RESTORED, INVALID, ERROR }
+
+data class FullBackupState(
+    val status: FullBackupStatus = FullBackupStatus.IDLE,
+    val preview: FullBackupPreview? = null,
+    val exportResult: FullBackupExportResult? = null,
+)
+
 class CalorieViewModel(application: Application) : AndroidViewModel(application) {
     private val database = AppDatabase.get(application)
     private val repository = CalorieRepository(database, BuiltInCatalogueImporter(application, database))
@@ -124,6 +137,7 @@ class CalorieViewModel(application: Application) : AndroidViewModel(application)
     private val foodImageStore = FoodImageStore(application)
     private val supportDiagnostics = SupportDiagnosticStore(application)
     private val catalogueExporter = CatalogueExporter(application, database, supportDiagnostics)
+    private val fullBackupManager = FullBackupManager(application, database, supportDiagnostics)
     private val _catalogueExportState = MutableStateFlow(CatalogueExportState())
     val catalogueExportState: StateFlow<CatalogueExportState> = _catalogueExportState.asStateFlow()
     private val _supportExportState = MutableStateFlow(
@@ -134,6 +148,9 @@ class CalorieViewModel(application: Application) : AndroidViewModel(application)
         ),
     )
     val supportExportState: StateFlow<SupportExportState> = _supportExportState.asStateFlow()
+    private val _fullBackupState = MutableStateFlow(FullBackupState())
+    val fullBackupState: StateFlow<FullBackupState> = _fullBackupState.asStateFlow()
+    private var pendingRestoreUri: Uri? = null
     private val _feedbackMessages = MutableStateFlow(supportDiagnostics.feedbackMessages())
     val feedbackMessages: StateFlow<List<FeedbackMessage>> = _feedbackMessages.asStateFlow()
     private val _foodLookupState = MutableStateFlow(FoodLookupState())
@@ -305,12 +322,74 @@ class CalorieViewModel(application: Application) : AndroidViewModel(application)
         _catalogueExportState.value = CatalogueExportState()
     }
 
-    fun addFeedbackMessage(text: String) {
-        _feedbackMessages.value = supportDiagnostics.addFeedback(text)
+    fun exportFullBackup(uri: Uri, languageTags: String) {
+        _fullBackupState.value = FullBackupState(FullBackupStatus.EXPORTING)
+        viewModelScope.launch {
+            _fullBackupState.value = try {
+                val result = fullBackupManager.exportTo(uri, languageTags)
+                FullBackupState(FullBackupStatus.EXPORTED, result.preview, result)
+            } catch (error: Exception) {
+                Log.w("FullBackup", "Full backup export failed", error)
+                FullBackupState(FullBackupStatus.ERROR)
+            }
+        }
+    }
+
+    fun inspectFullBackup(uri: Uri) {
+        pendingRestoreUri = uri
+        _fullBackupState.value = FullBackupState(FullBackupStatus.INSPECTING)
+        viewModelScope.launch {
+            _fullBackupState.value = try {
+                FullBackupState(FullBackupStatus.PREVIEW_READY, fullBackupManager.inspect(uri))
+            } catch (error: InvalidFullBackupException) {
+                Log.w("FullBackup", "Invalid backup selected", error)
+                pendingRestoreUri = null
+                FullBackupState(FullBackupStatus.INVALID)
+            } catch (error: Exception) {
+                Log.w("FullBackup", "Backup inspection failed", error)
+                pendingRestoreUri = null
+                FullBackupState(FullBackupStatus.ERROR)
+            }
+        }
+    }
+
+    fun restoreInspectedFullBackup() {
+        val uri = pendingRestoreUri ?: return
+        _fullBackupState.value = _fullBackupState.value.copy(status = FullBackupStatus.RESTORING)
+        viewModelScope.launch {
+            _fullBackupState.value = try {
+                val result = fullBackupManager.restore(uri)
+                pendingRestoreUri = null
+                _feedbackMessages.value = supportDiagnostics.feedbackMessages()
+                refreshSupportState()
+                FullBackupState(FullBackupStatus.RESTORED, result.preview)
+            } catch (error: InvalidFullBackupException) {
+                Log.w("FullBackup", "Backup restore validation failed", error)
+                pendingRestoreUri = null
+                FullBackupState(FullBackupStatus.INVALID)
+            } catch (error: Exception) {
+                Log.w("FullBackup", "Backup restore failed", error)
+                pendingRestoreUri = null
+                FullBackupState(FullBackupStatus.ERROR)
+            }
+        }
+    }
+
+    fun clearFullBackupState() {
+        pendingRestoreUri = null
+        _fullBackupState.value = FullBackupState()
+    }
+
+    fun addFeedbackMessage(text: String, image: Uri?) {
+        viewModelScope.launch(Dispatchers.IO) {
+            _feedbackMessages.value = supportDiagnostics.addFeedback(text, image)
+        }
     }
 
     fun deleteFeedbackMessage(id: String) {
-        _feedbackMessages.value = supportDiagnostics.deleteFeedback(id)
+        viewModelScope.launch(Dispatchers.IO) {
+            _feedbackMessages.value = supportDiagnostics.deleteFeedback(id)
+        }
     }
 
     fun clearFoodLookup() {

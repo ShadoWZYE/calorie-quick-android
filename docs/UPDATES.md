@@ -7,7 +7,7 @@
 - Install updates with `adb install -r app/build/outputs/apk/debug/app-debug.apk`; never uninstall first.
 - Run all Room migrations in normal startup and include migration coverage in the release gate. An update must be rejected if it cannot preserve the existing database.
 - Put the APK, version, commit, checksum, migration notes, and a short changelog together in each handoff.
-- Ask testers to export their review bundle before a risky schema change. This is diagnostic data, not a full diary backup.
+- Ask testers to create a full backup before a risky schema change. The review bundle is diagnostic/contribution data and is not a diary backup.
 
 Debug-signed APKs are suitable only while one trusted machine produces every field-test build. Moving to another build machine or distribution service requires retaining that debug key or installing a separately signed app, which Android treats as a different trust lineage.
 
@@ -17,7 +17,7 @@ Use a private release signing key held outside the repository and distribute thr
 
 Before switching existing testers from debug to release signing, choose one of these explicit migrations:
 
-1. Keep the debug track until full encrypted backup/restore exists, then export, install the release-signed app, and restore.
+1. Keep the debug track until the full-backup format and release-signing migration are field tested, then create a backup, install the release-signed app, and restore. Current ZIP backups are not encrypted and must be stored securely.
 2. Start the release-signed package as a separate application ID during alpha and migrate test data deliberately.
 
 Android will not install an APK signed by a different key over the existing package. Do not work around this with an uninstall because that erases local data.
