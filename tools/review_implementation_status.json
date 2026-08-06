@@ -1,0 +1,26 @@
+{
+  "schema": "calorie-quick-review-implementation-status",
+  "schemaVersion": 1,
+  "items": {
+    "feedback:98ae8f15-cd5e-4c1b-b53f-18a3ba26bd4a": {
+      "state": "TESTING",
+      "reference": "0.2.0-alpha07"
+    },
+    "feedback:1d469688-465f-40b0-bf5b-420f669050b3": {
+      "state": "TESTING",
+      "reference": "0.2.0-alpha07"
+    },
+    "feedback:7f6f58c6-e9f9-45b6-953b-96811fa2bd7d": {
+      "state": "TESTING",
+      "reference": "0.2.0-alpha09"
+    },
+    "diagnostic:1786045685110-ff22ecaa-41db-48a7-8c26-c367b250bcec": {
+      "state": "TESTING",
+      "reference": "0.2.0-alpha09"
+    },
+    "manual:1": {
+      "state": "TESTING",
+      "reference": "0.2.0-alpha08"
+    }
+  }
+}

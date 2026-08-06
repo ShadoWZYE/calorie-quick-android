@@ -12,7 +12,10 @@
     <string name="search_hint">Search your foods…</string>
     <string name="scan_barcode">Scan barcode</string>
     <string name="scan_nutrition_label">Scan nutrition label</string>
-    <string name="scan_label_explanation">Use a clear, straight photo containing the per-100 g nutrition table. Nothing is saved until you review the editor.</string>
+    <string name="prepare_label_photo">Crop and straighten label</string>
+    <string name="crop_food_photo">Crop or replace photo</string>
+    <string name="label_preparation_unavailable">The crop tool is unavailable on this device right now. You can still use the camera, photo library, or image files below.</string>
+    <string name="scan_label_explanation">Crop and straighten a clear photo containing the per-100 g or per-100 ml nutrition table. Nothing is saved until you review the editor.</string>
     <string name="take_photo">Take photo</string>
     <string name="reading_nutrition_label">Reading nutrition label…</string>
     <string name="ocr_scan_error">The label could not be read. Try a sharper, straighter photo.</string>
@@ -31,6 +34,7 @@
     <string name="ocr_columns_unclear">The table’s per-100 g and serving columns could not be separated safely.</string>
     <string name="ocr_normalized_serving">Values were converted from a detected serving size; verify the calculation.</string>
     <string name="ocr_core_missing">One or more core nutrition values could not be read and must be entered manually.</string>
+    <string name="ocr_liquid_basis">Detected a per-100 ml liquid label. An ml measure was added using the usual 1 ml ≈ 1 g logging approximation.</string>
     <string name="review_before_saving">Review the community-provided values before saving</string>
     <string name="open_food_facts_review_notice">Community data from Open Food Facts. Verify the label before saving it on this device.</string>
     <string name="quick_add">Quick add</string>
@@ -379,7 +383,7 @@
     <string name="catalogue_export_success">Exported %1$d records and %2$d images.</string>
     <string name="catalogue_export_empty">Export created, but no items were opted in. Enable “Include in review export” while editing a food or recipe.</string>
     <string name="catalogue_export_error">The export could not be created. Choose another location and try again.</string>
-    <string name="review_bundle_export_success">Exported %1$d catalogue records, %2$d catalogue images, %3$d flagged scans, %4$d lookup timings, %5$d UI freeze reports, and %6$d crash reports.</string>
+    <string name="review_bundle_export_success">Exported %1$d catalogue records, %2$d catalogue images, %3$d flagged scans, %4$d lookup timings, %5$d UI freeze reports, %6$d crash reports, and %7$d cached Open Food Facts responses.</string>
     <string name="feedback_optional">Feedback (optional)</string>
     <string name="feedback">Feedback</string>
     <string name="feedback_message">Write a message</string>
@@ -465,6 +469,11 @@
     <string name="release_alpha08_title">Cleaner food images and clearer review evidence</string>
     <string name="release_alpha08_item_images">Nine malformed catalogue thumbnails were replaced after a full audit of the built-in image set.</string>
     <string name="release_alpha08_item_review">The Windows review inbox now keeps Codex analysis beside the original evidence and reviewer notes.</string>
+    <string name="release_alpha09_title">Better photos and liquid-label scanning</string>
+    <string name="release_alpha09_item_crop">Food photos and nutrition labels can open a crop, rotation, and perspective-correction flow before use.</string>
+    <string name="release_alpha09_item_liquid">Romanian per-100-ml labels with multiple columns now select the correct values and add practical ml/package measures.</string>
+    <string name="release_alpha09_item_review">Implemented feedback automatically moves from Next to Needs testing in the local Windows review inbox.</string>
+    <string name="release_alpha09_item_off_cache">Open Food Facts responses are cached for faster repeat lookups and included as temporary normalization candidates in review exports.</string>
     <string name="release_alpha06_title">Safer, traceable review exports</string>
     <string name="release_alpha06_item_bundle">Review exports now include a versioned root manifest, explicit selection details, and integrity hashes for every image.</string>
     <string name="release_alpha06_item_privacy">Exported review images are orientation-corrected, resized, and stripped of camera, location, and editing metadata.</string>

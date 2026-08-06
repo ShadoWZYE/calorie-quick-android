@@ -12,7 +12,10 @@
     <string name="search_hint">Caută în alimentele tale…</string>
     <string name="scan_barcode">Scanează codul de bare</string>
     <string name="scan_nutrition_label">Scanează eticheta nutrițională</string>
-    <string name="scan_label_explanation">Folosește o fotografie clară și dreaptă care conține tabelul nutrițional per 100 g. Nimic nu este salvat înainte să verifici editorul.</string>
+    <string name="prepare_label_photo">Decupează și îndreaptă eticheta</string>
+    <string name="crop_food_photo">Decupează sau înlocuiește fotografia</string>
+    <string name="label_preparation_unavailable">Instrumentul de decupare nu este disponibil momentan pe acest dispozitiv. Poți folosi în continuare camera, galeria foto sau fișierele imagine de mai jos.</string>
+    <string name="scan_label_explanation">Decupează și îndreaptă o fotografie clară care conține tabelul nutrițional per 100 g sau per 100 ml. Nimic nu este salvat înainte să verifici editorul.</string>
     <string name="take_photo">Fotografiază</string>
     <string name="reading_nutrition_label">Se citește eticheta nutrițională…</string>
     <string name="ocr_scan_error">Eticheta nu a putut fi citită. Încearcă o fotografie mai clară și mai dreaptă.</string>
@@ -31,6 +34,7 @@
     <string name="ocr_columns_unclear">Coloanele per 100 g și per porție nu au putut fi separate în siguranță.</string>
     <string name="ocr_normalized_serving">Valorile au fost convertite dintr-o porție detectată; verifică rezultatul.</string>
     <string name="ocr_core_missing">Una sau mai multe valori nutriționale de bază nu au putut fi citite și trebuie introduse manual.</string>
+    <string name="ocr_liquid_basis">A fost detectată o etichetă pentru lichid per 100 ml. A fost adăugată unitatea ml folosind aproximarea uzuală de jurnalizare 1 ml ≈ 1 g.</string>
     <string name="review_before_saving">Verifică valorile oferite de comunitate înainte de salvare</string>
     <string name="open_food_facts_review_notice">Date comunitare din Open Food Facts. Verifică eticheta înainte de salvarea pe acest dispozitiv.</string>
     <string name="quick_add">Adăugare rapidă</string>
@@ -383,7 +387,7 @@
     <string name="catalogue_export_success">Au fost exportate %1$d înregistrări și %2$d imagini.</string>
     <string name="catalogue_export_empty">Exportul a fost creat, dar niciun element nu a fost selectat. Activează „Include în exportul pentru verificare” când editezi un aliment sau o rețetă.</string>
     <string name="catalogue_export_error">Exportul nu a putut fi creat. Alege altă locație și încearcă din nou.</string>
-    <string name="review_bundle_export_success">Au fost exportate %1$d înregistrări de catalog, %2$d imagini de catalog, %3$d scanări marcate, %4$d timpi de căutare, %5$d rapoarte de blocare UI și %6$d rapoarte de eroare.</string>
+    <string name="review_bundle_export_success">Au fost exportate %1$d înregistrări de catalog, %2$d imagini de catalog, %3$d scanări marcate, %4$d timpi de căutare, %5$d rapoarte de blocare UI, %6$d rapoarte de eroare și %7$d răspunsuri Open Food Facts păstrate local.</string>
     <string name="feedback_optional">Feedback (opțional)</string>
     <string name="feedback">Feedback</string>
     <string name="feedback_message">Scrie un mesaj</string>
@@ -470,6 +474,11 @@
     <string name="release_alpha08_title">Imagini mai curate și dovezi mai clare la verificare</string>
     <string name="release_alpha08_item_images">Nouă miniaturi defecte din catalog au fost înlocuite după verificarea completă a setului de imagini încorporat.</string>
     <string name="release_alpha08_item_review">Instrumentul Windows păstrează acum analiza Codex lângă dovezile originale și notele evaluatorului.</string>
+    <string name="release_alpha09_title">Fotografii mai bune și scanarea etichetelor pentru lichide</string>
+    <string name="release_alpha09_item_crop">Fotografiile alimentelor și etichetele nutriționale pot deschide un flux de decupare, rotire și corectare a perspectivei înainte de utilizare.</string>
+    <string name="release_alpha09_item_liquid">Etichetele românești per 100 ml cu mai multe coloane aleg acum valorile corecte și adaugă unități practice pentru ml și ambalaj.</string>
+    <string name="release_alpha09_item_review">Feedbackul implementat trece automat din Următorul în Necesită testare în instrumentul Windows local.</string>
+    <string name="release_alpha09_item_off_cache">Răspunsurile Open Food Facts sunt salvate temporar pentru căutări repetate mai rapide și sunt incluse ca propuneri de normalizare în exporturile pentru analiză.</string>
     <string name="release_alpha06_title">Exporturi pentru verificare mai sigure și trasabile</string>
     <string name="release_alpha06_item_bundle">Exporturile includ acum un manifest-rădăcină versionat, selecția explicită și amprente de integritate pentru fiecare imagine.</string>
     <string name="release_alpha06_item_privacy">Imaginile exportate sunt orientate corect, redimensionate și curățate de date despre cameră, locație și editare.</string>

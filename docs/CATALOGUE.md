@@ -47,3 +47,9 @@ food that happens to use the same ID.
 
 Images are deliberately separate from nutrient provenance. Only assets with a
 documented redistribution license and attribution record should be bundled.
+
+## Open Food Facts staging
+
+Successful barcode and text-search responses are requested without a field projection, cached locally for 30 days, and reused before another network request. The complete returned JSON is retained after it becomes stale, so it remains useful as an offline fallback and as evidence for catalogue growth. Review exports bundle the cache index and response wrappers under `open-food-facts/`; the hashed keys do not expose search phrases in the index.
+
+The Windows review inbox extracts unique barcode candidates from those responses. A candidate must still be checked and normalized for names, nutrition basis, fibre, allergens, category, package quantity, liquid density/measures, image licensing, and provenance before promotion. Raw Open Food Facts data is never merged directly into the built-in catalogue.

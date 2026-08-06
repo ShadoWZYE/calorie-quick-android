@@ -29,6 +29,7 @@ class ReviewBundleExportTest {
     private lateinit var context: Context
     private lateinit var database: AppDatabase
     private lateinit var support: SupportDiagnosticStore
+    private lateinit var openFoodFactsCache: OpenFoodFactsResponseCache
     private lateinit var exportFile: File
     private lateinit var sourceImage: File
 
@@ -39,8 +40,11 @@ class ReviewBundleExportTest {
             .allowMainThreadQueries()
             .build()
         support = SupportDiagnosticStore(context)
+        openFoodFactsCache = OpenFoodFactsResponseCache(context)
+        openFoodFactsCache.entries().forEach(File::delete)
         support.replaceFeedbackMessages(emptyList())
         support.clearPerformanceDiagnostics()
+        openFoodFactsCache.entries().forEach(File::delete)
         exportFile = File(context.cacheDir, "review-v2.zip")
         sourceImage = File(context.cacheDir, "review-source.jpg")
     }
@@ -90,8 +94,14 @@ class ReviewBundleExportTest {
             resultCount = 3,
             queryLength = 6,
         )
+        openFoodFactsCache.write(
+            requestUrl = "https://world.openfoodfacts.org/search?query=private-term",
+            locale = "en",
+            requestKind = "search",
+            response = JSONObject("""{"products":[{"code":"12345678","product_name":"Cached drink"}]}"""),
+        )
 
-        CatalogueExporter(context, database, support).exportTo(
+        CatalogueExporter(context, database, support, openFoodFactsCache).exportTo(
             destination = Uri.fromFile(exportFile),
             selectedFoodIds = setOf("personal-test"),
             selectedRecipeIds = emptySet(),
@@ -107,6 +117,7 @@ class ReviewBundleExportTest {
             assertEquals(2, root.getInt("schemaVersion"))
             assertNotNull(root.getJSONObject("app").getString("buildId"))
             assertEquals(7, root.getJSONArray("components").getJSONObject(1).getInt("schemaVersion"))
+            assertEquals("open-food-facts-cache", root.getJSONArray("components").getJSONObject(2).getString("kind"))
             val media = root.getJSONArray("media").getJSONObject(0)
             val entry = archive.getEntry(media.getString("path"))
             val bytes = archive.getInputStream(entry).readBytes()
@@ -132,6 +143,14 @@ class ReviewBundleExportTest {
             assertEquals("open-food-facts-search", performance.getString("operation"))
             assertEquals(2_500, performance.getLong("durationMillis"))
             assertFalse(performance.has("query"))
+            val cacheIndex = JSONObject(
+                archive.getInputStream(archive.getEntry("open-food-facts/cache.json")).bufferedReader().readText(),
+            )
+            assertEquals(1, cacheIndex.getInt("responseCount"))
+            val cachePath = cacheIndex.getJSONArray("responses").getString(0)
+            val cached = archive.getInputStream(archive.getEntry(cachePath)).bufferedReader().readText()
+            assertTrue(cached.contains("Cached drink"))
+            assertFalse(cached.contains("private-term"))
         }
     }
 

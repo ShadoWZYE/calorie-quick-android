@@ -66,6 +66,41 @@ def _valid_ean(value: str) -> bool:
     return (10 - total % 10) % 10 == digits[-1]
 
 
+def _off_candidate(product: dict[str, Any], raw_path: str) -> dict[str, Any] | None:
+    code = str(product.get("code") or product.get("_id") or "").strip()
+    if not code:
+        return None
+    name = next((
+        str(product.get(key)).strip()
+        for key in ("product_name_ro", "product_name_en", "product_name")
+        if product.get(key) and str(product.get(key)).strip()
+    ), f"Open Food Facts product {code}")
+    brands = str(product.get("brands") or "").strip()
+    categories = product.get("categories_tags") or product.get("categories")
+    nutriments = product.get("nutriments") if isinstance(product.get("nutriments"), dict) else {}
+    quantity_text = " ".join(str(product.get(key) or "") for key in (
+        "quantity", "serving_size", "product_quantity_unit",
+    )).lower()
+    issues: list[str] = []
+    if not categories:
+        issues.append("category needs normalization")
+    if not any(key in nutriments for key in ("fiber_100g", "fibre_100g")):
+        issues.append("fiber is absent or unknown")
+    if not str(product.get("product_name_ro") or "").strip():
+        issues.append("Romanian display name is missing")
+    if any(unit in quantity_text for unit in ("ml", "cl", "litre", "liter")):
+        issues.append("liquid package and ml measures need normalization")
+    if not nutriments:
+        issues.append("nutrition data is missing")
+    return {
+        "code": code,
+        "name": name,
+        "brand": brands,
+        "issues": issues,
+        "rawPath": raw_path,
+    }
+
+
 def inspect_bundle(archive_path: Path) -> dict[str, Any]:
     warnings: list[str] = []
     errors: list[str] = []
@@ -125,6 +160,7 @@ def inspect_bundle(archive_path: Path) -> dict[str, Any]:
     root = read_json("bundle.json")
     catalogue = read_json("catalogue/catalogue.json")
     support = read_json("support/support.json")
+    off_index = read_json("open-food-facts/cache.json")
     bundle_format = "v2" if root else "legacy"
     if root:
         if root.get("schema") != "calorie-quick-review-bundle" or root.get("schemaVersion") != 2:
@@ -168,6 +204,41 @@ def inspect_bundle(archive_path: Path) -> dict[str, Any]:
         recipes = [item for item in catalogue.get("recipes", []) if isinstance(item, dict)]
         if catalogue.get("schema") != "calorie-quick-personal-catalogue" or catalogue.get("schemaVersion") not in (1, 2):
             errors.append("Unsupported catalogue schema.")
+
+    off_candidates_by_code: dict[str, dict[str, Any]] = {}
+    if off_index is not None:
+        if off_index.get("schema") != "calorie-quick-open-food-facts-cache" or off_index.get("schemaVersion") != 1:
+            errors.append("Unsupported Open Food Facts cache schema.")
+        response_paths = off_index.get("responses", [])
+        if not isinstance(response_paths, list):
+            errors.append("Open Food Facts cache responses must be an array.")
+            response_paths = []
+        for raw_path in response_paths:
+            if not isinstance(raw_path, str) or not raw_path.startswith("open-food-facts/responses/"):
+                errors.append("Malformed Open Food Facts cache response path.")
+                continue
+            wrapper = read_json(raw_path)
+            if wrapper is None:
+                errors.append(f"Declared Open Food Facts response is missing: {raw_path}")
+                continue
+            if wrapper.get("schema") != "calorie-quick-open-food-facts-response" or wrapper.get("schemaVersion") != 1:
+                errors.append(f"Unsupported Open Food Facts response schema: {raw_path}")
+                continue
+            response = wrapper.get("response")
+            if not isinstance(response, dict):
+                errors.append(f"Open Food Facts response has no JSON object payload: {raw_path}")
+                continue
+            products: list[dict[str, Any]] = []
+            if isinstance(response.get("product"), dict):
+                products.append(response["product"])
+            if isinstance(response.get("products"), list):
+                products.extend(item for item in response["products"] if isinstance(item, dict))
+            for product in products:
+                candidate = _off_candidate(product, raw_path)
+                if candidate:
+                    off_candidates_by_code.setdefault(candidate["code"], candidate)
+        if off_index.get("responseCount") != len(response_paths):
+            warnings.append("Open Food Facts cache response count does not match its index.")
 
     food_findings: list[dict[str, Any]] = []
     for food in foods:
@@ -227,6 +298,8 @@ def inspect_bundle(archive_path: Path) -> dict[str, Any]:
             "performanceOperationCount": performance_count,
             "imageCount": sum("mimeType" in item for item in entry_summary),
             "imagesWithMetadata": len(images_with_metadata),
+            "openFoodFactsResponseCount": len(off_index.get("responses", [])) if isinstance(off_index, dict) and isinstance(off_index.get("responses"), list) else 0,
+            "openFoodFactsCandidateCount": len(off_candidates_by_code),
         },
         "build": (root or {}).get("app") or ({
             "versionName": support.get("appVersion"),
@@ -234,6 +307,7 @@ def inspect_bundle(archive_path: Path) -> dict[str, Any]:
             "buildId": support.get("buildId"),
         } if support else None),
         "foodFindings": food_findings,
+        "openFoodFactsCandidates": list(off_candidates_by_code.values()),
         "mediaWithMetadata": images_with_metadata,
         "entries": entry_summary,
     }
@@ -249,6 +323,7 @@ def markdown_report(report: dict[str, Any]) -> str:
         f"- Archive SHA-256: `{report.get('archiveSha256', 'unavailable')}`",
         f"- Contents: {summary.get('foodCount', 0)} foods, {summary.get('recipeCount', 0)} recipes, {summary.get('feedbackMessageCount', 0)} feedback messages, {summary.get('imageCount', 0)} images",
         f"- Images containing EXIF/XMP: {summary.get('imagesWithMetadata', 0)}",
+        f"- Open Food Facts cache: {summary.get('openFoodFactsResponseCount', 0)} responses, {summary.get('openFoodFactsCandidateCount', 0)} unique products to review",
     ]
     for heading, key in (("Errors", "errors"), ("Warnings", "warnings")):
         values = report.get(key, [])
@@ -259,6 +334,13 @@ def markdown_report(report: dict[str, Any]) -> str:
         lines.extend(["", "## Catalogue findings", ""])
         for finding in findings:
             lines.append(f"- {finding.get('name') or finding.get('id') or 'Unnamed food'}: " + "; ".join(finding["issues"]))
+    candidates = report.get("openFoodFactsCandidates", [])
+    if candidates:
+        lines.extend(["", "## Open Food Facts normalization candidates", ""])
+        for candidate in candidates:
+            label = candidate.get("name") or candidate.get("code") or "Unnamed product"
+            issues = "; ".join(candidate.get("issues", [])) or "review before promotion"
+            lines.append(f"- {label} ({candidate.get('code')}): {issues}")
     lines.extend(["", "The report intentionally omits feedback text and does not extract image contents.", ""])
     return "\n".join(lines)
 

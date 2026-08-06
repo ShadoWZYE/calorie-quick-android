@@ -66,6 +66,54 @@ class ReviewBundleParserTest(unittest.TestCase):
             self.assertFalse(report["valid"])
             self.assertTrue(any("Unsafe" in error for error in report["errors"]))
 
+    def test_open_food_facts_responses_become_deduplicated_candidates(self):
+        with tempfile.TemporaryDirectory() as folder:
+            archive = Path(folder) / "off-cache.zip"
+            response_path = "open-food-facts/responses/abc.json"
+            product = {
+                "code": "5941234567890",
+                "product_name": "Sparkling drink",
+                "brands": "Example",
+                "quantity": "500 ml",
+                "nutriments": {"energy-kcal_100g": 18},
+            }
+            wrapper = {
+                "schema": "calorie-quick-open-food-facts-response",
+                "schemaVersion": 1,
+                "key": "abc",
+                "requestKind": "search",
+                "locale": "ro",
+                "cachedAtEpochMillis": 1,
+                "response": {"products": [product, product]},
+            }
+            with zipfile.ZipFile(archive, "w") as output:
+                output.writestr("catalogue/catalogue.json", json.dumps({
+                    "schema": "calorie-quick-personal-catalogue", "schemaVersion": 2,
+                    "foods": [], "recipes": [],
+                }))
+                output.writestr("support/support.json", json.dumps({
+                    "schema": "calorie-quick-support-bundle", "schemaVersion": 7,
+                    "feedbackThread": [],
+                }))
+                output.writestr("bundle.json", json.dumps({
+                    "schema": "calorie-quick-review-bundle", "schemaVersion": 2,
+                    "media": [],
+                }))
+                output.writestr("open-food-facts/cache.json", json.dumps({
+                    "schema": "calorie-quick-open-food-facts-cache", "schemaVersion": 1,
+                    "responseCount": 1, "responses": [response_path],
+                }))
+                output.writestr(response_path, json.dumps(wrapper))
+
+            report = PARSER.inspect_bundle(archive)
+
+            self.assertTrue(report["valid"], report["errors"])
+            self.assertEqual(1, report["summary"]["openFoodFactsResponseCount"])
+            self.assertEqual(1, report["summary"]["openFoodFactsCandidateCount"])
+            candidate = report["openFoodFactsCandidates"][0]
+            self.assertEqual("Sparkling drink", candidate["name"])
+            self.assertIn("liquid package and ml measures need normalization", candidate["issues"])
+
 
 if __name__ == "__main__":
     unittest.main()

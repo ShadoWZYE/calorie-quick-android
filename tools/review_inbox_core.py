@@ -85,6 +85,7 @@ def _item(
         "CATALOGUE_DATA": "The catalogue validator found a concrete data-quality issue. Confirm corrections against the package label or an authoritative source before changing shared catalogue data.",
         "SCAN_DIAGNOSTIC": "The scan was retained because OCR or image decoding did not produce a dependable prefill. Inspect the sanitized attachment for layout, language, glare, curvature, and unit patterns that need regression coverage.",
         "PERFORMANCE_DIAGNOSTIC": "This operation crossed the local slow/failure threshold. Use its duration and outcome as evidence, then reproduce with finer instrumentation before selecting an architectural fix.",
+        "OPEN_FOOD_FACTS_CACHE": "The complete API response was retained as temporary evidence. Compare the package fields, normalize names, category, nutrition, allergens, and practical measures, then explicitly approve it before promoting anything into a built-in or shared catalogue.",
     }.get(
         source_type,
         f"The item was imported intact and classified as {suggested_class}. The suggestion is not a product decision; confirm reproduction, desired behavior, scope, and acceptance checks before promotion.",
@@ -116,9 +117,12 @@ def _item(
 
 
 class ReviewInboxStore:
-    def __init__(self, root: Path | None = None):
+    def __init__(self, root: Path | None = None, implementation_status_path: Path | None = None):
         self.root = (root or default_inbox_root()).resolve()
         self.bundle_root = self.root / "bundles"
+        self.implementation_status_path = implementation_status_path or Path(__file__).with_name(
+            "review_implementation_status.json",
+        )
         self.bundle_root.mkdir(parents=True, exist_ok=True)
 
     def list_reviews(self) -> list[dict[str, Any]]:
@@ -126,7 +130,9 @@ class ReviewInboxStore:
         for path in self.bundle_root.glob("*/review.json"):
             try:
                 review = json.loads(path.read_text(encoding="utf-8"))
-                if self._ensure_analysis_fields(review):
+                changed = self._ensure_analysis_fields(review)
+                changed = self._reconcile_implementation_status(review) or changed
+                if changed:
                     self.save_review(review)
                 reviews.append(review)
             except (OSError, json.JSONDecodeError):
@@ -145,6 +151,7 @@ class ReviewInboxStore:
         if review_path.exists():
             existing = json.loads(review_path.read_text(encoding="utf-8"))
             self._ensure_analysis_fields(existing)
+            self._reconcile_implementation_status(existing)
             existing["sourceArchive"] = str(archive_path)
             existing["lastSeenAt"] = _now()
             self.save_review(existing)
@@ -192,6 +199,26 @@ class ReviewInboxStore:
                     attachments=[attachment] if attachment else [],
                     classification="DATA",
                     severity="MEDIUM",
+                ),
+            )
+
+        for candidate in report.get("openFoodFactsCandidates", []):
+            code = str(candidate.get("code") or "unknown")
+            details = [f"barcode={code}"]
+            if candidate.get("brand"):
+                details.append(f"brand={candidate['brand']}")
+            if candidate.get("issues"):
+                details.append("; ".join(candidate["issues"]))
+            if candidate.get("rawPath"):
+                details.append(f"raw response: {candidate['rawPath']}")
+            items.append(
+                _item(
+                    item_id=f"off-cache:{code}",
+                    source_type="OPEN_FOOD_FACTS_CACHE",
+                    title=f"Normalize cached product: {candidate.get('name') or code}",
+                    description=" | ".join(details),
+                    classification="DATA",
+                    severity="LOW",
                 ),
             )
 
@@ -249,6 +276,7 @@ class ReviewInboxStore:
             "validationWarnings": report.get("warnings", []),
             "items": items,
         }
+        self._reconcile_implementation_status(review)
         self.save_review(review)
         return review, True
 
@@ -274,6 +302,46 @@ class ReviewInboxStore:
                 )
                 item["analysisUpdatedAt"] = _now()
                 changed = True
+        return changed
+
+    def _reconcile_implementation_status(self, review: dict[str, Any]) -> bool:
+        try:
+            registry = json.loads(self.implementation_status_path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            return False
+        entries = registry.get("items", {})
+        changed = False
+        for item in review.get("items", []):
+            implementation = entries.get(item.get("id"))
+            if not isinstance(implementation, dict):
+                continue
+            state = implementation.get("state")
+            if state == "TESTING" and item.get("decision") != "RESOLVED":
+                updates = {
+                    "decision": "NEEDS_REPRODUCTION",
+                    "status": "NEEDS_INFO",
+                    "promote": False,
+                }
+            elif state == "DONE":
+                updates = {
+                    "decision": "RESOLVED",
+                    "status": "RESOLVED",
+                    "promote": False,
+                }
+            else:
+                updates = {}
+            updates["implementationState"] = state
+            reference = implementation.get("reference")
+            if reference:
+                updates["linkedReference"] = reference
+            item_changed = False
+            for key, value in updates.items():
+                if item.get(key) != value:
+                    item[key] = value
+                    changed = True
+                    item_changed = True
+            if item_changed:
+                item["implementationStatusUpdatedAt"] = _now()
         return changed
 
     def add_manual_item(self, review: dict[str, Any]) -> dict[str, Any]:

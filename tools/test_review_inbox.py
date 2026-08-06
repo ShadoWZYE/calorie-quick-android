@@ -59,6 +59,18 @@ class ReviewInboxStoreTest(unittest.TestCase):
             output.writestr("support/support.json", json.dumps(support))
             output.writestr("bundle.json", json.dumps(root))
             output.writestr(media_path, jpeg)
+            response_path = "open-food-facts/responses/test.json"
+            output.writestr("open-food-facts/cache.json", json.dumps({
+                "schema": "calorie-quick-open-food-facts-cache", "schemaVersion": 1,
+                "responseCount": 1, "responses": [response_path],
+            }))
+            output.writestr(response_path, json.dumps({
+                "schema": "calorie-quick-open-food-facts-response", "schemaVersion": 1,
+                "response": {"product": {
+                    "code": "12345670", "product_name": "Cached food",
+                    "nutriments": {"fiber_100g": 2}, "categories": "Snacks",
+                }},
+            }))
         return archive
 
     def test_import_deduplicates_and_preserves_review_edits(self):
@@ -70,11 +82,14 @@ class ReviewInboxStoreTest(unittest.TestCase):
             review, created = store.import_bundle(archive)
 
             self.assertTrue(created)
-            self.assertEqual(2, len(review["items"]))
+            self.assertEqual(3, len(review["items"]))
             feedback = next(item for item in review["items"] if item["sourceType"] == "FEEDBACK")
             self.assertEqual("PERFORMANCE", feedback["classification"])
             self.assertTrue(feedback["assistantAnalysis"])
             self.assertTrue(Path(feedback["attachments"][0]).is_file())
+            cached = next(item for item in review["items"] if item["sourceType"] == "OPEN_FOOD_FACTS_CACHE")
+            self.assertEqual("DATA", cached["classification"])
+            self.assertIn("complete API response", cached["assistantAnalysis"])
             feedback["reviewerComments"] = "Reproduced on the test phone."
             store.save_review(review)
 
@@ -89,9 +104,10 @@ class ReviewInboxStoreTest(unittest.TestCase):
             root = Path(folder)
             store = ReviewInboxStore(root / "inbox")
             review, _ = store.import_bundle(self.create_bundle(root))
-            accepted, deferred = review["items"]
+            accepted, deferred, cached = review["items"]
             accepted.update(decision="ACCEPT_NEXT", reviewerComments="Ship after regression test.")
             deferred.update(decision="ACCEPT_BACKLOG", promote=True)
+            cached.update(decision="ACCEPT_BACKLOG")
             output = root / "brief.json"
 
             brief = store.export_implementation_brief([review], output)
@@ -101,6 +117,35 @@ class ReviewInboxStoreTest(unittest.TestCase):
             self.assertTrue(brief["items"][0]["assistantAnalysis"])
             self.assertTrue(output.is_file())
             self.assertTrue(output.with_suffix(".md").is_file())
+
+    def test_implemented_items_move_to_testing_without_regressing_done(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            status_path = root / "implementation-status.json"
+            status_path.write_text(json.dumps({
+                "items": {
+                    "feedback:testing": {"state": "TESTING", "reference": "0.2.0-alpha09"},
+                    "feedback:done": {"state": "TESTING", "reference": "0.2.0-alpha08"},
+                },
+            }), encoding="utf-8")
+            store = ReviewInboxStore(root / "inbox", status_path)
+            review = {
+                "bundleHash": "fixture",
+                "items": [
+                    {"id": "feedback:testing", "decision": "ACCEPT_NEXT", "status": "READY", "promote": True},
+                    {"id": "feedback:done", "decision": "RESOLVED", "status": "RESOLVED", "promote": False},
+                ],
+            }
+            store.save_review(review)
+
+            loaded = store.list_reviews()[0]
+
+            testing, done = loaded["items"]
+            self.assertEqual("NEEDS_REPRODUCTION", testing["decision"])
+            self.assertEqual("NEEDS_INFO", testing["status"])
+            self.assertFalse(testing["promote"])
+            self.assertEqual("0.2.0-alpha09", testing["linkedReference"])
+            self.assertEqual("RESOLVED", done["decision"])
 
 
 if __name__ == "__main__":

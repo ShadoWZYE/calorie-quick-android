@@ -21,9 +21,12 @@ data class NutritionLabelPrefill(
     val fatPer100g: Double? = null,
     val fiberPer100g: Double? = null,
     val packageGrams: Int? = null,
+    val basisUnit: NutritionBasisUnit = NutritionBasisUnit.GRAMS,
     val allergens: Map<Allergen, AllergenDeclaration> = emptyMap(),
     val warnings: Set<NutritionLabelWarning> = emptySet(),
 )
+
+enum class NutritionBasisUnit { GRAMS, MILLILITERS }
 
 enum class NutritionLabelWarning {
     BASIS_UNKNOWN,
@@ -56,29 +59,34 @@ class NutritionLabelOcr(context: Context) : AutoCloseable {
 object NutritionLabelParser {
     fun parse(rawText: String, suggestedName: String = ""): NutritionLabelPrefill {
         val lines = rawText.lineSequence().map(String::trim).filter(String::isNotEmpty).toList()
-        val normalizedText = lines.joinToString("\n").lowercase().withoutDiacritics()
-        val hasPer100g = PER_100G.containsMatchIn(normalizedText)
+        val normalizedLines = lines.map { it.lowercase().withoutDiacritics() }
+        val normalizedText = normalizedLines.joinToString("\n")
+        val firstNutritionRow = normalizedLines.indexOfFirst(::isNutritionRow).takeIf { it >= 0 } ?: lines.size
+        val headerText = normalizedLines.take(firstNutritionRow).joinToString(" ")
+        val basisColumns = BASIS_VALUE.findAll(headerText).map { match ->
+            BasisColumn(
+                amount = match.groupValues[1].replace(',', '.').toDoubleOrNull() ?: 0.0,
+                unit = match.groupValues[2].lowercase(),
+            )
+        }.filter { it.amount > 0.0 }.toList()
+        val per100ColumnIndex = basisColumns.indexOfFirst { it.amount == 100.0 }.takeIf { it >= 0 }
+        val per100Column = per100ColumnIndex?.let(basisColumns::get)
+        val hasPer100 = per100Column != null || PER_100.containsMatchIn(normalizedText)
         val hasPerServing = PER_SERVING.containsMatchIn(normalizedText)
-        val header = lines.firstOrNull { line ->
-            val normalized = line.lowercase().withoutDiacritics()
-            PER_100G.containsMatchIn(normalized) && PER_SERVING.containsMatchIn(normalized)
-        }?.lowercase()?.withoutDiacritics()
-        val per100ColumnIndex = header?.let {
-            if (PER_100G.find(it)!!.range.first < PER_SERVING.find(it)!!.range.first) 0 else 1
-        }
-        val servingGrams = findWeight(lines, SERVING_KEYWORDS)
-        val packageGrams = findWeight(lines, PACKAGE_KEYWORDS)
+        val hasMultipleColumns = basisColumns.size > 1 || hasPerServing
+        val servingAmount = findMeasure(lines, SERVING_KEYWORDS)?.normalizedAmount
+        val packageMeasure = findMeasure(lines, PACKAGE_KEYWORDS) ?: findDeclaredPackageMeasure(normalizedText)
         val warnings = mutableSetOf<NutritionLabelWarning>()
 
         val extraction = when {
-            hasPer100g && hasPerServing && per100ColumnIndex == null -> {
+            hasPer100 && hasMultipleColumns && per100ColumnIndex == null -> {
                 warnings += NutritionLabelWarning.MULTIPLE_COLUMNS_UNCLEAR
                 Extraction()
             }
-            hasPer100g -> extractNutrition(lines, per100ColumnIndex ?: 0, requireMultiple = hasPerServing)
-            hasPerServing && servingGrams != null -> {
+            hasPer100 -> extractNutrition(lines, per100ColumnIndex ?: 0, requireMultiple = hasMultipleColumns)
+            hasPerServing && servingAmount != null -> {
                 warnings += NutritionLabelWarning.NORMALIZED_FROM_SERVING
-                extractNutrition(lines, 0, requireMultiple = false).scaled(100.0 / servingGrams)
+                extractNutrition(lines, 0, requireMultiple = false).scaled(100.0 / servingAmount)
             }
             else -> {
                 warnings += NutritionLabelWarning.BASIS_UNKNOWN
@@ -98,7 +106,8 @@ object NutritionLabelParser {
             carbsPer100g = extraction.carbs.validNutrient(),
             fatPer100g = extraction.fat.validNutrient(),
             fiberPer100g = extraction.fiber.validNutrient(),
-            packageGrams = packageGrams,
+            packageGrams = packageMeasure?.normalizedAmount?.roundToInt()?.takeIf { it in 1..50_000 },
+            basisUnit = if (per100Column?.unit == "ml") NutritionBasisUnit.MILLILITERS else NutritionBasisUnit.GRAMS,
             allergens = extractAllergens(lines),
             warnings = warnings,
         )
@@ -120,27 +129,43 @@ object NutritionLabelParser {
         requireMultiple: Boolean,
         excludedKeywords: List<String> = emptyList(),
     ): Double? {
-        val line = lines.firstOrNull { rawLine ->
+        val rowIndex = lines.indexOfFirst { rawLine ->
             val normalized = rawLine.lowercase().withoutDiacritics()
             keywords.any(normalized::contains) && excludedKeywords.none(normalized::contains)
-        } ?: return null
-        val values = valuePattern.findAll(line.lowercase()).mapNotNull { match ->
+        }
+        if (rowIndex < 0) return null
+        val block = buildList {
+            add(lines[rowIndex])
+            for (index in rowIndex + 1 until minOf(lines.size, rowIndex + 7)) {
+                val normalized = lines[index].lowercase().withoutDiacritics()
+                if (isNutritionRow(normalized)) break
+                add(lines[index])
+            }
+        }.joinToString(" ")
+        val values = valuePattern.findAll(block.lowercase()).mapNotNull { match ->
             match.groupValues[1].replace(',', '.').toDoubleOrNull()
         }.toList()
         if (requireMultiple && values.size < 2) return null
         return values.getOrNull(columnIndex)
     }
 
-    private fun findWeight(lines: List<String>, keywords: List<String>): Int? {
+    private fun findMeasure(lines: List<String>, keywords: List<String>): Measure? {
         val line = lines.firstOrNull { rawLine ->
             val normalized = rawLine.lowercase().withoutDiacritics()
             keywords.any(normalized::contains)
         } ?: return null
-        val match = WEIGHT_VALUE.find(line.lowercase()) ?: return null
+        val match = MEASURE_VALUE.find(line.lowercase()) ?: return null
         val amount = match.groupValues[1].replace(',', '.').toDoubleOrNull() ?: return null
-        val grams = if (match.groupValues[2].lowercase() == "kg") amount * 1_000.0 else amount
-        return grams.roundToInt().takeIf { it in 1..50_000 }
+        return Measure(amount, match.groupValues[2].lowercase())
     }
+
+    private fun findDeclaredPackageMeasure(normalizedText: String): Measure? {
+        val match = DECLARED_PACKAGE.find(normalizedText) ?: return null
+        val amount = match.groupValues[1].replace(',', '.').toDoubleOrNull() ?: return null
+        return Measure(amount, match.groupValues[2].lowercase())
+    }
+
+    private fun isNutritionRow(line: String): Boolean = ROW_BOUNDARY_KEYWORDS.any(line::contains)
 
     private fun findBarcode(lines: List<String>): String? = lines.asSequence()
         .flatMap { DIGIT_SEQUENCE.findAll(it.replace(" ", "")).map(MatchResult::value) }
@@ -193,11 +218,22 @@ object NutritionLabelParser {
         )
     }
 
-    private val PER_100G = Regex("""(?:per|/|la)\s*100\s*g\b""")
+    private data class BasisColumn(val amount: Double, val unit: String)
+
+    private data class Measure(val amount: Double, val unit: String) {
+        val normalizedAmount: Double = when (unit) {
+            "kg", "l" -> amount * 1_000.0
+            else -> amount
+        }
+    }
+
+    private val PER_100 = Regex("""(?:(?:per|/|la)\s*)?100\s*(?:g|ml)\b""")
     private val PER_SERVING = Regex("""(?:per|/|pe)\s*(?:serving|portion|portie)\b""")
+    private val BASIS_VALUE = Regex("""([0-9]+(?:[.,][0-9]+)?)\s*(g|ml)\b""")
     private val KCAL_VALUE = Regex("""([0-9]+(?:[.,][0-9]+)?)\s*kcal\b""")
     private val GRAM_VALUE = Regex("""([0-9]+(?:[.,][0-9]+)?)\s*g\b""")
-    private val WEIGHT_VALUE = Regex("""([0-9]+(?:[.,][0-9]+)?)\s*(kg|g)\b""")
+    private val MEASURE_VALUE = Regex("""([0-9]+(?:[.,][0-9]+)?)\s*(kg|g|ml|l)\b""")
+    private val DECLARED_PACKAGE = Regex("""\b([0-9]+(?:[.,][0-9]+)?)\s*(ml|l|g|kg)\s*(?:=|x\s*[0-9]+)""")
     private val DIGIT_SEQUENCE = Regex("""\d{8,14}""")
     private val ENERGY_KEYWORDS = listOf("energy", "energie", "valoare energetica")
     private val PROTEIN_KEYWORDS = listOf("protein", "proteine")
@@ -207,6 +243,11 @@ object NutritionLabelParser {
     private val FIBER_KEYWORDS = listOf("fiber", "fibre")
     private val SERVING_KEYWORDS = listOf("serving size", "portion size", "marimea portiei", "portie")
     private val PACKAGE_KEYWORDS = listOf("net weight", "net wt", "greutate neta", "cantitate neta")
+    private val ROW_BOUNDARY_KEYWORDS = listOf(
+        "energy", "energie", "valoare energetica", "protein", "proteine", "carbohydrate", "carbohidrati",
+        "glucide", "fat", "grasimi", "lipide", "fiber", "fibre", "saturat", "trans", "zahar", "sugar",
+        "salt", "sare",
+    )
     private val CONTAINS_KEYWORDS = listOf("contains", "allergens", "contine", "alergeni")
     private val MAY_CONTAIN_KEYWORDS = listOf("may contain", "traces of", "poate contine", "urme de")
     private val ALLERGEN_TERMS = mapOf(

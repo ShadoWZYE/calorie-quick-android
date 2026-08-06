@@ -16,6 +16,7 @@ import com.shadow.calorietracker.data.FullBackupManager
 import com.shadow.calorietracker.data.FullBackupPreview
 import com.shadow.calorietracker.data.InvalidFullBackupException
 import com.shadow.calorietracker.data.OpenFoodFactsClient
+import com.shadow.calorietracker.data.OpenFoodFactsResponseCache
 import com.shadow.calorietracker.data.OpenFoodFactsException
 import com.shadow.calorietracker.data.NutritionLabelOcr
 import com.shadow.calorietracker.data.NutritionLabelPrefill
@@ -136,10 +137,11 @@ data class FullBackupState(
 class CalorieViewModel(application: Application) : AndroidViewModel(application) {
     private val database = AppDatabase.get(application)
     private val repository = CalorieRepository(database, BuiltInCatalogueImporter(application, database))
-    private val openFoodFacts = OpenFoodFactsClient()
+    private val openFoodFactsCache = OpenFoodFactsResponseCache(application)
+    private val openFoodFacts = OpenFoodFactsClient(openFoodFactsCache)
     private val foodImageStore = FoodImageStore(application)
     private val supportDiagnostics = SupportDiagnosticStore(application)
-    private val catalogueExporter = CatalogueExporter(application, database, supportDiagnostics)
+    private val catalogueExporter = CatalogueExporter(application, database, supportDiagnostics, openFoodFactsCache)
     private val fullBackupManager = FullBackupManager(application, database, supportDiagnostics)
     private val _catalogueExportState = MutableStateFlow(CatalogueExportState())
     val catalogueExportState: StateFlow<CatalogueExportState> = _catalogueExportState.asStateFlow()

@@ -123,4 +123,64 @@ class NutritionLabelParserTest {
         assertEquals(AllergenDeclaration.CONTAINS, result.allergens[Allergen.EGGS])
         assertEquals(AllergenDeclaration.MAY_CONTAIN, result.allergens[Allergen.PEANUTS])
     }
+
+    @Test
+    fun `romanian liquid table selects per 100 ml column and package volume`() {
+        val result = NutritionLabelParser.parse(
+            """
+            DECLARAȚIE NUTRIȚIONALĂ
+            PENTRU: 100 ml 250 ml
+            Valoare energetică: 179 kJ / 42 kcal 448 kJ / 105 kcal
+            Grăsimi: 0 g 0 g
+            din care acizi grași saturați: 0 g 0 g
+            Glucide: 10,1 g 25 g
+            din care zaharuri: 10,1 g 25 g
+            Proteine: 0 g 0 g
+            Sare: 0 g 0 g
+            500 ml = 2 x 250 ml
+            """.trimIndent(),
+            suggestedName = "Schweppes Mandarin",
+        )
+
+        assertEquals(42, result.caloriesPer100g)
+        assertEquals(0.0, result.fatPer100g!!, 0.001)
+        assertEquals(10.1, result.carbsPer100g!!, 0.001)
+        assertEquals(0.0, result.proteinPer100g!!, 0.001)
+        assertNull(result.fiberPer100g)
+        assertEquals(500, result.packageGrams)
+        assertEquals(NutritionBasisUnit.MILLILITERS, result.basisUnit)
+        assertTrue(result.warnings.isEmpty())
+    }
+
+    @Test
+    fun `split OCR row lines stay within their nutrient boundaries`() {
+        val result = NutritionLabelParser.parse(
+            """
+            Pentru 100 ml 250 ml
+            Valoare energetică
+            42 kcal
+            105 kcal
+            Grăsimi
+            0 g
+            0 g
+            din care acizi grași saturați
+            3 g
+            8 g
+            Glucide
+            10,1 g
+            25 g
+            din care zaharuri
+            10,1 g
+            25 g
+            Proteine
+            0 g
+            0 g
+            """.trimIndent(),
+        )
+
+        assertEquals(42, result.caloriesPer100g)
+        assertEquals(0.0, result.fatPer100g!!, 0.001)
+        assertEquals(10.1, result.carbsPer100g!!, 0.001)
+        assertEquals(0.0, result.proteinPer100g!!, 0.001)
+    }
 }

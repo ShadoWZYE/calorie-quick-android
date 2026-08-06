@@ -22,15 +22,17 @@ import org.json.JSONArray
 import org.json.JSONObject
 
 class OpenFoodFactsClient(
+    private val cache: OpenFoodFactsResponseCache? = null,
     private val connectionFactory: (String) -> HttpURLConnection = { url ->
         URI(url).toURL().openConnection() as HttpURLConnection
     },
 ) {
     suspend fun search(query: String, locale: String): List<Food> = withContext(Dispatchers.IO) {
         val encodedQuery = URLEncoder.encode(query.trim(), StandardCharsets.UTF_8.toString())
+        val encodedLocale = URLEncoder.encode(locale, StandardCharsets.UTF_8.toString())
         val url = "$BASE_URL/cgi/search.pl?action=process&search_terms=$encodedQuery&json=1&page_size=20" +
-            "&fields=$PRODUCT_FIELDS"
-        val root = requireNotNull(requestJsonWithRetry(url, locale))
+            "&lc=$encodedLocale"
+        val root = requireNotNull(requestJsonWithRetry(url, locale, requestKind = "search"))
         root.optJSONArray("products").orEmptyObjects().mapNotNull(::parseProduct)
             .distinctBy { it.barcode ?: it.id }
     }
@@ -38,8 +40,10 @@ class OpenFoodFactsClient(
     suspend fun productByBarcode(barcode: String, locale: String): Food? = withContext(Dispatchers.IO) {
         val normalized = barcode.filter(Char::isDigit)
         require(normalized.length in 8..14) { "Invalid barcode" }
-        val url = "$BASE_URL/api/v3/product/$normalized?fields=$PRODUCT_FIELDS&lc=$locale"
-        val root = requestJsonWithRetry(url, locale, allowNotFound = true) ?: return@withContext null
+        val encodedLocale = URLEncoder.encode(locale, StandardCharsets.UTF_8.toString())
+        val url = "$BASE_URL/api/v3/product/$normalized?lc=$encodedLocale"
+        val root = requestJsonWithRetry(url, locale, allowNotFound = true, requestKind = "barcode")
+            ?: return@withContext null
         if (root.optString("status") == "failure") return@withContext null
         root.optJSONObject("product")?.let(::parseProduct)
     }
@@ -68,13 +72,19 @@ class OpenFoodFactsClient(
         url: String,
         locale: String,
         allowNotFound: Boolean = false,
+        requestKind: String,
     ): JSONObject? {
+        cache?.readFresh(url, locale)?.let { return it }
         repeat(2) { attempt ->
             try {
-                return requestJson(url, locale, allowNotFound)
+                return requestJson(url, locale, allowNotFound)?.also {
+                    cache?.write(url, locale, requestKind, it)
+                }
             } catch (error: OpenFoodFactsException.ServiceUnavailable) {
-                if (attempt == 1) throw error
+                if (attempt == 1) return cache?.readAny(url, locale) ?: throw error
                 delay(750)
+            } catch (error: IOException) {
+                return cache?.readAny(url, locale) ?: throw error
             }
         }
         error("unreachable")
@@ -84,11 +94,6 @@ class OpenFoodFactsClient(
         private const val BASE_URL = "https://world.openfoodfacts.org"
         private val USER_AGENT =
             "CalorieQuick/${BuildConfig.VERSION_NAME} (https://github.com/ShadoWZYE/calorie-quick-android)"
-        private const val PRODUCT_FIELDS =
-            "code,product_name,product_name_en,product_name_ro,brands,nutriments," +
-                "allergens_tags,traces_tags,quantity,product_quantity,product_quantity_unit," +
-                "serving_size,serving_quantity,serving_quantity_unit,nutrition_data_per"
-
         fun parseProduct(product: JSONObject): Food? {
             val code = product.optString("code").trim().takeIf(String::isNotEmpty) ?: return null
             val fallbackName = product.optString("product_name").trim()

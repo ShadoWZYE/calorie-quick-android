@@ -1,5 +1,6 @@
 package com.shadow.calorietracker.ui
 
+import android.app.Activity
 import android.net.Uri
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
@@ -8,7 +9,9 @@ import android.util.LruCache
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatDelegate
 import androidx.activity.compose.BackHandler
+import androidx.activity.compose.LocalActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.IntentSenderRequest
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
@@ -156,6 +159,7 @@ import com.shadow.calorietracker.model.UserProfile
 import com.shadow.calorietracker.model.projectedMacroOverages
 import com.shadow.calorietracker.data.GRAMS_UNIT_KEY
 import com.shadow.calorietracker.data.NutritionLabelPrefill
+import com.shadow.calorietracker.data.NutritionBasisUnit
 import com.shadow.calorietracker.data.NutritionLabelWarning
 import com.shadow.calorietracker.data.BodyScalePrefill
 import com.shadow.calorietracker.data.BodyScaleWarning
@@ -163,6 +167,9 @@ import com.shadow.calorietracker.data.FeedbackMessage
 import com.google.mlkit.vision.barcode.common.Barcode
 import com.google.mlkit.vision.codescanner.GmsBarcodeScannerOptions
 import com.google.mlkit.vision.codescanner.GmsBarcodeScanning
+import com.google.mlkit.vision.documentscanner.GmsDocumentScannerOptions
+import com.google.mlkit.vision.documentscanner.GmsDocumentScanning
+import com.google.mlkit.vision.documentscanner.GmsDocumentScanningResult
 import java.text.DateFormat
 import java.text.NumberFormat
 import java.io.File
@@ -646,6 +653,7 @@ private fun ImageSourceDialog(
     onPhotos: () -> Unit,
     onFiles: () -> Unit,
     onCamera: (() -> Unit)? = null,
+    onPrepare: (() -> Unit)? = null,
 ) {
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -653,6 +661,12 @@ private fun ImageSourceDialog(
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 Text(explanation, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                onPrepare?.let { prepareAction ->
+                    Button(
+                        onClick = prepareAction,
+                        modifier = Modifier.fillMaxWidth(),
+                    ) { Text(stringResource(R.string.prepare_label_photo)) }
+                }
                 onCamera?.let { cameraAction ->
                     OutlinedButton(
                         onClick = cameraAction,
@@ -946,6 +960,7 @@ private fun PersonalFoodEditorScreen(
     onOpenExistingFood: (Food) -> Unit,
 ) {
     val context = LocalContext.current
+    val activity = LocalActivity.current
     val locale = LocalLocale.current.platformLocale
     val variantName = initial?.let { stringResource(R.string.personal_variant_name, it.name(locale)) }.orEmpty()
     val initialPackageMeasure = initial?.takeIf(Food::isPackaged)?.servings?.firstOrNull(Serving::isPackage)
@@ -977,18 +992,33 @@ private fun PersonalFoodEditorScreen(
     var allergens by remember(initial?.id, nutritionLabelPrefill) {
         mutableStateOf(initial?.allergens ?: nutritionLabelPrefill?.allergens.orEmpty())
     }
-    var measures by remember(initial?.id) {
-        mutableStateOf(
+    var measures by remember(initial?.id, nutritionLabelPrefill) {
+        val existingMeasures =
             initial?.servings.orEmpty().filterNot { it.id == initialPackageMeasure?.id }.map {
                 PersonalMeasure(it.id.takeUnless { isTemplateCopy }, it.label, it.grams.roundToInt(), it.suggestedAmounts)
+            }
+        mutableStateOf(
+            if (nutritionLabelPrefill?.basisUnit == NutritionBasisUnit.MILLILITERS &&
+                existingMeasures.none { it.label.en.equals("ml", ignoreCase = true) }
+            ) {
+                existingMeasures + PersonalMeasure(
+                    label = LocalizedText("ml", "ml"),
+                    grams = 1,
+                    suggestedAmounts = listOf(100.0, 250.0),
+                )
+            } else {
+                existingMeasures
             },
         )
     }
     var isPackaged by rememberSaveable(initial?.id, nutritionLabelPrefill) {
         mutableStateOf(initial?.isPackaged == true || nutritionLabelPrefill?.packageGrams != null)
     }
-    var packageLabel by rememberSaveable(initial?.id) {
-        mutableStateOf(initialPackageMeasure?.label?.en?.removePrefix("1 ") ?: "package")
+    var packageLabel by rememberSaveable(initial?.id, nutritionLabelPrefill) {
+        mutableStateOf(
+            initialPackageMeasure?.label?.en?.removePrefix("1 ")
+                ?: if (nutritionLabelPrefill?.basisUnit == NutritionBasisUnit.MILLILITERS) "bottle" else "package",
+        )
     }
     var packageWeight by rememberSaveable(initial?.id, nutritionLabelPrefill) {
         mutableStateOf(initialPackageMeasure?.grams?.toString() ?: nutritionLabelPrefill?.packageGrams?.toString().orEmpty())
@@ -1028,6 +1058,43 @@ private fun PersonalFoodEditorScreen(
             }
         }
         pendingFoodCameraUri = null
+    }
+    val preparedFoodPhotoLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.StartIntentSenderForResult(),
+    ) { activityResult ->
+        if (activityResult.resultCode == Activity.RESULT_OK) {
+            GmsDocumentScanningResult.fromActivityResultIntent(activityResult.data)
+                ?.pages
+                ?.firstOrNull()
+                ?.imageUri
+                ?.let { uri ->
+                    pendingImageUri = uri.toString()
+                    keepExistingImage = true
+                }
+        }
+    }
+    val foodPhotoScanner = remember {
+        val options = GmsDocumentScannerOptions.Builder()
+            .setGalleryImportAllowed(true)
+            .setPageLimit(1)
+            .setResultFormats(GmsDocumentScannerOptions.RESULT_FORMAT_JPEG)
+            .setScannerMode(GmsDocumentScannerOptions.SCANNER_MODE_BASE)
+            .build()
+        GmsDocumentScanning.getClient(options)
+    }
+    fun launchFoodPhotoPreparation() {
+        val host = activity
+        if (host == null) {
+            Toast.makeText(context, R.string.label_preparation_unavailable, Toast.LENGTH_LONG).show()
+            return
+        }
+        foodPhotoScanner.getStartScanIntent(host)
+            .addOnSuccessListener { sender ->
+                preparedFoodPhotoLauncher.launch(IntentSenderRequest.Builder(sender).build())
+            }
+            .addOnFailureListener {
+                Toast.makeText(context, R.string.label_preparation_unavailable, Toast.LENGTH_LONG).show()
+            }
     }
     val shownImage = pendingImageUri ?: initial?.image?.localPath?.takeIf { keepExistingImage }
     val caloriesValue = calories.toIntOrNull()
@@ -1105,6 +1172,13 @@ private fun PersonalFoodEditorScreen(
                         verticalArrangement = Arrangement.spacedBy(4.dp),
                     ) {
                         Text(stringResource(R.string.ocr_detected_values), fontWeight = FontWeight.SemiBold)
+                        if (nutritionLabelPrefill.basisUnit == NutritionBasisUnit.MILLILITERS) {
+                            Text(
+                                stringResource(R.string.ocr_liquid_basis),
+                                color = MaterialTheme.colorScheme.onTertiaryContainer,
+                                fontSize = 13.sp,
+                            )
+                        }
                         nutritionLabelPrefill.warnings.forEach { warning ->
                             Text(
                                 "• ${stringResource(warning.labelResource())}",
@@ -1166,6 +1240,9 @@ private fun PersonalFoodEditorScreen(
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                         verticalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
+                        OutlinedButton(onClick = ::launchFoodPhotoPreparation) {
+                            Text(stringResource(R.string.crop_food_photo))
+                        }
                         Button(onClick = {
                             val directory = File(context.cacheDir, "label-captures").apply { mkdirs() }
                             val file = File.createTempFile("food-photo-", ".jpg", directory)
@@ -2520,7 +2597,8 @@ private fun ProfileForm(
                     Text(
                         if (result == null ||
                             result.itemCount == 0 && result.diagnosticCount == 0 && result.performanceCount == 0 &&
-                                result.freezeCount == 0 && result.crashCount == 0 && !result.hasFeedback
+                                result.freezeCount == 0 && result.crashCount == 0 &&
+                                result.openFoodFactsResponseCount == 0 && !result.hasFeedback
                         ) {
                             stringResource(R.string.catalogue_export_empty)
                         } else {
@@ -2532,6 +2610,7 @@ private fun ProfileForm(
                                 result.performanceCount,
                                 result.freezeCount,
                                 result.crashCount,
+                                result.openFoodFactsResponseCount,
                             )
                         },
                         color = MaterialTheme.colorScheme.primary,
@@ -3926,6 +4005,7 @@ private fun TodayScreen(
     onImportFood: (Food) -> Unit,
 ) {
     val context = LocalContext.current
+    val activity = LocalActivity.current
     val locale = LocalLocale.current.platformLocale
     var pendingCameraUri by rememberSaveable { mutableStateOf<String?>(null) }
     var showLabelSourceDialog by rememberSaveable { mutableStateOf(false) }
@@ -3953,6 +4033,42 @@ private fun TodayScreen(
             else runCatching { context.contentResolver.delete(uri, null, null) }
         }
         pendingCameraUri = null
+    }
+    val preparedLabelLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.StartIntentSenderForResult(),
+    ) { activityResult ->
+        if (activityResult.resultCode == Activity.RESULT_OK) {
+            GmsDocumentScanningResult.fromActivityResultIntent(activityResult.data)
+                ?.pages
+                ?.firstOrNull()
+                ?.imageUri
+                ?.let { onScanNutritionLabel(it, query.trim()) }
+        }
+    }
+    val labelDocumentScanner = remember {
+        val options = GmsDocumentScannerOptions.Builder()
+            .setGalleryImportAllowed(true)
+            .setPageLimit(1)
+            .setResultFormats(GmsDocumentScannerOptions.RESULT_FORMAT_JPEG)
+            .setScannerMode(GmsDocumentScannerOptions.SCANNER_MODE_FULL)
+            .build()
+        GmsDocumentScanning.getClient(options)
+    }
+    fun launchPreparedLabelScanner() {
+        val host = activity
+        if (host == null) {
+            Toast.makeText(context, R.string.label_preparation_unavailable, Toast.LENGTH_LONG).show()
+            showLabelSourceDialog = true
+            return
+        }
+        labelDocumentScanner.getStartScanIntent(host)
+            .addOnSuccessListener { sender ->
+                preparedLabelLauncher.launch(IntentSenderRequest.Builder(sender).build())
+            }
+            .addOnFailureListener {
+                Toast.makeText(context, R.string.label_preparation_unavailable, Toast.LENGTH_LONG).show()
+                showLabelSourceDialog = true
+            }
     }
     val barcodeScanner = remember {
         val options = GmsBarcodeScannerOptions.Builder()
@@ -4470,6 +4586,10 @@ private fun TodayScreen(
             title = stringResource(R.string.scan_nutrition_label),
             explanation = stringResource(R.string.scan_label_explanation),
             onDismiss = { showLabelSourceDialog = false },
+            onPrepare = {
+                showLabelSourceDialog = false
+                launchPreparedLabelScanner()
+            },
             onCamera = {
                 showLabelSourceDialog = false
                 val directory = File(context.cacheDir, "label-captures").apply { mkdirs() }

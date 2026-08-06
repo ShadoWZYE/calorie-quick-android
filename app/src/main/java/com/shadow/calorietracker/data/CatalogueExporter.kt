@@ -16,6 +16,7 @@ data class CatalogueExportResult(
     val freezeCount: Int = 0,
     val crashCount: Int = 0,
     val performanceCount: Int = 0,
+    val openFoodFactsResponseCount: Int = 0,
     val hasFeedback: Boolean = false,
 )
 
@@ -23,6 +24,7 @@ class CatalogueExporter(
     private val context: Context,
     private val database: AppDatabase,
     private val supportDiagnostics: SupportDiagnosticStore,
+    private val openFoodFactsCache: OpenFoodFactsResponseCache,
 ) {
     suspend fun exportTo(
         destination: Uri,
@@ -160,6 +162,7 @@ class CatalogueExporter(
         }
 
         val generatedAt = System.currentTimeMillis()
+        val cachedOpenFoodFactsResponses = openFoodFactsCache.entries()
         val manifest = JSONObject()
             .put("schema", "calorie-quick-personal-catalogue")
             .put("schemaVersion", 2)
@@ -176,6 +179,20 @@ class CatalogueExporter(
                 imageEntries.values.forEach { media ->
                     zip.putNextEntry(ZipEntry(media.bundlePath))
                     media.file.inputStream().use { it.copyTo(zip) }
+                    zip.closeEntry()
+                }
+                val openFoodFactsIndex = JSONObject()
+                    .put("schema", "calorie-quick-open-food-facts-cache")
+                    .put("schemaVersion", 1)
+                    .put("generatedAtEpochMillis", generatedAt)
+                    .put("responseCount", cachedOpenFoodFactsResponses.size)
+                    .put("responses", JSONArray(cachedOpenFoodFactsResponses.map { "open-food-facts/responses/${it.name}" }))
+                zip.putNextEntry(ZipEntry("open-food-facts/cache.json"))
+                zip.write(openFoodFactsIndex.toString(2).toByteArray())
+                zip.closeEntry()
+                cachedOpenFoodFactsResponses.forEach { file ->
+                    zip.putNextEntry(ZipEntry("open-food-facts/responses/${file.name}"))
+                    file.inputStream().use { it.copyTo(zip) }
                     zip.closeEntry()
                 }
                 supportResult = supportDiagnostics.appendTo(
@@ -201,6 +218,7 @@ class CatalogueExporter(
                     .put("selection", JSONObject()
                         .put("foodCount", foodJson.length())
                         .put("recipeCount", recipeJson.length())
+                        .put("openFoodFactsResponseCount", cachedOpenFoodFactsResponses.size)
                         .put("includeDiagnostics", includeDiagnostics)
                         .put("includeFreezeReports", includeFreezeReports)
                         .put("includeCrashReports", includeCrashReports)
@@ -215,7 +233,12 @@ class CatalogueExporter(
                             .put("kind", "support")
                             .put("path", "support/support.json")
                             .put("schemaVersion", 7)
-                            .put("recordCount", supportResult.diagnosticCount + supportResult.freezeCount + supportResult.crashCount + supportResult.feedbackCount + supportResult.performanceCount)))
+                            .put("recordCount", supportResult.diagnosticCount + supportResult.freezeCount + supportResult.crashCount + supportResult.feedbackCount + supportResult.performanceCount))
+                        .put(JSONObject()
+                            .put("kind", "open-food-facts-cache")
+                            .put("path", "open-food-facts/cache.json")
+                            .put("schemaVersion", 1)
+                            .put("recordCount", cachedOpenFoodFactsResponses.size)))
                     .put("media", JSONArray(allMedia.map(ReviewBundleMedia::toJson)))
                 zip.putNextEntry(ZipEntry("bundle.json"))
                 zip.write(bundleManifest.toString(2).toByteArray())
@@ -233,6 +256,7 @@ class CatalogueExporter(
             freezeCount = supportResult.freezeCount,
             crashCount = supportResult.crashCount,
             performanceCount = supportResult.performanceCount,
+            openFoodFactsResponseCount = cachedOpenFoodFactsResponses.size,
             hasFeedback = supportResult.hasFeedback,
         )
         }
