@@ -53,6 +53,16 @@ class RecipeRepositoryTest {
         assertEquals(FoodSourceType.RECIPE, firstFood.provenance.type)
         assertEquals(65, firstFood.nutritionPer100g.calories)
         assertEquals(100, firstFood.servings.single().grams)
+        assertEquals(400, firstRecipe.remainingGrams)
+
+        repository.addEntry(firstFood, 1.0, firstFood.servings.single())
+        val loggedEntry = repository.allEntries.first().single()
+        assertEquals(firstRecipe.activeBatchId, loggedEntry.recipeBatchId)
+        assertEquals(100, loggedEntry.recipeBatchGrams)
+        assertEquals(300, repository.recipes.first().single().remainingGrams)
+
+        repository.deleteEntry(loggedEntry)
+        assertEquals(400, repository.recipes.first().single().remainingGrams)
 
         repository.saveRecipe(
             RecipeDraft(
@@ -69,7 +79,16 @@ class RecipeRepositoryTest {
         assertNotEquals(firstRecipe.activeBatchId, latestRecipe.activeBatchId)
         assertEquals(2, database.recipeDao().countBatches(foodId))
         assertEquals(450, latestRecipe.cookedYieldGrams)
+        assertEquals(450, latestRecipe.remainingGrams)
+        assertEquals(2, latestRecipe.batches.size)
         assertEquals(150, latestFood.servings.single().grams)
         assertEquals(87, latestFood.nutritionPer100g.calories)
+
+        repository.addEntry(firstFood, 1.0, firstFood.servings.single(), firstRecipe.activeBatchId)
+        val previousBatchEntry = repository.allEntries.first().single()
+        val afterPreviousBatchLog = repository.recipes.first().single()
+        assertEquals(firstRecipe.activeBatchId, previousBatchEntry.recipeBatchId)
+        assertEquals(300, afterPreviousBatchLog.batches.single { it.id == firstRecipe.activeBatchId }.remainingGrams)
+        assertEquals(450, afterPreviousBatchLog.remainingGrams)
     }
 }

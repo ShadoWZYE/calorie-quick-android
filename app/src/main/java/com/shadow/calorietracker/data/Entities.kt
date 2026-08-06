@@ -79,6 +79,7 @@ data class RecipeBatchEntity(
     @PrimaryKey val id: String,
     val recipeFoodId: String,
     val cookedYieldGrams: Int,
+    val remainingGrams: Int,
     val portionCount: Int,
     val cookedAtEpochMillis: Long,
 )
@@ -143,6 +144,8 @@ data class DiaryEntryEntity(
     val carbsMilligrams: Int,
     val fatMilligrams: Int,
     val fiberMilligrams: Int? = null,
+    val recipeBatchId: String? = null,
+    val recipeBatchGrams: Int = 0,
 )
 
 @Entity(tableName = "serving_usage", indices = [Index("foodId")])

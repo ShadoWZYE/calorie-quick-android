@@ -17,13 +17,12 @@ import com.shadow.calorietracker.model.QuantityUsage
 import com.shadow.calorietracker.model.RecipeCalculator
 import com.shadow.calorietracker.model.RecipeDraft
 import com.shadow.calorietracker.model.RecipeIngredientDraft
+import com.shadow.calorietracker.model.RecipeBatchSummary
 import com.shadow.calorietracker.model.RecipeTemplate
 import com.shadow.calorietracker.model.Serving
 import com.shadow.calorietracker.model.TargetMode
 import com.shadow.calorietracker.model.UserProfile
 import com.shadow.calorietracker.model.UnitUsage
-import java.time.LocalDate
-import java.time.ZoneId
 import java.util.UUID
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
@@ -55,6 +54,7 @@ class CalorieRepository(private val database: AppDatabase) {
             )
         }
     }
+    val allEntries: Flow<List<FoodEntry>> = database.diaryDao().observeAll().map { rows -> rows.map { it.toModel() } }
     val recipes: Flow<List<RecipeTemplate>> = combine(
         database.recipeDao().observeRecipes(),
         database.recipeDao().observeBatches(),
@@ -62,44 +62,60 @@ class CalorieRepository(private val database: AppDatabase) {
         database.recipeDao().observeIngredientAllergens(),
     ) { recipes, batches, ingredients, ingredientAllergens ->
         val batchesById = batches.associateBy(RecipeBatchEntity::id)
+        val batchesByRecipe = batches.groupBy(RecipeBatchEntity::recipeFoodId)
         val ingredientsByBatch = ingredients.groupBy(RecipeIngredientEntity::batchId)
         val allergensByIngredient = ingredientAllergens.groupBy(RecipeIngredientAllergenEntity::recipeIngredientId)
+        fun ingredientsFor(batchId: String) = ingredientsByBatch[batchId].orEmpty()
+            .sortedBy(RecipeIngredientEntity::sortOrder)
+            .map {
+                RecipeIngredientDraft(
+                    foodId = it.foodId,
+                    foodName = LocalizedText(it.foodNameEn, it.foodNameRo),
+                    nutritionPer100g = Nutrition(
+                        it.caloriesPer100g,
+                        it.proteinMilligramsPer100g / 1_000.0,
+                        it.carbsMilligramsPer100g / 1_000.0,
+                        it.fatMilligramsPer100g / 1_000.0,
+                        it.fiberMilligramsPer100g?.div(1_000.0),
+                    ),
+                    allergens = allergensByIngredient[it.id].orEmpty().associate { declaration ->
+                        Allergen.valueOf(declaration.allergenKey) to
+                            AllergenDeclaration.valueOf(declaration.declaration)
+                    },
+                    grams = it.grams,
+                )
+            }
         recipes.mapNotNull { recipe ->
             val batch = batchesById[recipe.activeBatchId] ?: return@mapNotNull null
+            val activeIngredients = ingredientsFor(batch.id)
+            val batchHistory = batchesByRecipe[recipe.foodId].orEmpty().mapNotNull { recipeBatch ->
+                val batchIngredients = ingredientsFor(recipeBatch.id)
+                if (batchIngredients.isEmpty()) return@mapNotNull null
+                RecipeBatchSummary(
+                    id = recipeBatch.id,
+                    cookedYieldGrams = recipeBatch.cookedYieldGrams,
+                    remainingGrams = recipeBatch.remainingGrams,
+                    portionCount = recipeBatch.portionCount,
+                    cookedAtEpochMillis = recipeBatch.cookedAtEpochMillis,
+                    nutritionPer100g = RecipeCalculator.calculate(
+                        batchIngredients,
+                        recipeBatch.cookedYieldGrams,
+                        recipeBatch.portionCount,
+                    ).nutritionPer100g,
+                )
+            }.sortedByDescending(RecipeBatchSummary::cookedAtEpochMillis)
             RecipeTemplate(
                 foodId = recipe.foodId,
                 activeBatchId = batch.id,
                 name = recipe.name,
-                ingredients = ingredientsByBatch[batch.id].orEmpty().sortedBy(RecipeIngredientEntity::sortOrder).map {
-                    RecipeIngredientDraft(
-                        foodId = it.foodId,
-                        foodName = LocalizedText(it.foodNameEn, it.foodNameRo),
-                        nutritionPer100g = Nutrition(
-                            it.caloriesPer100g,
-                            it.proteinMilligramsPer100g / 1_000.0,
-                            it.carbsMilligramsPer100g / 1_000.0,
-                            it.fatMilligramsPer100g / 1_000.0,
-                            it.fiberMilligramsPer100g?.div(1_000.0),
-                        ),
-                        allergens = allergensByIngredient[it.id].orEmpty().associate { declaration ->
-                            Allergen.valueOf(declaration.allergenKey) to
-                                AllergenDeclaration.valueOf(declaration.declaration)
-                        },
-                        grams = it.grams,
-                    )
-                },
+                ingredients = activeIngredients,
                 cookedYieldGrams = batch.cookedYieldGrams,
                 portionCount = batch.portionCount,
                 cookedAtEpochMillis = batch.cookedAtEpochMillis,
+                remainingGrams = batch.remainingGrams,
+                batches = batchHistory,
             )
         }
-    }
-
-    fun todayEntries(zoneId: ZoneId = ZoneId.systemDefault()): Flow<List<FoodEntry>> {
-        val today = LocalDate.now(zoneId)
-        val start = today.atStartOfDay(zoneId).toInstant().toEpochMilli()
-        val end = today.plusDays(1).atStartOfDay(zoneId).toInstant().toEpochMilli()
-        return database.diaryDao().observeBetween(start, end).map { rows -> rows.map { it.toModel() } }
     }
 
     suspend fun seedFoods() {
@@ -239,7 +255,14 @@ class CalorieRepository(private val database: AppDatabase) {
                 ),
             )
             database.recipeDao().insertBatch(
-                RecipeBatchEntity(batchId, foodId, draft.cookedYieldGrams, draft.portionCount, now),
+                RecipeBatchEntity(
+                    id = batchId,
+                    recipeFoodId = foodId,
+                    cookedYieldGrams = draft.cookedYieldGrams,
+                    remainingGrams = draft.cookedYieldGrams,
+                    portionCount = draft.portionCount,
+                    cookedAtEpochMillis = now,
+                ),
             )
             val ingredientEntities = draft.ingredients.mapIndexed { index, ingredient ->
                 RecipeIngredientEntity(
@@ -287,16 +310,27 @@ class CalorieRepository(private val database: AppDatabase) {
         database.foodDao().archivePersonalFood(foodId, System.currentTimeMillis())
     }
 
-    suspend fun addEntry(food: Food, amount: Double, serving: Serving?) {
+    suspend fun addEntry(food: Food, amount: Double, serving: Serving?, recipeBatchId: String? = null) {
         val grams = (amount * (serving?.grams ?: 1)).roundToInt().coerceIn(1, 5_000)
-        val nutrition = food.nutritionPer100g.forGrams(grams)
         val now = System.currentTimeMillis()
         val amountMilliUnits = (amount * 1_000).roundToInt().toLong()
         val unitKey = serving?.id ?: GRAMS_UNIT_KEY
         val unitLabel = serving?.label?.withoutLeadingOne() ?: LocalizedText("g", "g")
         database.withTransaction {
+            val recipeBatch = if (food.provenance.type == FoodSourceType.RECIPE) {
+                val recipe = database.recipeDao().findRecipe(food.id) ?: return@withTransaction
+                val batch = database.recipeDao().findBatch(recipeBatchId ?: recipe.activeBatchId) ?: return@withTransaction
+                if (batch.recipeFoodId != food.id) return@withTransaction
+                batch
+            } else {
+                null
+            }
+            if (recipeBatch != null && database.recipeDao().consumeBatch(recipeBatch.id, grams) == 0) {
+                return@withTransaction
+            }
+            val nutrition = food.nutritionPer100g.forGrams(grams)
             val recent = database.diaryDao().findRecent(food.id, now - ENTRY_MERGE_WINDOW_MILLIS)
-            if (recent == null) {
+            if (recent == null || recent.recipeBatchId != recipeBatch?.id) {
                 database.diaryDao().insert(
                     DiaryEntryEntity(
                         id = UUID.randomUUID().toString(),
@@ -314,6 +348,8 @@ class CalorieRepository(private val database: AppDatabase) {
                         carbsMilligrams = (nutrition.carbsGrams * 1_000).roundToInt(),
                         fatMilligrams = (nutrition.fatGrams * 1_000).roundToInt(),
                         fiberMilligrams = nutrition.fiberGrams?.let { (it * 1_000).roundToInt() },
+                        recipeBatchId = recipeBatch?.id,
+                        recipeBatchGrams = if (recipeBatch == null) 0 else grams,
                     ),
                 )
             } else {
@@ -337,6 +373,7 @@ class CalorieRepository(private val database: AppDatabase) {
                             recent.fiberMilligrams,
                             nutrition.fiberGrams?.let { (it * 1_000).roundToInt() },
                         ),
+                        recipeBatchGrams = recent.recipeBatchGrams + if (recipeBatch == null) 0 else grams,
                     ),
                 )
             }
@@ -365,6 +402,9 @@ class CalorieRepository(private val database: AppDatabase) {
     suspend fun deleteEntry(entry: FoodEntry) {
         database.withTransaction {
             database.diaryDao().delete(entry.toEntity())
+            entry.recipeBatchId?.let { batchId ->
+                if (entry.recipeBatchGrams > 0) database.recipeDao().restoreBatch(batchId, entry.recipeBatchGrams)
+            }
             val usageId = "${entry.foodId}|${entry.unitKey}"
             database.servingUsageDao().decrement(usageId)
             database.servingUsageDao().deleteIfUnused(usageId)
@@ -428,6 +468,8 @@ private fun DiaryEntryEntity.toModel() = FoodEntry(
         fatMilligrams / 1_000.0,
         fiberMilligrams?.div(1_000.0),
     ),
+    recipeBatchId = recipeBatchId,
+    recipeBatchGrams = recipeBatchGrams,
 )
 
 private fun FoodEntry.toEntity() = DiaryEntryEntity(
@@ -446,6 +488,8 @@ private fun FoodEntry.toEntity() = DiaryEntryEntity(
     carbsMilligrams = (nutrition.carbsGrams * 1_000).roundToInt(),
     fatMilligrams = (nutrition.fatGrams * 1_000).roundToInt(),
     fiberMilligrams = nutrition.fiberGrams?.let { (it * 1_000).roundToInt() },
+    recipeBatchId = recipeBatchId,
+    recipeBatchGrams = recipeBatchGrams,
 )
 
 private fun LocalizedText.withoutLeadingOne() = LocalizedText(en.removePrefix("1 "), ro.removePrefix("1 "))

@@ -151,7 +151,21 @@ data class RecipeTemplate(
     val cookedYieldGrams: Int,
     val portionCount: Int,
     val cookedAtEpochMillis: Long,
+    val remainingGrams: Int,
+    val batches: List<RecipeBatchSummary>,
 )
+
+data class RecipeBatchSummary(
+    val id: String,
+    val cookedYieldGrams: Int,
+    val remainingGrams: Int,
+    val portionCount: Int,
+    val cookedAtEpochMillis: Long,
+    val nutritionPer100g: Nutrition,
+) {
+    val portionGrams: Int = (cookedYieldGrams / portionCount.toDouble()).roundToInt().coerceAtLeast(1)
+    val remainingPortions: Double = remainingGrams / portionGrams.toDouble()
+}
 
 data class RecipeCalculation(
     val totalNutrition: Nutrition,
@@ -248,6 +262,8 @@ data class FoodEntry(
     val unitLabel: LocalizedText,
     val consumedAtEpochMillis: Long,
     val nutrition: Nutrition,
+    val recipeBatchId: String? = null,
+    val recipeBatchGrams: Int = 0,
 )
 
 data class UnitUsage(

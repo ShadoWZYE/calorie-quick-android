@@ -13,6 +13,8 @@ import com.shadow.calorietracker.data.NutritionLabelOcr
 import com.shadow.calorietracker.data.NutritionLabelPrefill
 import com.shadow.calorietracker.model.Food
 import com.shadow.calorietracker.model.FoodEntry
+import com.shadow.calorietracker.model.DailyNutritionSummary
+import com.shadow.calorietracker.model.HistoryReportCalculator
 import com.shadow.calorietracker.model.Nutrition
 import com.shadow.calorietracker.model.PersonalFoodDraft
 import com.shadow.calorietracker.model.QuantityUsage
@@ -29,12 +31,17 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
+import java.time.LocalDate
+import java.time.ZoneId
+import java.time.Instant
 
 data class AppUiState(
     val loaded: Boolean = false,
     val profile: UserProfile? = null,
     val foods: List<Food> = emptyList(),
     val entries: List<FoodEntry> = emptyList(),
+    val allEntries: List<FoodEntry> = emptyList(),
+    val historyDays: List<DailyNutritionSummary> = emptyList(),
     val unitUsage: Map<String, List<UnitUsage>> = emptyMap(),
     val quantityUsage: Map<String, List<QuantityUsage>> = emptyMap(),
     val recipes: Map<String, RecipeTemplate> = emptyMap(),
@@ -46,7 +53,7 @@ data class AppUiState(
 private data class CatalogueState(
     val profile: UserProfile?,
     val foods: List<Food>,
-    val entries: List<FoodEntry>,
+    val allEntries: List<FoodEntry>,
 )
 
 private data class UsageAndRecipeState(
@@ -83,14 +90,21 @@ class CalorieViewModel(application: Application) : AndroidViewModel(application)
     private var nutritionLabelScanJob: Job? = null
 
     val uiState = combine(
-        combine(repository.profile, repository.foods, repository.todayEntries(), ::CatalogueState),
+        combine(repository.profile, repository.foods, repository.allEntries, ::CatalogueState),
         combine(repository.unitUsage, repository.quantityUsage, repository.recipes, ::UsageAndRecipeState),
     ) { catalogue, usage ->
+        val zoneId = ZoneId.systemDefault()
+        val today = LocalDate.now(zoneId)
+        val todayEntries = catalogue.allEntries.filter {
+            Instant.ofEpochMilli(it.consumedAtEpochMillis).atZone(zoneId).toLocalDate() == today
+        }
         AppUiState(
             loaded = true,
             profile = catalogue.profile,
             foods = catalogue.foods,
-            entries = catalogue.entries,
+            entries = todayEntries,
+            allEntries = catalogue.allEntries,
+            historyDays = HistoryReportCalculator.daily(catalogue.allEntries, zoneId),
             unitUsage = usage.unitUsage.groupBy(UnitUsage::foodId),
             quantityUsage = usage.quantityUsage.groupBy(QuantityUsage::foodId),
             recipes = usage.recipes.associateBy(RecipeTemplate::foodId),
@@ -105,8 +119,8 @@ class CalorieViewModel(application: Application) : AndroidViewModel(application)
         viewModelScope.launch { repository.saveProfile(profile) }
     }
 
-    fun addEntry(food: Food, amount: Double, serving: Serving?) {
-        viewModelScope.launch { repository.addEntry(food, amount, serving) }
+    fun addEntry(food: Food, amount: Double, serving: Serving?, recipeBatchId: String? = null) {
+        viewModelScope.launch { repository.addEntry(food, amount, serving, recipeBatchId) }
     }
 
     fun deleteEntry(entry: FoodEntry) {

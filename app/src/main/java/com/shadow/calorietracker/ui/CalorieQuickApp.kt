@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
@@ -34,6 +35,10 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.CalendarMonth
+import androidx.compose.material.icons.filled.ChevronLeft
+import androidx.compose.material.icons.filled.ChevronRight
+import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.QrCodeScanner
 import androidx.compose.material.icons.filled.DocumentScanner
 import androidx.compose.material.icons.filled.RestaurantMenu
@@ -93,6 +98,7 @@ import com.shadow.calorietracker.model.FoodSourceType
 import com.shadow.calorietracker.model.FormulaSex
 import com.shadow.calorietracker.model.FoodRecommender
 import com.shadow.calorietracker.model.GoalType
+import com.shadow.calorietracker.model.HistoryReportCalculator
 import com.shadow.calorietracker.model.LocalizedText
 import com.shadow.calorietracker.model.MacroKind
 import com.shadow.calorietracker.model.Nutrition
@@ -119,10 +125,15 @@ import java.text.NumberFormat
 import java.io.File
 import java.util.Locale
 import java.util.Date
+import java.time.Instant
+import java.time.LocalDate
+import java.time.YearMonth
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
 import kotlin.math.max
 import kotlin.math.roundToInt
 
-private enum class AppScreen { TODAY, SETTINGS, FOOD_EDITOR, RECIPE_EDITOR }
+private enum class AppScreen { TODAY, HISTORY, SETTINGS, FOOD_EDITOR, RECIPE_EDITOR }
 
 @Composable
 fun CalorieQuickApp(viewModel: CalorieViewModel = viewModel()) {
@@ -160,6 +171,11 @@ fun CalorieQuickApp(viewModel: CalorieViewModel = viewModel()) {
                 viewModel.saveProfile(it)
                 screenName = AppScreen.TODAY.name
             },
+        )
+        screenName == AppScreen.HISTORY.name -> HistoryScreen(
+            state = state,
+            onBack = { screenName = AppScreen.TODAY.name },
+            onDelete = viewModel::deleteEntry,
         )
         screenName == AppScreen.FOOD_EDITOR.name -> PersonalFoodEditorScreen(
             initial = editingFood,
@@ -199,6 +215,7 @@ fun CalorieQuickApp(viewModel: CalorieViewModel = viewModel()) {
         else -> TodayScreen(
             state = state,
             onOpenSettings = { screenName = AppScreen.SETTINGS.name },
+            onOpenHistory = { screenName = AppScreen.HISTORY.name },
             onAdd = viewModel::addEntry,
             onDelete = viewModel::deleteEntry,
             onCreateFood = {
@@ -984,6 +1001,32 @@ private fun RecipeEditorScreen(
                 modifier = Modifier.fillMaxWidth(),
             ) { Text(stringResource(if (initial == null) R.string.save_recipe else R.string.save_new_batch)) }
         }
+        if (initial != null && initial.batches.isNotEmpty()) {
+            item { SectionTitle(R.string.batch_history, horizontalPadding = 0.dp) }
+            items(initial.batches, key = { it.id }) { batch ->
+                Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
+                    Row(Modifier.fillMaxWidth().padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Column(Modifier.weight(1f)) {
+                            Text(
+                                DateFormat.getDateTimeInstance(DateFormat.MEDIUM, DateFormat.SHORT, locale)
+                                    .format(Date(batch.cookedAtEpochMillis)),
+                                fontWeight = FontWeight.SemiBold,
+                            )
+                            Text(
+                                stringResource(R.string.batch_yield_kcal, batch.cookedYieldGrams, batch.nutritionPer100g.calories),
+                                fontSize = 12.sp,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                        Text(
+                            stringResource(R.string.grams_remaining, batch.remainingGrams),
+                            color = if (batch.remainingGrams > 0) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                            fontWeight = FontWeight.SemiBold,
+                        )
+                    }
+                }
+            }
+        }
         if (initial != null) {
             item {
                 OutlinedButton(onClick = { confirmArchive = true }, modifier = Modifier.fillMaxWidth()) {
@@ -1363,6 +1406,214 @@ private fun GoalType.labelResource() = when (this) {
     GoalType.GAIN -> R.string.gain
 }
 
+private enum class HistoryRange(val days: Long) { DAYS(7), WEEKS(28), MONTHS(183) }
+
+private data class ReportBucket(val label: String, val calories: Int, val loggedDays: Int)
+
+@Composable
+private fun HistoryScreen(
+    state: AppUiState,
+    onBack: () -> Unit,
+    onDelete: (FoodEntry) -> Unit,
+) {
+    val context = LocalContext.current
+    val locale = LocalLocale.current.platformLocale
+    val zoneId = ZoneId.systemDefault()
+    val today = LocalDate.now(zoneId)
+    var selectedEpochDay by rememberSaveable { mutableStateOf(today.toEpochDay()) }
+    var rangeName by rememberSaveable { mutableStateOf(HistoryRange.DAYS.name) }
+    val selectedDate = LocalDate.ofEpochDay(selectedEpochDay.coerceAtMost(today.toEpochDay()))
+    val range = HistoryRange.valueOf(rangeName)
+    val profile = requireNotNull(state.profile)
+    val selectedEntries = state.allEntries.filter {
+        Instant.ofEpochMilli(it.consumedAtEpochMillis).atZone(zoneId).toLocalDate() == selectedDate
+    }
+    val selectedDay = state.historyDays.firstOrNull { it.date == selectedDate }
+    val startDate = today.minusDays(range.days - 1)
+    val report = HistoryReportCalculator.period(state.historyDays, startDate, today, profile.calorieGoal)
+    val buckets = when (range) {
+        HistoryRange.DAYS -> (0L until 7L).map { offset ->
+            val date = startDate.plusDays(offset)
+            val day = state.historyDays.firstOrNull { it.date == date }
+            ReportBucket(date.format(DateTimeFormatter.ofPattern("EEE", locale)), day?.nutrition?.calories ?: 0, if (day == null) 0 else 1)
+        }
+        HistoryRange.WEEKS -> (0L until 4L).map { index ->
+            val bucketStart = startDate.plusDays(index * 7)
+            val bucketEnd = bucketStart.plusDays(6).coerceAtMost(today)
+            val summary = HistoryReportCalculator.period(state.historyDays, bucketStart, bucketEnd, profile.calorieGoal)
+            ReportBucket(
+                "${bucketStart.format(DateTimeFormatter.ofPattern("d MMM", locale))}–${bucketEnd.format(DateTimeFormatter.ofPattern("d MMM", locale))}",
+                summary.averageNutrition.calories,
+                summary.loggedDays,
+            )
+        }
+        HistoryRange.MONTHS -> {
+            val currentMonth = YearMonth.from(today)
+            (5 downTo 0).map { monthsAgo ->
+                val month = currentMonth.minusMonths(monthsAgo.toLong())
+                val monthStart = month.atDay(1)
+                val monthEnd = month.atEndOfMonth().coerceAtMost(today)
+                val summary = HistoryReportCalculator.period(state.historyDays, monthStart, monthEnd, profile.calorieGoal)
+                ReportBucket(month.format(DateTimeFormatter.ofPattern("MMM", locale)), summary.averageNutrition.calories, summary.loggedDays)
+            }
+        }
+    }
+
+    LazyColumn(
+        modifier = Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding(),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        item {
+            Row(
+                Modifier.fillMaxWidth().padding(start = 8.dp, end = 12.dp, top = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                IconButton(onClick = onBack) {
+                    Icon(Icons.AutoMirrored.Filled.ArrowBack, stringResource(R.string.back))
+                }
+                Column(Modifier.weight(1f)) {
+                    Text(stringResource(R.string.history), fontSize = 30.sp, fontWeight = FontWeight.Bold)
+                    Text(stringResource(R.string.history_subtitle), color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            }
+        }
+        item {
+            LazyRow(
+                modifier = Modifier.fillMaxWidth(),
+                contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 20.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                items(HistoryRange.entries) { option ->
+                    FilterChip(
+                        selected = option == range,
+                        onClick = { rangeName = option.name },
+                        label = {
+                            Text(
+                                stringResource(
+                                    when (option) {
+                                        HistoryRange.DAYS -> R.string.last_7_days
+                                        HistoryRange.WEEKS -> R.string.last_4_weeks
+                                        HistoryRange.MONTHS -> R.string.last_6_months
+                                    },
+                                ),
+                            )
+                        },
+                    )
+                }
+            }
+        }
+        item {
+            Card(
+                Modifier.fillMaxWidth().padding(horizontal = 20.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer),
+            ) {
+                Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Text(stringResource(R.string.report_overview), fontWeight = FontWeight.Bold)
+                    Text(
+                        stringResource(R.string.average_calories, report.averageNutrition.calories),
+                        fontSize = 26.sp,
+                        fontWeight = FontWeight.Bold,
+                    )
+                    Text(
+                        stringResource(R.string.logged_days, report.loggedDays, report.totalDays),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    Text(
+                        stringResource(
+                            R.string.average_macros,
+                            report.averageNutrition.proteinGrams,
+                            report.averageNutrition.carbsGrams,
+                            report.averageNutrition.fatGrams,
+                        ),
+                        fontSize = 13.sp,
+                    )
+                    report.averageNutrition.fiberGrams?.let {
+                        Text(stringResource(R.string.average_fiber, it), fontSize = 13.sp)
+                    }
+                }
+            }
+        }
+        items(buckets, key = { it.label }) { bucket ->
+            Column(Modifier.fillMaxWidth().padding(horizontal = 20.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Row(Modifier.fillMaxWidth()) {
+                    Text(bucket.label, Modifier.weight(1f), fontWeight = FontWeight.SemiBold)
+                    Text(
+                        if (bucket.loggedDays == 0) stringResource(R.string.no_data) else "${bucket.calories} ${stringResource(R.string.kcal)}",
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                LinearProgressIndicator(
+                    progress = { (bucket.calories.toFloat() / profile.calorieGoal).coerceIn(0f, 1f) },
+                    modifier = Modifier.fillMaxWidth().height(7.dp),
+                )
+            }
+        }
+        item { SectionTitle(R.string.daily_history) }
+        item {
+            Row(
+                Modifier.fillMaxWidth().padding(horizontal = 10.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                IconButton(onClick = { selectedEpochDay-- }) {
+                    Icon(Icons.Default.ChevronLeft, stringResource(R.string.previous_day))
+                }
+                OutlinedButton(
+                    onClick = {
+                        android.app.DatePickerDialog(
+                            context,
+                            { _, year, month, day -> selectedEpochDay = LocalDate.of(year, month + 1, day).toEpochDay() },
+                            selectedDate.year,
+                            selectedDate.monthValue - 1,
+                            selectedDate.dayOfMonth,
+                        ).apply { datePicker.maxDate = System.currentTimeMillis() }.show()
+                    },
+                    modifier = Modifier.weight(1f),
+                ) {
+                    Icon(Icons.Default.CalendarMonth, null)
+                    Text(
+                        selectedDate.format(DateTimeFormatter.ofPattern("EEEE, d MMMM yyyy", locale)),
+                        Modifier.padding(start = 8.dp),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
+                IconButton(enabled = selectedDate < today, onClick = { selectedEpochDay++ }) {
+                    Icon(Icons.Default.ChevronRight, stringResource(R.string.next_day))
+                }
+            }
+        }
+        item {
+            Card(Modifier.fillMaxWidth().padding(horizontal = 20.dp)) {
+                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Text(
+                        "${selectedDay?.nutrition?.calories ?: 0} / ${profile.calorieGoal} ${stringResource(R.string.kcal)}",
+                        fontSize = 24.sp,
+                        fontWeight = FontWeight.Bold,
+                    )
+                    selectedDay?.let { day ->
+                        Text(
+                            stringResource(
+                                R.string.day_macro_summary,
+                                day.nutrition.proteinGrams,
+                                day.nutrition.carbsGrams,
+                                day.nutrition.fatGrams,
+                                day.nutrition.fiberGrams ?: 0.0,
+                            ),
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
+            }
+        }
+        if (selectedEntries.isEmpty()) {
+            item { EmptyText(R.string.no_entries_for_day) }
+        } else {
+            items(selectedEntries, key = { it.id }) { entry -> EntryRow(entry, locale) { onDelete(entry) } }
+        }
+        item { Spacer(Modifier.height(24.dp)) }
+    }
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun TodayScreen(
@@ -1370,7 +1621,8 @@ private fun TodayScreen(
     lookupState: FoodLookupState,
     nutritionLabelScanState: NutritionLabelScanState,
     onOpenSettings: () -> Unit,
-    onAdd: (Food, Double, Serving?) -> Unit,
+    onOpenHistory: () -> Unit,
+    onAdd: (Food, Double, Serving?, String?) -> Unit,
     onDelete: (FoodEntry) -> Unit,
     onCreateFood: (Pair<String, String?>) -> Unit,
     onCreateRecipe: () -> Unit,
@@ -1456,12 +1708,30 @@ private fun TodayScreen(
                         Text(stringResource(R.string.today), fontSize = 30.sp, fontWeight = FontWeight.Bold)
                         Text(stringResource(R.string.daily_summary), color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
+                    IconButton(onClick = onOpenHistory) {
+                        Icon(Icons.Default.History, stringResource(R.string.history))
+                    }
                     IconButton(onClick = onOpenSettings) {
                         Icon(Icons.Default.Settings, stringResource(R.string.settings))
                     }
                 }
             }
             item { SummaryCard(state.totals, profile, state.fiberIncomplete) { showMacroDetails = true } }
+            if (state.recipes.isNotEmpty()) {
+                item { SectionTitle(R.string.meal_prep) }
+                item {
+                    LazyRow(
+                        contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 20.dp),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    ) {
+                        items(state.recipes.values.sortedBy { it.name }, key = { it.foodId }) { recipe ->
+                            MealPrepCard(recipe, locale) {
+                                state.foods.firstOrNull { it.id == recipe.foodId }?.let { selectedFood = it }
+                            }
+                        }
+                    }
+                }
+            }
             item {
                 OutlinedTextField(
                     value = query,
@@ -1582,7 +1852,7 @@ private fun TodayScreen(
             item { SectionTitle(if (query.isBlank()) R.string.recommended_foods else R.string.quick_add) }
             if (displayedFoods.isEmpty()) item { EmptyText(R.string.no_results) }
             else items(displayedFoods, key = { it.id }) {
-                FoodRow(it, locale, state.totals, profile, { selectedFood = it }) { onEditFood(it) }
+                FoodRow(it, state.recipes[it.id], locale, state.totals, profile, { selectedFood = it }) { onEditFood(it) }
             }
             if (currentLookup?.status == FoodLookupStatus.SUCCESS && remoteResults.isNotEmpty()) {
                 item { SectionTitle(R.string.open_food_facts_results) }
@@ -1642,12 +1912,13 @@ private fun TodayScreen(
     selectedFood?.let { food ->
         QuickAddSheet(
             food,
+            state.recipes[food.id],
             state.unitUsage[food.id].orEmpty(),
             state.quantityUsage[food.id].orEmpty(),
             locale,
             { selectedFood = null },
-        ) { amount, serving ->
-            onAdd(food, amount, serving)
+        ) { loggedFood, amount, serving, batchId ->
+            onAdd(loggedFood, amount, serving, batchId)
             selectedFood = null
             query = ""
         }
@@ -1717,6 +1988,38 @@ private fun SummaryCard(totals: Nutrition, profile: UserProfile, fiberIncomplete
                 stringResource(R.string.summary_hint),
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 fontSize = 12.sp,
+            )
+        }
+    }
+}
+
+@Composable
+private fun MealPrepCard(recipe: RecipeTemplate, locale: Locale, onAdd: () -> Unit) {
+    val portionGrams = (recipe.cookedYieldGrams / recipe.portionCount.toDouble()).coerceAtLeast(1.0)
+    Card(
+        onClick = onAdd,
+        enabled = recipe.remainingGrams > 0,
+        modifier = Modifier.width(270.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer),
+        shape = RoundedCornerShape(18.dp),
+    ) {
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
+            Text(recipe.name, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(
+                stringResource(
+                    R.string.batch_remaining,
+                    recipe.remainingGrams,
+                    formatAmount(recipe.remainingGrams / portionGrams, locale),
+                ),
+                color = if (recipe.remainingGrams > 0) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error,
+            )
+            Text(
+                stringResource(
+                    R.string.prepared_on,
+                    DateFormat.getDateInstance(DateFormat.MEDIUM, locale).format(Date(recipe.cookedAtEpochMillis)),
+                ),
+                fontSize = 12.sp,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
     }
@@ -1845,6 +2148,7 @@ private fun DuplicateFoodNotice(
 @Composable
 private fun FoodRow(
     food: Food,
+    recipe: RecipeTemplate?,
     locale: Locale,
     currentTotals: Nutrition,
     profile: UserProfile,
@@ -1885,6 +2189,18 @@ private fun FoodRow(
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
+                recipe?.let {
+                    val portionGrams = (it.cookedYieldGrams / it.portionCount.toDouble()).coerceAtLeast(1.0)
+                    Text(
+                        stringResource(
+                            R.string.batch_remaining,
+                            it.remainingGrams,
+                            formatAmount(it.remainingGrams / portionGrams, locale),
+                        ),
+                        fontSize = 12.sp,
+                        color = if (it.remainingGrams > 0) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error,
+                    )
+                }
                 if (warnings.isNotEmpty()) {
                     Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                         warnings.forEach { warning ->
@@ -1996,14 +2312,30 @@ private fun EntryRow(entry: FoodEntry, locale: Locale, onRemove: () -> Unit) {
 @Composable
 private fun QuickAddSheet(
     food: Food,
+    recipe: RecipeTemplate?,
     usage: List<UnitUsage>,
     quantityUsage: List<QuantityUsage>,
     locale: Locale,
     onDismiss: () -> Unit,
-    onAdd: (Double, Serving?) -> Unit,
+    onAdd: (Food, Double, Serving?, String?) -> Unit,
 ) {
     val gramsLabel = stringResource(R.string.grams_short)
-    val choices = buildUnitChoices(food, usage, locale, gramsLabel)
+    val availableBatches = recipe?.batches.orEmpty().filter { it.remainingGrams > 0 }
+    var selectedBatchId by remember(food.id) {
+        mutableStateOf(availableBatches.firstOrNull { it.id == recipe?.activeBatchId }?.id ?: availableBatches.firstOrNull()?.id)
+    }
+    val selectedBatch = availableBatches.firstOrNull { it.id == selectedBatchId }
+    val effectiveFood = if (selectedBatch == null) {
+        food
+    } else {
+        food.copy(
+            nutritionPer100g = selectedBatch.nutritionPer100g,
+            servings = food.servings.map { serving ->
+                if (serving.id == "${food.id}-portion") serving.copy(grams = selectedBatch.portionGrams) else serving
+            },
+        )
+    }
+    val choices = buildUnitChoices(effectiveFood, usage, locale, gramsLabel)
     val presets = buildQuantityPresets(choices, quantityUsage, locale, gramsLabel)
     val servingPresets = presets.filter { it.unitKey != GRAMS_UNIT_KEY }
     val gramPresets = presets.filter { it.unitKey == GRAMS_UNIT_KEY }
@@ -2013,8 +2345,10 @@ private fun QuickAddSheet(
     val selected = choices.firstOrNull { it.key == selectedKey } ?: choices.first()
     val amount = amountText.replace(',', '.').toDoubleOrNull()
     val grams = amount?.let { (it * (selected.serving?.grams ?: 1)).roundToInt() } ?: 0
-    val valid = amount != null && amount > 0.0 && grams in 1..5_000
-    val nutrition = food.nutritionPer100g.forGrams(grams.coerceAtLeast(0))
+    val remainingGrams = selectedBatch?.remainingGrams ?: recipe?.remainingGrams
+    val valid = amount != null && amount > 0.0 && grams in 1..5_000 &&
+        (remainingGrams == null || grams <= remainingGrams)
+    val nutrition = effectiveFood.nutritionPer100g.forGrams(grams.coerceAtLeast(0))
     val containsAllergens = mutableListOf<String>()
     val mayContainAllergens = mutableListOf<String>()
     food.allergens.forEach { (allergen, declaration) ->
@@ -2032,6 +2366,42 @@ private fun QuickAddSheet(
         ) {
             Text(food.name(locale), fontSize = 24.sp, fontWeight = FontWeight.Bold)
             Text(food.detail(locale), color = MaterialTheme.colorScheme.onSurfaceVariant)
+            if (availableBatches.size > 1) {
+                Text(stringResource(R.string.choose_batch), fontWeight = FontWeight.SemiBold)
+                LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    items(availableBatches, key = { it.id }) { batch ->
+                        FilterChip(
+                            selected = batch.id == selectedBatchId,
+                            onClick = {
+                                selectedBatchId = batch.id
+                                selectedKey = "${food.id}-portion"
+                                amountText = "1"
+                            },
+                            label = {
+                                Text(
+                                    DateFormat.getDateInstance(DateFormat.SHORT, locale)
+                                        .format(Date(batch.cookedAtEpochMillis)),
+                                )
+                            },
+                        )
+                    }
+                }
+            }
+            recipe?.let {
+                val shownBatch = selectedBatch ?: it.batches.firstOrNull { batch -> batch.id == it.activeBatchId }
+                val shownRemaining = shownBatch?.remainingGrams ?: it.remainingGrams
+                val portionGrams = shownBatch?.portionGrams?.toDouble()
+                    ?: (it.cookedYieldGrams / it.portionCount.toDouble()).coerceAtLeast(1.0)
+                Text(
+                    stringResource(
+                        R.string.batch_remaining,
+                        shownRemaining,
+                        formatAmount(shownRemaining / portionGrams, locale),
+                    ),
+                    color = if (shownRemaining > 0) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error,
+                    fontWeight = FontWeight.SemiBold,
+                )
+            }
             if (containsAllergens.isNotEmpty()) {
                 Text(
                     stringResource(R.string.contains_allergens, containsAllergens.joinToString()),
@@ -2104,6 +2474,9 @@ private fun QuickAddSheet(
             if (selected.serving != null && valid) {
                 Text("≈ $grams ${stringResource(R.string.grams_short)}", color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
+            if (remainingGrams != null && grams > remainingGrams) {
+                Text(stringResource(R.string.not_enough_batch_remaining), color = MaterialTheme.colorScheme.error)
+            }
             nutrition.fiberGrams?.let {
                 Text(
                     "${formatAmount(it, locale)} g ${stringResource(R.string.fiber).lowercase(locale)}",
@@ -2112,7 +2485,7 @@ private fun QuickAddSheet(
             }
             Button(
                 enabled = valid,
-                onClick = { onAdd(requireNotNull(amount), selected.serving) },
+                onClick = { onAdd(effectiveFood, requireNotNull(amount), selected.serving, selectedBatch?.id) },
                 modifier = Modifier.fillMaxWidth(),
             ) {
                 Text(pluralStringResource(R.plurals.add_food, nutrition.calories, nutrition.calories))

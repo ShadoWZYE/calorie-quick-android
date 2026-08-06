@@ -79,6 +79,15 @@ interface RecipeDao {
     @Query("SELECT COUNT(*) FROM recipe_batches WHERE recipeFoodId = :foodId")
     suspend fun countBatches(foodId: String): Int
 
+    @Query("SELECT * FROM recipe_batches WHERE id = :batchId LIMIT 1")
+    suspend fun findBatch(batchId: String): RecipeBatchEntity?
+
+    @Query("UPDATE recipe_batches SET remainingGrams = remainingGrams - :grams WHERE id = :batchId AND remainingGrams >= :grams")
+    suspend fun consumeBatch(batchId: String, grams: Int): Int
+
+    @Query("UPDATE recipe_batches SET remainingGrams = MIN(cookedYieldGrams, remainingGrams + :grams) WHERE id = :batchId")
+    suspend fun restoreBatch(batchId: String, grams: Int)
+
     @Upsert
     suspend fun upsertRecipe(recipe: RecipeEntity)
 
@@ -94,6 +103,9 @@ interface RecipeDao {
 
 @Dao
 interface DiaryDao {
+    @Query("SELECT * FROM diary_entries ORDER BY consumedAtEpochMillis DESC")
+    fun observeAll(): Flow<List<DiaryEntryEntity>>
+
     @Query(
         "SELECT * FROM diary_entries " +
             "WHERE consumedAtEpochMillis >= :start AND consumedAtEpochMillis < :end " +
