@@ -5,6 +5,7 @@ import android.net.Uri
 import com.google.mlkit.vision.common.InputImage
 import com.google.mlkit.vision.text.TextRecognition
 import com.google.mlkit.vision.text.latin.TextRecognizerOptions
+import com.google.mlkit.vision.text.Text
 import com.shadow.calorietracker.model.BodyMeasurement
 import com.shadow.calorietracker.model.BodyMeasurementSource
 import java.time.LocalDateTime
@@ -29,13 +30,58 @@ class BodyScaleOcr(context: Context) : AutoCloseable {
         val image = InputImage.fromFilePath(applicationContext, uri)
         val recognized = suspendCancellableCoroutine { continuation ->
             recognizer.process(image)
-                .addOnSuccessListener { text -> if (continuation.isActive) continuation.resume(text.text) }
+                .addOnSuccessListener { text -> if (continuation.isActive) continuation.resume(text) }
                 .addOnFailureListener { error -> if (continuation.isActive) continuation.resumeWithException(error) }
         }
-        return BodyScaleParser.parse(recognized, zoneId)
+        val reconstructed = recognized.reconstructedRows()
+        val structuredResult = BodyScaleParser.parse(reconstructed, zoneId)
+        return if (structuredResult.measurement != null) {
+            structuredResult
+        } else {
+            BodyScaleParser.parse(recognized.text, zoneId)
+        }
     }
 
     override fun close() = recognizer.close()
+}
+
+/**
+ * ML Kit commonly returns tall comparison reports block-by-block (all labels, then
+ * each numeric column). Rebuild visual rows from bounding boxes before parsing so
+ * values remain attached to their metric label.
+ */
+private fun Text.reconstructedRows(): String {
+    data class PositionedLine(val text: String, val left: Int, val centerY: Double, val height: Int)
+    data class VisualRow(
+        val lines: MutableList<PositionedLine>,
+        var centerY: Double,
+        var averageHeight: Double,
+    )
+
+    val positioned = textBlocks.flatMap { block -> block.lines }.mapNotNull { line ->
+        val box = line.boundingBox ?: return@mapNotNull null
+        PositionedLine(line.text.trim(), box.left, box.exactCenterY().toDouble(), box.height())
+            .takeIf { it.text.isNotEmpty() }
+    }.sortedBy(PositionedLine::centerY)
+    if (positioned.isEmpty()) return this.text
+
+    val rows = mutableListOf<VisualRow>()
+    positioned.forEach { line ->
+        val row = rows.lastOrNull()?.takeIf { candidate ->
+            val tolerance = maxOf(6.0, minOf(candidate.averageHeight, line.height.toDouble()) * 0.7)
+            kotlin.math.abs(candidate.centerY - line.centerY) <= tolerance
+        }
+        if (row == null) {
+            rows += VisualRow(mutableListOf(line), line.centerY, line.height.toDouble())
+        } else {
+            row.lines += line
+            row.centerY = row.lines.map(PositionedLine::centerY).average()
+            row.averageHeight = row.lines.map { it.height.toDouble() }.average()
+        }
+    }
+    return rows.joinToString("\n") { row ->
+        row.lines.sortedBy(PositionedLine::left).joinToString(" ", transform = PositionedLine::text)
+    }
 }
 
 object BodyScaleParser {

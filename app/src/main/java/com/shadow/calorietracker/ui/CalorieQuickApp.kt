@@ -2103,11 +2103,20 @@ private fun String.withSingleDecimalSeparator(): String {
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun <T> ChoiceRow(values: List<T>, selected: T, label: @Composable (T) -> String, onSelect: (T) -> Unit) {
-    LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
-        items(values) { value ->
-            FilterChip(selected = value == selected, onClick = { onSelect(value) }, label = { Text(label(value)) })
+    FlowRow(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
+        values.forEach { value ->
+            FilterChip(
+                selected = value == selected,
+                onClick = { onSelect(value) },
+                label = { Text(label(value)) },
+            )
         }
     }
 }
@@ -3289,13 +3298,12 @@ private fun TodayScreen(
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             item {
-                Row(
-                    modifier = Modifier.padding(start = 20.dp, end = 10.dp, top = 8.dp),
-                    verticalAlignment = Alignment.CenterVertically,
+                Column(
+                    modifier = Modifier.fillMaxWidth().padding(start = 20.dp, end = 10.dp, top = 8.dp),
                 ) {
                     Column(
                         Modifier
-                            .weight(1f)
+                            .fillMaxWidth()
                             .clip(RoundedCornerShape(12.dp))
                             .clickable {
                                 android.app.DatePickerDialog(
@@ -3336,17 +3344,22 @@ private fun TodayScreen(
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     }
-                    IconButton(onClick = onOpenHistory) {
-                        Icon(Icons.Default.History, stringResource(R.string.history))
-                    }
-                    IconButton(onClick = onOpenProgress) {
-                        Icon(Icons.Default.MonitorWeight, stringResource(R.string.body_progress))
-                    }
-                    IconButton(onClick = onOpenFeedback) {
-                        Icon(Icons.Default.ChatBubbleOutline, stringResource(R.string.feedback))
-                    }
-                    IconButton(onClick = onOpenSettings) {
-                        Icon(Icons.Default.Settings, stringResource(R.string.settings))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.End,
+                    ) {
+                        IconButton(onClick = onOpenHistory) {
+                            Icon(Icons.Default.History, stringResource(R.string.history))
+                        }
+                        IconButton(onClick = onOpenProgress) {
+                            Icon(Icons.Default.MonitorWeight, stringResource(R.string.body_progress))
+                        }
+                        IconButton(onClick = onOpenFeedback) {
+                            Icon(Icons.Default.ChatBubbleOutline, stringResource(R.string.feedback))
+                        }
+                        IconButton(onClick = onOpenSettings) {
+                            Icon(Icons.Default.Settings, stringResource(R.string.settings))
+                        }
                     }
                 }
             }
@@ -3374,7 +3387,9 @@ private fun TodayScreen(
                         onClearLookup()
                     },
                     modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp),
-                    placeholder = { Text(stringResource(R.string.search_hint)) },
+                    placeholder = {
+                        Text(stringResource(R.string.search_hint), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    },
                     leadingIcon = { Icon(Icons.Default.Search, null) },
                     trailingIcon = {
                         Row {
@@ -3804,11 +3819,42 @@ private fun SummaryCard(totals: Nutrition, profile: UserProfile, fiberIncomplete
                 progress = (totals.calories.toFloat() / profile.calorieGoal).coerceIn(0f, 1f),
                 modifier = Modifier.fillMaxWidth().height(9.dp),
             )
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                Macro(R.string.protein, totals.proteinGrams, profile.proteinGoalGrams)
-                Macro(R.string.carbs, totals.carbsGrams, profile.carbsGoalGrams)
-                Macro(R.string.fat, totals.fatGrams, profile.fatGoalGrams)
-                OptionalMacro(R.string.fiber, totals.fiberGrams, profile.fiberGoalGrams, fiberIncomplete)
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Row(
+                    Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(16.dp),
+                ) {
+                    Macro(
+                        R.string.protein,
+                        totals.proteinGrams,
+                        profile.proteinGoalGrams,
+                        Modifier.weight(1f),
+                    )
+                    Macro(
+                        R.string.carbs,
+                        totals.carbsGrams,
+                        profile.carbsGoalGrams,
+                        Modifier.weight(1f),
+                    )
+                }
+                Row(
+                    Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(16.dp),
+                ) {
+                    Macro(
+                        R.string.fat,
+                        totals.fatGrams,
+                        profile.fatGoalGrams,
+                        Modifier.weight(1f),
+                    )
+                    OptionalMacro(
+                        R.string.fiber,
+                        totals.fiberGrams,
+                        profile.fiberGoalGrams,
+                        fiberIncomplete,
+                        Modifier.weight(1f),
+                    )
+                }
             }
             if (remaining in 1..250) {
                 Text(pluralStringResource(R.plurals.goal_warning, remaining, remaining), color = MaterialTheme.colorScheme.error)
@@ -3940,10 +3986,10 @@ private fun MacroDetail(label: Int, consumed: Double, goal: Int) {
     }
 }
 
-@Composable private fun Macro(label: Int, value: Double, goal: Int) {
+@Composable private fun Macro(label: Int, value: Double, goal: Int, modifier: Modifier = Modifier) {
     val overTarget = value > goal
     val color = if (overTarget) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant
-    Column {
+    Column(modifier) {
         Text(stringResource(label), fontSize = 12.sp, color = color)
         Text(
             "${value.roundToInt()} / ${goal}g",
@@ -3953,8 +3999,14 @@ private fun MacroDetail(label: Int, consumed: Double, goal: Int) {
     }
 }
 
-@Composable private fun OptionalMacro(label: Int, value: Double?, goal: Int, incomplete: Boolean) {
-    if (value != null && !incomplete) Macro(label, value, goal) else Column {
+@Composable private fun OptionalMacro(
+    label: Int,
+    value: Double?,
+    goal: Int,
+    incomplete: Boolean,
+    modifier: Modifier = Modifier,
+) {
+    if (value != null && !incomplete) Macro(label, value, goal, modifier) else Column(modifier) {
         Text(stringResource(label), fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
         Text(
             if (value == null) "— / ${goal}g" else "≈ ${value.roundToInt()} / ${goal}g",
