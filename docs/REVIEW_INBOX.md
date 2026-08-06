@@ -24,7 +24,7 @@ This directory is outside the Git repository. It can contain feedback text and s
 
 1. Select **Import review ZIP**. The existing safe parser validates paths, sizes, schemas, hashes, and image privacy before anything is added.
 2. Re-importing the same archive hash opens the existing review and preserves all reviewer edits.
-3. The inbox creates separate items for feedback messages, flagged catalogue findings, failed scans, and sufficiently slow or failed performance operations. Ordinary Open Food Facts products are collected automatically and do not become findings.
+3. The inbox creates separate items for feedback messages, explicitly reported incorrect products, flagged catalogue findings, failed scans, and sufficiently slow or failed performance operations. Ordinary Open Food Facts products are collected automatically and do not become findings.
 4. Read the original evidence and the separate read-only Codex analysis, then choose **Not decided**, **Next**, **Later**, **Needs testing**, or **Done**. Add a note or correction when useful.
 5. **Next** items are included in the implementation brief automatically. Classification, severity, target/reference, structured corrections, and implementation notes remain available under **Advanced**.
 6. Use **Add a review item** for conclusions that do not map cleanly to one imported record.
@@ -49,4 +49,4 @@ The brief is a local working artifact—not an automatic code change or external
 
 Every successfully imported archive is retained as `bundles/<archive hash>/source.zip`. Opted-in personal foods and full Open Food Facts products are merged automatically into `%LOCALAPPDATA%\CalorieQuick\ReviewInbox\shared-food-catalogue.json`, deduplicated by barcode when available. Its records retain source-bundle and internal-response paths, allowing the complete evidence to be recovered later.
 
-This shared catalogue is an automated local staging database, not a manual decision queue. Once product-reporting is connected, only products explicitly flagged as wrong will create findings for deliberate review.
+This shared catalogue is an automated local staging database, not a manual decision queue. Only products explicitly flagged as wrong create findings for deliberate review. Each such finding includes the selected problem categories, the tester's optional note, and the matching raw Open Food Facts response paths retained inside the source ZIP.

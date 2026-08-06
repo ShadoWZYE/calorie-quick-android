@@ -47,10 +47,11 @@ Run `python -m unittest tools/test_catalogue_images.py` when changing built-in t
 23. On a narrow phone, confirm the Today/date block and History, Progress, Feedback, and Settings icons share one vertically centered header row.
 24. From Settings, Feedback, History, Progress, food editing, recipe editing, and What’s new, press the Android Back key. Confirm it returns through the expected app screen to Today; Back on Today may use normal Android app-exit behavior.
 25. Open a long quick-add sheet and repeatedly scroll upward and downward. Confirm content scrolls without dragging or jumping the entire sheet.
-26. Run an Open Food Facts search, export opted-in diagnostics, and confirm support schema v7 contains a `performance` entry with duration/outcome/result count/query length but not the search text.
+26. Run an Open Food Facts search, export opted-in diagnostics, and confirm support schema v8 contains a `performance` entry with duration/outcome/result count/query length but not the search text.
 27. Open `tools\Open Calorie Quick Review.cmd`, import the same review ZIP twice, and confirm edits survive deduplication. Add reviewer comments and corrections, then verify only accepted and explicitly promoted items appear in the generated JSON/Markdown implementation brief.
 28. Repeat the same Open Food Facts search twice and confirm the second lookup works from the local cache. Confirm valid results appear in All foods automatically, open quick add directly, and never overwrite a personal food with the same barcode.
 29. Export a review ZIP and verify `open-food-facts/cache.json` and its response files are present. Import it in the Windows tool, confirm a retained `source.zip` is created, and verify each barcode and opted-in shared food appears once in `shared-food-catalogue.json` without creating an ordinary review finding.
+30. Open an Open Food Facts product in quick add, choose **Report incorrect product data**, select multiple problem categories, add a note, and submit. Confirm Settings and the export preview count the report. Import the ZIP in the Windows tool and verify exactly one `PRODUCT_DATA_ISSUE` finding links the categories, note, barcode, and matching cached response path. Unreported products must remain absent from the review queue.
 
 ## Field feedback to capture
 

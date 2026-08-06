@@ -7,6 +7,11 @@ import android.net.Uri
 import androidx.exifinterface.media.ExifInterface
 import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
+import com.shadow.calorietracker.model.Food
+import com.shadow.calorietracker.model.FoodProvenance
+import com.shadow.calorietracker.model.FoodSourceType
+import com.shadow.calorietracker.model.LocalizedText
+import com.shadow.calorietracker.model.Nutrition
 import java.io.File
 import java.security.MessageDigest
 import java.util.zip.ZipFile
@@ -42,6 +47,7 @@ class ReviewBundleExportTest {
         support = SupportDiagnosticStore(context)
         openFoodFactsCache = OpenFoodFactsResponseCache(context)
         openFoodFactsCache.entries().forEach(File::delete)
+        support.clear()
         support.replaceFeedbackMessages(emptyList())
         support.clearPerformanceDiagnostics()
         openFoodFactsCache.entries().forEach(File::delete)
@@ -54,6 +60,7 @@ class ReviewBundleExportTest {
         database.close()
         exportFile.delete()
         sourceImage.delete()
+        support.clear()
         support.replaceFeedbackMessages(emptyList())
         support.clearPerformanceDiagnostics()
     }
@@ -100,8 +107,24 @@ class ReviewBundleExportTest {
             requestKind = "search",
             response = JSONObject("""{"products":[{"code":"12345678","product_name":"Cached drink"}]}"""),
         )
+        assertTrue(
+            support.flagProductIssue(
+                food = Food(
+                    id = "off-12345678",
+                    names = LocalizedText("Cached drink", "Băutură din cache"),
+                    details = LocalizedText("Example", "Exemplu"),
+                    nutritionPer100g = Nutrition(42, 0.0, 10.0, 0.0),
+                    servings = emptyList(),
+                    brand = "Example",
+                    barcode = "12345678",
+                    provenance = FoodProvenance(FoodSourceType.OPEN_FOOD_FACTS, "12345678"),
+                ),
+                reasonCodes = setOf("NUTRITION", "SERVING_PACKAGE"),
+                comment = "Serving is 250 ml, not 100 ml.",
+            ),
+        )
 
-        CatalogueExporter(context, database, support, openFoodFactsCache).exportTo(
+        val result = CatalogueExporter(context, database, support, openFoodFactsCache).exportTo(
             destination = Uri.fromFile(exportFile),
             selectedFoodIds = setOf("personal-test"),
             selectedRecipeIds = emptySet(),
@@ -110,13 +133,14 @@ class ReviewBundleExportTest {
             includeCrashReports = false,
             includeFeedback = false,
         )
+        assertEquals(1, result.productIssueCount)
 
         ZipFile(exportFile).use { archive ->
             val root = JSONObject(archive.getInputStream(archive.getEntry("bundle.json")).bufferedReader().readText())
             assertEquals("calorie-quick-review-bundle", root.getString("schema"))
             assertEquals(2, root.getInt("schemaVersion"))
             assertNotNull(root.getJSONObject("app").getString("buildId"))
-            assertEquals(7, root.getJSONArray("components").getJSONObject(1).getInt("schemaVersion"))
+            assertEquals(8, root.getJSONArray("components").getJSONObject(1).getInt("schemaVersion"))
             assertEquals("open-food-facts-cache", root.getJSONArray("components").getJSONObject(2).getString("kind"))
             val media = root.getJSONArray("media").getJSONObject(0)
             val entry = archive.getEntry(media.getString("path"))
@@ -138,7 +162,11 @@ class ReviewBundleExportTest {
             val supportManifest = JSONObject(
                 archive.getInputStream(archive.getEntry("support/support.json")).bufferedReader().readText(),
             )
-            assertEquals(7, supportManifest.getInt("schemaVersion"))
+            assertEquals(8, supportManifest.getInt("schemaVersion"))
+            val productIssue = supportManifest.getJSONArray("productDataIssues").getJSONObject(0)
+            assertEquals("12345678", productIssue.getString("barcode"))
+            assertEquals("Serving is 250 ml, not 100 ml.", productIssue.getString("comment"))
+            assertEquals(2, productIssue.getJSONArray("reasonCodes").length())
             val performance = supportManifest.getJSONArray("performance").getJSONObject(0)
             assertEquals("open-food-facts-search", performance.getString("operation"))
             assertEquals(2_500, performance.getLong("durationMillis"))

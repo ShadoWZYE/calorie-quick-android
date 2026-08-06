@@ -67,6 +67,7 @@ import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.RestaurantMenu
 import androidx.compose.material.icons.filled.ChatBubbleOutline
+import androidx.compose.material.icons.filled.ReportProblem
 import androidx.compose.material3.Button
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
@@ -462,6 +463,7 @@ fun CalorieQuickApp(viewModel: CalorieViewModel = viewModel()) {
             onScanNutritionLabel = viewModel::scanNutritionLabel,
             onClearNutritionLabelScan = viewModel::clearNutritionLabelScan,
             onFlagFailedNutritionScan = viewModel::flagNutritionLabelScanForSupport,
+            onReportProductIssue = viewModel::flagProductIssue,
         )
     }
 
@@ -580,7 +582,8 @@ private fun SettingsScreen(
             foods = foods.filter { it.isPersonal && it.provenance.type != FoodSourceType.RECIPE },
             recipes = recipes,
             recipeFoods = foods.associateBy(Food::id),
-            diagnosticCount = supportExportState.savedDiagnosticCount + supportExportState.savedPerformanceCount,
+            diagnosticCount = supportExportState.savedDiagnosticCount + supportExportState.savedPerformanceCount +
+                supportExportState.savedProductIssueCount,
             freezeCount = supportExportState.savedFreezeCount,
             crashCount = supportExportState.savedCrashCount,
             feedbackCount = feedbackCount,
@@ -2528,6 +2531,14 @@ private fun ProfileForm(
                 )
                 Text(
                     stringResource(
+                        R.string.saved_product_issues,
+                        supportExportState?.savedProductIssueCount ?: 0,
+                    ),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    fontSize = 13.sp,
+                )
+                Text(
+                    stringResource(
                         R.string.saved_freeze_diagnostics,
                         supportExportState?.savedFreezeCount ?: 0,
                     ),
@@ -2559,7 +2570,8 @@ private fun ProfileForm(
             }
             if (
                 (supportExportState?.savedDiagnosticCount ?: 0) +
-                    (supportExportState?.savedPerformanceCount ?: 0) > 0 && onClearSavedDiagnostics != null
+                    (supportExportState?.savedPerformanceCount ?: 0) +
+                    (supportExportState?.savedProductIssueCount ?: 0) > 0 && onClearSavedDiagnostics != null
             ) {
                 item {
                     TextButton(onClick = { confirmClearDiagnostics = true }) {
@@ -2590,8 +2602,8 @@ private fun ProfileForm(
                     Text(
                         if (result == null ||
                             result.itemCount == 0 && result.diagnosticCount == 0 && result.performanceCount == 0 &&
-                                result.freezeCount == 0 && result.crashCount == 0 &&
-                                result.openFoodFactsResponseCount == 0 && !result.hasFeedback
+                            result.freezeCount == 0 && result.crashCount == 0 &&
+                                result.openFoodFactsResponseCount == 0 && result.productIssueCount == 0 && !result.hasFeedback
                         ) {
                             stringResource(R.string.catalogue_export_empty)
                         } else {
@@ -2604,6 +2616,7 @@ private fun ProfileForm(
                                 result.freezeCount,
                                 result.crashCount,
                                 result.openFoodFactsResponseCount,
+                                result.productIssueCount,
                             )
                         },
                         color = MaterialTheme.colorScheme.primary,
@@ -3995,6 +4008,7 @@ private fun TodayScreen(
     onScanNutritionLabel: (Uri, String) -> Unit,
     onClearNutritionLabelScan: () -> Unit,
     onFlagFailedNutritionScan: () -> Unit,
+    onReportProductIssue: (Food, Set<String>, String) -> Unit,
 ) {
     val context = LocalContext.current
     val activity = LocalActivity.current
@@ -4075,6 +4089,7 @@ private fun TodayScreen(
         GmsBarcodeScanning.getClient(context, options)
     }
     var selectedFood by remember { mutableStateOf<Food?>(null) }
+    var reportingFood by remember { mutableStateOf<Food?>(null) }
     var customizingFood by remember { mutableStateOf<Food?>(null) }
     var editingEntry by remember { mutableStateOf<FoodEntry?>(null) }
     var showMacroDetails by rememberSaveable { mutableStateOf(false) }
@@ -4538,6 +4553,9 @@ private fun TodayScreen(
                     onEditFood(food)
                 }
             },
+            onReportIssue = if (food.provenance.type == FoodSourceType.OPEN_FOOD_FACTS) {
+                { reportingFood = food }
+            } else null,
         ) { loggedFood, amount, serving, batchId ->
             val time = if (selectedDate == today) LocalTime.now() else LocalTime.NOON
             val consumedAt = selectedDate.atTime(time).atZone(zoneId).toInstant().toEpochMilli()
@@ -4545,6 +4563,18 @@ private fun TodayScreen(
             selectedFood = null
             query = ""
         }
+    }
+    reportingFood?.let { food ->
+        ProductIssueDialog(
+            food = food,
+            locale = locale,
+            onDismiss = { reportingFood = null },
+            onSubmit = { reasons, comment ->
+                onReportProductIssue(food, reasons, comment)
+                reportingFood = null
+                Toast.makeText(context, R.string.product_issue_saved, Toast.LENGTH_LONG).show()
+            },
+        )
     }
     editingEntry?.let { entry ->
         val batchRemaining = entry.recipeBatchId?.let { batchId ->
@@ -5466,6 +5496,67 @@ private fun EntryRow(
     HorizontalDivider(Modifier.padding(horizontal = 20.dp), color = MaterialTheme.colorScheme.outlineVariant)
 }
 
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun ProductIssueDialog(
+    food: Food,
+    locale: Locale,
+    onDismiss: () -> Unit,
+    onSubmit: (Set<String>, String) -> Unit,
+) {
+    val reasons = listOf(
+        "NUTRITION" to R.string.product_issue_nutrition,
+        "NAME_BRAND" to R.string.product_issue_name_brand,
+        "SERVING_PACKAGE" to R.string.product_issue_serving_package,
+        "ALLERGENS" to R.string.product_issue_allergens,
+        "IMAGE" to R.string.product_issue_image,
+        "DUPLICATE" to R.string.product_issue_duplicate,
+        "OTHER" to R.string.product_issue_other,
+    )
+    var selected by remember(food.id) { mutableStateOf(emptySet<String>()) }
+    var comment by rememberSaveable(food.id) { mutableStateOf("") }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.report_incorrect_product)) },
+        text = {
+            Column(
+                Modifier.fillMaxWidth().heightIn(max = 520.dp).verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                Text(food.name(locale), fontWeight = FontWeight.Bold)
+                food.barcode?.let { Text(stringResource(R.string.product_barcode_value, it)) }
+                Text(
+                    stringResource(R.string.product_issue_explanation),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    reasons.forEach { (code, label) ->
+                        FilterChip(
+                            selected = code in selected,
+                            onClick = { selected = if (code in selected) selected - code else selected + code },
+                            label = { Text(stringResource(label)) },
+                        )
+                    }
+                }
+                OutlinedTextField(
+                    value = comment,
+                    onValueChange = { comment = it.take(2_000) },
+                    label = { Text(stringResource(R.string.optional_details)) },
+                    minLines = 3,
+                    maxLines = 6,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(enabled = selected.isNotEmpty(), onClick = { onSubmit(selected, comment) }) {
+                Text(stringResource(R.string.flag_for_review))
+            }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) } },
+    )
+}
+
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 private fun QuickAddSheet(
@@ -5478,6 +5569,7 @@ private fun QuickAddSheet(
     onDismiss: () -> Unit,
     onCustomize: (() -> Unit)? = null,
     onPrepareBatch: (() -> Unit)? = null,
+    onReportIssue: (() -> Unit)? = null,
     onAdd: (Food, Double, Serving?, String?) -> Unit,
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
@@ -5545,6 +5637,12 @@ private fun QuickAddSheet(
                         Icon(Icons.Default.ContentCopy, null)
                         Text(stringResource(R.string.customize), Modifier.padding(start = 6.dp))
                     }
+                }
+            }
+            onReportIssue?.let { report ->
+                TextButton(onClick = report, modifier = Modifier.align(Alignment.End)) {
+                    Icon(Icons.Default.ReportProblem, null)
+                    Text(stringResource(R.string.report_incorrect_product), Modifier.padding(start = 6.dp))
                 }
             }
             FoodVisual(

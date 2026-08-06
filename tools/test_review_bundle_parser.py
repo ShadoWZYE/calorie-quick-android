@@ -92,8 +92,12 @@ class ReviewBundleParserTest(unittest.TestCase):
                     "foods": [], "recipes": [],
                 }))
                 output.writestr("support/support.json", json.dumps({
-                    "schema": "calorie-quick-support-bundle", "schemaVersion": 7,
+                    "schema": "calorie-quick-support-bundle", "schemaVersion": 8,
                     "feedbackThread": [],
+                    "productDataIssues": [{
+                        "id": "issue-1", "barcode": "5941234567890",
+                        "reasonCodes": ["NUTRITION"], "comment": "Calories look wrong.",
+                    }],
                 }))
                 output.writestr("bundle.json", json.dumps({
                     "schema": "calorie-quick-review-bundle", "schemaVersion": 2,
@@ -110,8 +114,10 @@ class ReviewBundleParserTest(unittest.TestCase):
             self.assertTrue(report["valid"], report["errors"])
             self.assertEqual(1, report["summary"]["openFoodFactsResponseCount"])
             self.assertEqual(1, report["summary"]["openFoodFactsProductCount"])
+            self.assertEqual(1, report["summary"]["productIssueCount"])
             candidate = report["openFoodFactsProducts"][0]
             self.assertEqual("Sparkling drink", candidate["name"])
+            self.assertEqual([response_path], candidate["rawPaths"])
             self.assertIn("liquid package and ml measures need normalization", candidate["issues"])
 
 

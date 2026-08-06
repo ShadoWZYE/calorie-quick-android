@@ -121,6 +121,7 @@ data class CatalogueExportState(
 
 data class SupportExportState(
     val savedDiagnosticCount: Int = 0,
+    val savedProductIssueCount: Int = 0,
     val savedPerformanceCount: Int = 0,
     val savedFreezeCount: Int = 0,
     val savedCrashCount: Int = 0,
@@ -148,6 +149,7 @@ class CalorieViewModel(application: Application) : AndroidViewModel(application)
     private val _supportExportState = MutableStateFlow(
         SupportExportState(
             savedDiagnosticCount = supportDiagnostics.count(),
+            savedProductIssueCount = supportDiagnostics.productIssueCount(),
             savedPerformanceCount = supportDiagnostics.performanceCount(),
             savedFreezeCount = supportDiagnostics.freezeCount(),
             savedCrashCount = supportDiagnostics.crashCount(),
@@ -392,6 +394,13 @@ class CalorieViewModel(application: Application) : AndroidViewModel(application)
         }
     }
 
+    fun flagProductIssue(food: Food, reasonCodes: Set<String>, comment: String) {
+        viewModelScope.launch(Dispatchers.IO) {
+            supportDiagnostics.flagProductIssue(food, reasonCodes, comment)
+            refreshSupportState()
+        }
+    }
+
     fun deleteFeedbackMessage(id: String) {
         viewModelScope.launch(Dispatchers.IO) {
             _feedbackMessages.value = supportDiagnostics.deleteFeedback(id)
@@ -555,6 +564,7 @@ class CalorieViewModel(application: Application) : AndroidViewModel(application)
     fun refreshSupportState() {
         _supportExportState.value = SupportExportState(
             savedDiagnosticCount = supportDiagnostics.count(),
+            savedProductIssueCount = supportDiagnostics.productIssueCount(),
             savedPerformanceCount = supportDiagnostics.performanceCount(),
             savedFreezeCount = supportDiagnostics.freezeCount(),
             savedCrashCount = supportDiagnostics.crashCount(),

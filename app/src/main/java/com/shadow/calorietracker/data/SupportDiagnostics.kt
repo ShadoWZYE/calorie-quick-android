@@ -4,6 +4,7 @@ import android.content.Context
 import android.net.Uri
 import android.os.Build
 import com.shadow.calorietracker.BuildConfig
+import com.shadow.calorietracker.model.Food
 import java.io.File
 import java.util.UUID
 import java.util.zip.ZipEntry
@@ -18,6 +19,7 @@ data class SupportExportResult(
     val hasFeedback: Boolean,
     val feedbackCount: Int = 0,
     val performanceCount: Int = 0,
+    val productIssueCount: Int = 0,
     val manifest: JSONObject? = null,
     val media: List<ReviewBundleMedia> = emptyList(),
 )
@@ -29,6 +31,17 @@ data class FeedbackMessage(
     val imageLocalPath: String? = null,
 )
 
+data class ProductDataIssue(
+    val id: String,
+    val foodId: String,
+    val barcode: String,
+    val productName: String,
+    val brand: String?,
+    val reasonCodes: List<String>,
+    val comment: String,
+    val createdAtEpochMillis: Long,
+)
+
 class SupportDiagnosticStore(private val context: Context) {
     private val stagingDirectory = File(context.cacheDir, "diagnostic-staging")
     private val flaggedDirectory = File(context.filesDir, "flagged-scan-diagnostics")
@@ -36,6 +49,7 @@ class SupportDiagnosticStore(private val context: Context) {
     private val crashDirectory = File(context.filesDir, "crash-diagnostics")
     private val performanceDirectory = File(context.filesDir, "performance-diagnostics")
     private val feedbackImageDirectory = File(context.filesDir, "feedback-images")
+    private val productIssueDirectory = File(context.filesDir, "product-data-issues")
     private val feedbackPreferences = context.getSharedPreferences("support-feedback", Context.MODE_PRIVATE)
 
     fun feedbackMessages(): List<FeedbackMessage> = runCatching {
@@ -151,7 +165,32 @@ class SupportDiagnosticStore(private val context: Context) {
 
     fun clear() {
         flaggedDirectory.listFiles()?.forEach(File::delete)
+        productIssueDirectory.listFiles()?.forEach(File::delete)
     }
+
+    @Synchronized
+    fun flagProductIssue(food: Food, reasonCodes: Set<String>, comment: String): Boolean {
+        val barcode = food.barcode?.filter(Char::isDigit).orEmpty()
+        if (food.provenance.type.name != "OPEN_FOOD_FACTS" || barcode.isEmpty() || reasonCodes.isEmpty()) return false
+        productIssueDirectory.mkdirs()
+        val createdAt = System.currentTimeMillis()
+        val id = "$createdAt-${UUID.randomUUID()}"
+        File(productIssueDirectory, "$id.json").writeText(
+            JSONObject()
+                .put("id", id)
+                .put("foodId", food.id)
+                .put("barcode", barcode)
+                .put("productName", food.names.en.take(300))
+                .put("brand", food.brand?.take(300) ?: JSONObject.NULL)
+                .put("reasonCodes", JSONArray(reasonCodes.sorted()))
+                .put("comment", comment.trim().take(2_000))
+                .put("createdAtEpochMillis", createdAt)
+                .toString(2),
+        )
+        return true
+    }
+
+    fun productIssueCount(): Int = productIssueDirectory.listFiles { file -> file.extension == "json" }?.size ?: 0
 
     @Synchronized
     fun recordUiFreeze(stalledForMillis: Long, threadState: String, stackTrace: String) {
@@ -272,6 +311,11 @@ class SupportDiagnosticStore(private val context: Context) {
             .sortedBy(File::getName)
             .mapNotNull { file -> runCatching { JSONObject(file.readText()) }.getOrNull() }
         else emptyList()
+        val productIssues = if (includeDiagnostics) productIssueDirectory.listFiles { file -> file.extension == "json" }
+            .orEmpty()
+            .sortedBy(File::getName)
+            .mapNotNull { file -> runCatching { JSONObject(file.readText()) }.getOrNull() }
+        else emptyList()
         val trimmedFeedback = feedback.trim()
         val feedbackThread = if (includeFeedback) feedbackMessages().let { messages ->
             if (trimmedFeedback.isEmpty()) messages else messages + FeedbackMessage(
@@ -301,7 +345,7 @@ class SupportDiagnosticStore(private val context: Context) {
         val feedbackMediaByOwner = feedbackMedia.associateBy(ReviewBundleMedia::ownerId)
         val manifest = JSONObject()
             .put("schema", "calorie-quick-support-bundle")
-            .put("schemaVersion", 7)
+            .put("schemaVersion", 8)
             .put("generatedAtEpochMillis", System.currentTimeMillis())
             .put("appVersion", BuildConfig.VERSION_NAME)
             .put("appVersionCode", BuildConfig.VERSION_CODE)
@@ -341,6 +385,7 @@ class SupportDiagnosticStore(private val context: Context) {
             .put("uiFreezes", JSONArray(freezeReports))
             .put("crashes", JSONArray(crashReports))
             .put("performance", JSONArray(performanceReports))
+            .put("productDataIssues", JSONArray(productIssues))
         zip.putNextEntry(ZipEntry("support/support.json"))
         zip.write(manifest.toString(2).toByteArray())
         zip.closeEntry()
@@ -356,6 +401,7 @@ class SupportDiagnosticStore(private val context: Context) {
             hasFeedback = feedbackThread.isNotEmpty(),
             feedbackCount = feedbackThread.size,
             performanceCount = performanceReports.size,
+            productIssueCount = productIssues.size,
             manifest = manifest,
             media = diagnosticMedia + feedbackMedia,
         )

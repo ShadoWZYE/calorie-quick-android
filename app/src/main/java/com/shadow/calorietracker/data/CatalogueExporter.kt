@@ -17,6 +17,7 @@ data class CatalogueExportResult(
     val crashCount: Int = 0,
     val performanceCount: Int = 0,
     val openFoodFactsResponseCount: Int = 0,
+    val productIssueCount: Int = 0,
     val hasFeedback: Boolean = false,
 )
 
@@ -232,8 +233,8 @@ class CatalogueExporter(
                         .put(JSONObject()
                             .put("kind", "support")
                             .put("path", "support/support.json")
-                            .put("schemaVersion", 7)
-                            .put("recordCount", supportResult.diagnosticCount + supportResult.freezeCount + supportResult.crashCount + supportResult.feedbackCount + supportResult.performanceCount))
+                            .put("schemaVersion", 8)
+                            .put("recordCount", supportResult.diagnosticCount + supportResult.freezeCount + supportResult.crashCount + supportResult.feedbackCount + supportResult.performanceCount + supportResult.productIssueCount))
                         .put(JSONObject()
                             .put("kind", "open-food-facts-cache")
                             .put("path", "open-food-facts/cache.json")
@@ -257,6 +258,7 @@ class CatalogueExporter(
             crashCount = supportResult.crashCount,
             performanceCount = supportResult.performanceCount,
             openFoodFactsResponseCount = cachedOpenFoodFactsResponses.size,
+            productIssueCount = supportResult.productIssueCount,
             hasFeedback = supportResult.hasFeedback,
         )
         }

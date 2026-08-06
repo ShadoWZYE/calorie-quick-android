@@ -97,6 +97,7 @@ def _item(
         "SCAN_DIAGNOSTIC": "The scan was retained because OCR or image decoding did not produce a dependable prefill. Inspect the sanitized attachment for layout, language, glare, curvature, and unit patterns that need regression coverage.",
         "PERFORMANCE_DIAGNOSTIC": "This operation crossed the local slow/failure threshold. Use its duration and outcome as evidence, then reproduce with finer instrumentation before selecting an architectural fix.",
         "OPEN_FOOD_FACTS_CACHE": "The complete API response was retained as temporary evidence. Compare the package fields, normalize names, category, nutrition, allergens, and practical measures, then explicitly approve it before promoting anything into a built-in or shared catalogue.",
+        "PRODUCT_DATA_ISSUE": "A tester explicitly marked this product as incorrect. Use the linked cached response as evidence, apply the reviewer’s categories and note, then correct or suppress the shared record without interrupting automatic ingestion of unflagged products.",
     }.get(
         source_type,
         f"The item was imported intact and classified as {suggested_class}. The suggestion is not a product decision; confirm reproduction, desired behavior, scope, and acceptance checks before promotion.",
@@ -199,6 +200,34 @@ class ReviewInboxStore:
                     title=_title(text, "Feedback"),
                     description=text,
                     attachments=[attachment] if attachment else [],
+                ),
+            )
+
+        products_by_code = {
+            str(product.get("code")): product
+            for product in report.get("openFoodFactsProducts", [])
+            if isinstance(product, dict) and product.get("code")
+        }
+        for issue in report.get("productDataIssues", []):
+            if not isinstance(issue, dict):
+                continue
+            issue_id = str(issue.get("id") or "unknown")
+            barcode = str(issue.get("barcode") or "")
+            product = products_by_code.get(barcode, {})
+            reasons = ", ".join(str(value) for value in issue.get("reasonCodes", []))
+            raw_paths = product.get("rawPaths", [])
+            description = (
+                f"barcode={barcode}; reasons={reasons or 'unspecified'}; "
+                f"comment={issue.get('comment') or 'none'}; raw responses={', '.join(raw_paths) or 'not present'}"
+            )
+            items.append(
+                _item(
+                    item_id=f"product-issue:{issue_id}",
+                    source_type="PRODUCT_DATA_ISSUE",
+                    title=f"Incorrect product: {issue.get('productName') or product.get('name') or barcode}",
+                    description=description,
+                    classification="DATA",
+                    severity="MEDIUM",
                 ),
             )
 

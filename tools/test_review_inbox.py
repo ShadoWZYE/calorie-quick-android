@@ -33,7 +33,7 @@ class ReviewInboxStoreTest(unittest.TestCase):
         }
         support = {
             "schema": "calorie-quick-support-bundle",
-            "schemaVersion": 7,
+            "schemaVersion": 8,
             "feedbackThread": [{
                 "id": "feedback-1",
                 "text": "Scrolling freezes until results load.",
@@ -41,6 +41,14 @@ class ReviewInboxStoreTest(unittest.TestCase):
             }],
             "diagnostics": [],
             "performance": [],
+            "productDataIssues": [{
+                "id": "issue-1",
+                "barcode": "12345670",
+                "productName": "Cached food",
+                "brand": "Example",
+                "reasonCodes": ["NUTRITION", "SERVING_PACKAGE"],
+                "comment": "Package size and calories are wrong.",
+            }],
         }
         root = {
             "schema": "calorie-quick-review-bundle",
@@ -82,12 +90,15 @@ class ReviewInboxStoreTest(unittest.TestCase):
             review, created = store.import_bundle(archive)
 
             self.assertTrue(created)
-            self.assertEqual(1, len(review["items"]))
+            self.assertEqual(2, len(review["items"]))
             feedback = next(item for item in review["items"] if item["sourceType"] == "FEEDBACK")
             self.assertEqual("PERFORMANCE", feedback["classification"])
             self.assertTrue(feedback["assistantAnalysis"])
             self.assertTrue(Path(feedback["attachments"][0]).is_file())
             self.assertFalse(any(item["sourceType"] == "OPEN_FOOD_FACTS_CACHE" for item in review["items"]))
+            product_issue = next(item for item in review["items"] if item["sourceType"] == "PRODUCT_DATA_ISSUE")
+            self.assertIn("NUTRITION", product_issue["description"])
+            self.assertIn("open-food-facts/responses/test.json", product_issue["description"])
             self.assertTrue((root / "inbox" / "bundles" / review["bundleHash"] / "source.zip").is_file())
             shared = json.loads((root / "inbox" / "shared-food-catalogue.json").read_text(encoding="utf-8"))
             self.assertEqual(2, shared["foodCount"])

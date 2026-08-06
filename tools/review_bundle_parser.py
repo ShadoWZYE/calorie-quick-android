@@ -98,6 +98,7 @@ def _off_candidate(product: dict[str, Any], raw_path: str) -> dict[str, Any] | N
         "brand": brands,
         "issues": issues,
         "rawPath": raw_path,
+        "rawPaths": [raw_path],
         "product": product,
     }
 
@@ -237,7 +238,12 @@ def inspect_bundle(archive_path: Path) -> dict[str, Any]:
             for product in products:
                 candidate = _off_candidate(product, raw_path)
                 if candidate:
-                    off_candidates_by_code.setdefault(candidate["code"], candidate)
+                    existing = off_candidates_by_code.get(candidate["code"])
+                    if existing:
+                        if raw_path not in existing["rawPaths"]:
+                            existing["rawPaths"].append(raw_path)
+                    else:
+                        off_candidates_by_code[candidate["code"]] = candidate
         if off_index.get("responseCount") != len(response_paths):
             warnings.append("Open Food Facts cache response count does not match its index.")
 
@@ -277,12 +283,17 @@ def inspect_bundle(archive_path: Path) -> dict[str, Any]:
     feedback_count = 0
     performance_count = 0
     if support:
-        if support.get("schema") != "calorie-quick-support-bundle" or support.get("schemaVersion") not in (5, 6, 7):
+        if support.get("schema") != "calorie-quick-support-bundle" or support.get("schemaVersion") not in (5, 6, 7, 8):
             errors.append("Unsupported support schema.")
         thread = support.get("feedbackThread", [])
         feedback_count = len(thread) if isinstance(thread, list) else 0
         performance = support.get("performance", [])
         performance_count = len(performance) if isinstance(performance, list) else 0
+        product_issues = support.get("productDataIssues", [])
+        product_issue_count = len(product_issues) if isinstance(product_issues, list) else 0
+    else:
+        product_issues = []
+        product_issue_count = 0
 
     return {
         "valid": not errors,
@@ -297,6 +308,7 @@ def inspect_bundle(archive_path: Path) -> dict[str, Any]:
             "recipeCount": len(recipes),
             "feedbackMessageCount": feedback_count,
             "performanceOperationCount": performance_count,
+            "productIssueCount": product_issue_count,
             "imageCount": sum("mimeType" in item for item in entry_summary),
             "imagesWithMetadata": len(images_with_metadata),
             "openFoodFactsResponseCount": len(off_index.get("responses", [])) if isinstance(off_index, dict) and isinstance(off_index.get("responses"), list) else 0,
@@ -309,6 +321,7 @@ def inspect_bundle(archive_path: Path) -> dict[str, Any]:
         } if support else None),
         "foodFindings": food_findings,
         "openFoodFactsProducts": list(off_candidates_by_code.values()),
+        "productDataIssues": product_issues,
         "mediaWithMetadata": images_with_metadata,
         "entries": entry_summary,
     }
@@ -325,6 +338,7 @@ def markdown_report(report: dict[str, Any]) -> str:
         f"- Contents: {summary.get('foodCount', 0)} foods, {summary.get('recipeCount', 0)} recipes, {summary.get('feedbackMessageCount', 0)} feedback messages, {summary.get('imageCount', 0)} images",
         f"- Images containing EXIF/XMP: {summary.get('imagesWithMetadata', 0)}",
         f"- Open Food Facts cache: {summary.get('openFoodFactsResponseCount', 0)} responses, {summary.get('openFoodFactsProductCount', 0)} unique products collected",
+        f"- Explicit incorrect-product reports: {summary.get('productIssueCount', 0)}",
     ]
     for heading, key in (("Errors", "errors"), ("Warnings", "warnings")):
         values = report.get(key, [])
