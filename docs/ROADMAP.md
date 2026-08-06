@@ -4,59 +4,50 @@ Milestones are outcome gates rather than promises by date.
 
 ## M0 — Product and technical spike (complete)
 
-- Research and architectural decisions.
-- Runnable bilingual Today/quick-add vertical slice.
-- Build/test toolchain, repository hygiene, and baseline documentation.
-- Validate the five-second frequent-food flow with a handful of users before expanding scope.
+- Runnable English/Romanian Android app and local build/test toolchain.
+- Five-second repeated-food flow, responsive quick-add sheet, and persistent Room foundation.
 
-Exit: the prototype builds, the happy path is understandable without instruction, and product/package naming decisions are captured.
+## M1 — Local-first private alpha (field-test candidate)
 
-## M1 — Local-first private alpha (current)
+Implemented:
 
-- Room schemas and non-destructive v1→v2→v3→v4→v5 migrations, seeded local foods, normalized nutrient/allergen rows, diary/unit snapshots, interaction-ranked quantity presets, and persistence are implemented; meals and diary edit/undo remain.
-- First-run onboarding, profile editing, BMR/TDEE estimate, activity/goal choice, linked manual calorie/macro targets, fibre target, and app-language settings are implemented; display units remain.
-- Recents/frequency ranking, favourite servings, copy meal/day, templates.
-- Extensible nutrient schema and fibre tracking with clear unknown-data states are implemented; optional total/added sugar and sodium with manual targets remain.
-- Normalized generic/branded product schema with mass/volume/piece dimensions, packages/barcodes, full nutrient panels, provenance, and immutable diary snapshots.
-- Offline personal-food create/edit/archive with EU-14 allergen declarations, custom gram-converted measures, and prepackaged-item split presets is implemented; preparation variants with most-used defaults and optional private store/price history remain.
-- Opt-in catalogue submissions with immutable review snapshots; no automatic promotion of personal records.
-- EU-14 allergen/intolerance exclusions with `contains`, `may contain`, and `unknown` confidence; recommendation filtering and warnings.
-- Settings, export/delete, reminders, English/Romanian QA, accessibility.
-- Unit/UI/migration tests and measured performance budgets.
+- First-run onboarding and settings for username, goals, linked calories/macros, fibre, language, body units, tape units, and adaptive goal reviews.
+- Persistent diary with entry editing/removal, previous-day calendar browser, and 7-day/4-week/6-month reports.
+- Normalized foods, nutrients, EU-14 allergens, servings, preparation variants, provenance, immutable diary snapshots, and non-destructive migrations through schema v14.
+- Interaction-ranked serving/gram memory, macro-aware personal-history recommendations, and distinct standalone versus recipe-ingredient usage.
+- Personal-food editor with photos, known/custom units, prepackaged weight/fractions, private store/price metadata, and review opt-in.
+- One-tap customization can either clone a personal variant or seed a recipe for additions such as milk and sugar, without mutating the source catalogue.
+- Meal-prep recipes with ingredient search, cooked yield, portions, repeat batches, and search/quick-add integration.
+- Open Food Facts text/barcode lookup and on-device nutrition-label OCR with mandatory review.
+- Manual and scale-OCR body check-ins, optional guided tape measurements, trends, and non-medical adaptive review language.
+- Versioned offline catalogue of 191 English/Romanian generic foods across 15 categories, with aliases, fibre, allergens, measures, cooking ingredients, and common Romanian foods.
+- One offline review ZIP with explicitly opted-in foods/recipes, explicitly flagged failed-scan images, optional feedback, and separate machine-readable catalogue/support manifests.
 
-Exit: a user can depend on it offline for four weeks without data loss.
+Private-alpha exit gate:
+
+- Pass the release gate and the private-alpha smoke test on a real phone.
+- Complete at least two weeks of daily use without data corruption or a blocking entry flow.
+- Triage missing-food/search feedback before expanding the static catalogue again.
+
+Remaining before a broader beta:
+
+- Full private diary/profile backup, restore, and delete controls.
+- Signed release configuration, private distribution, crash reporting with explicit consent, accessibility audit, and Android 6/8/modern-device matrix.
+- Reminders and performance measurements on low-end hardware.
 
 ## M2 — Catalogue and barcode beta
 
-- Versioned normalization service and cache.
-- Open Food Facts adapter, followed by USDA generic-food enrichment where useful.
-- Barcode scanner, missing-product flow, provenance/confidence UI, image thumbnails.
-- Moderation queue and validation rules for opted-in personal-food submissions.
-- Retry/offline queue, abuse controls, provider attribution/licensing audit.
-
-Exit: Romanian/English barcode lookup has measured coverage and all imported fields remain correctable.
+- Measure Open Food Facts barcode/search coverage in Romanian and English; refine normalization, cache, retries, attribution, and licensing treatment.
+- Add catalogue items from observed misses instead of speculative bulk growth.
+- Hosted moderation queue for opted-in submissions, abuse controls, and immutable review history.
+- Optional image catalogue with licensing and storage policy.
 
 ## M3 — Optional account and ecosystem
 
-- Optional authentication, encrypted sync, conflict resolution, device migration.
-- Health Connect nutrition/body-measurement integration with granular consent.
-- Widget/app shortcuts and wearable-friendly entry surfaces.
-- Server observability, backups, deletion workflow, privacy/security review.
+- Optional authentication, encrypted sync, conflict resolution, and device migration while preserving local-only use.
+- Health Connect integration with granular consent, widget/app shortcuts, and deletion/retention controls.
 
-Exit: sync is idempotent, tested under offline/conflict conditions, and local-only use remains supported.
+## M4 — Intelligence and experimental estimation
 
-## M4 — OCR, recipes, and intelligence
-
-- On-device label/ingredient OCR with confirmation and parsing confidence.
-- Recipe builder, pantry/frequent-food recommendations, meal suggestions constrained by remaining macros and preferences.
-- Nutrient flags and trend insights with careful non-medical wording.
-- Clinically reviewed condition-oriented tracking helpers that tune only from explicit targets and never substitute for care advice.
-
-Exit: recommendations are explainable and never invent unavailable ingredients or nutrition facts.
-
-## M5 — Experimental visual estimation
-
-- Whole-dish segmentation/recognition research, portion reference workflow, uncertainty ranges, opt-in image processing.
-- Controlled evaluation against weighed meals before any public accuracy claim.
-
-Exit: only ship if it is demonstrably faster than manual entry and error bounds are honest enough to be useful.
+- Explainable meal suggestions constrained by targets, allergens, preferences, available history, and recipe inventory.
+- Evaluate whole-dish image estimation only against weighed meals and ship only with honest error bounds.

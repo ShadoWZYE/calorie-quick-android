@@ -12,13 +12,19 @@ class BuiltInCatalogueParserTest {
     fun `bundled catalogue passes validation and maintains broad coverage`() {
         val catalogue = BuiltInCatalogueParser.parse(assetFile.readText())
 
-        assertEquals(1, catalogue.version)
+        assertEquals(2, catalogue.version)
         assertEquals("CC0-1.0", catalogue.license)
-        assertTrue(catalogue.foods.size >= 60)
-        assertTrue(catalogue.foods.map { it.categoryKey }.distinct().size >= 10)
+        assertTrue(catalogue.foods.size >= 190)
+        assertTrue(catalogue.foods.map { it.categoryKey }.distinct().size >= 15)
         assertTrue(catalogue.foods.any { it.id == "honey" && it.servings.any { serving -> serving.id == "honey-teaspoon" } })
         assertTrue(catalogue.foods.any { it.id == "eggplant" && "aubergine" in it.aliases })
         assertTrue(catalogue.foods.any { it.id == "eggs" && it.preparations.size >= 2 })
+        assertTrue(catalogue.foods.any { it.id == "telemea" && "branza telemea" in it.aliases })
+        assertTrue(catalogue.foods.any { it.id == "sarmale" && it.categoryKey == "prepared-meals" })
+        assertTrue(catalogue.foods.any { it.id == "black-coffee" && it.servings.any { serving -> serving.grams == 240 } })
+        assertTrue(catalogue.foods.any { it.id == "salt" && it.servings.any { serving -> serving.id == "salt-teaspoon" } })
+        assertTrue(catalogue.foods.any { it.id == "green-olives" && "olives" in it.aliases })
+        assertTrue(catalogue.foods.any { it.id == "wheat-flour" && "faina alba" in it.aliases })
     }
 
     @Test(expected = IllegalArgumentException::class)

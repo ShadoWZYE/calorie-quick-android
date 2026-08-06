@@ -1,41 +1,55 @@
 # Testing guide
 
-Use the **Calorie Quick Test** Desktop or Start Menu shortcut for each test
-session. It builds, installs, and opens the latest code in the API 37 emulator.
+Use the **Calorie Quick Test** Desktop or Start Menu shortcut for emulator sessions. It builds, installs, and opens the latest debug APK without clearing existing app data.
 
-## Current smoke test
+Never use Gradle's `connectedDebugAndroidTest` against an emulator or phone whose diary matters: the instrumentation workflow can uninstall the package and erase its private data. Use a disposable emulator for connected tests.
 
-1. On a fresh install, complete the short profile setup and confirm the estimated target changes with activity and goal.
-2. Switch to **Română** during setup, then back to English from the gear-shaped **Settings** screen.
-3. Scroll the recommended-food list and confirm text is readable and cards respond.
-4. Search for an English name such as `banana` and a Romanian name such as
-   `banană`; both should find the same food.
-5. Open Banana and try **1 medium banana**, **1 small banana**, and an exact gram value.
-6. Open Whole egg, enter `3`, choose **large egg** from the unit suffix, and add it. Reopen Whole egg and confirm `3 × large egg · 150 g` appears as a quick-pick chip while the editable field starts at `1 large egg`.
-7. Add a custom gram amount, reopen the food, and confirm that amount appears as its own gram quick-pick chip while choosing `g` starts at `100 g`.
-   Confirm serving/custom chips wrap inline to no more than two rows and gram chips stay on one row.
-   When a food's neutral default serving (or 100 g without one) would cross a macro target, confirm only that macro appears in red on the food card as `Macro +x g`.
-8. Confirm calories and all three macros update immediately.
-9. Add several foods, scroll to today's entries, and remove one.
-10. Add the same food twice within two minutes. Confirm it becomes one timestamped entry whose weight and nutrition are the sum of both additions.
-11. Confirm a macro turns red after exceeding its target. Confirm **Recommended** avoids foods rich in that macro, then tap the summary card and inspect the macro breakdown.
-12. Rotate the emulator. Confirm the profile, entries, and total remain intact and the screen still fits.
-13. Close and relaunch the app. Confirm the same profile and today's entries remain.
+## Release gate
 
-## Feedback to capture
+Run:
 
-- Time from launch to the first saved food.
-- Any step that needed explanation or felt like too many taps.
-- Search terms that did not produce the expected food.
-- Serving sizes or units that felt awkward.
+```powershell
+./gradlew test lintDebug assembleDebug assembleDebugAndroidTest assembleRelease
+```
+
+The checked-in catalogue test validates its schema, bilingual names, nutrition bounds, stable IDs, allergens, preparations, aliases, categories, and representative Romanian coverage.
+
+## Private-alpha smoke test
+
+1. Complete onboarding in English and Romanian; verify linked calorie and macro targets, fibre, measurement units, and username survive relaunch.
+2. Confirm an empty **Recommended** list explains that only previously logged foods appear there.
+3. Browse **All foods** and several category chips. Search English, Romanian, unaccented Romanian, and an alias such as `aubergine`. While a mismatched category is selected, search `coffee` and confirm the app falls back to all-category results with an explanation.
+4. Add a food, then confirm only that previously used food can appear under **Recommended**. Recipe-only ingredient use must not make it recommended.
+5. Search a built-in food and open **Customize**. Confirm **Create personal variant** clones its nutrition, fibre, allergens, and measures under a new name with no barcode. Then choose **Build recipe** from coffee, add milk and sugar, and verify the seed serving, total yield, portions, and calculated nutrition. Neither path may alter the source template.
+6. Confirm cards label standalone logs and recipe-batch uses separately.
+7. Verify quantity memory: serving quantities become chips above the amount field, gram quantities remain separate, interaction count controls ordering, and the neutral field default remains unchanged.
+8. Verify the quick-add sheet expands toward full height and scrolls on a small display, including a food with preparation choices and many measures.
+9. Push fat over target. Confirm fat turns red in the summary and only the relevant projected overage is shown on candidate cards.
+10. Create and edit a personal food with fibre, allergens, photo, teaspoon or other known/custom measures, package weight/fractions, store, price, and review opt-in.
+11. Search a packaged product in Open Food Facts and scan a barcode. Confirm imported community data is reviewable before local save. Test offline/error handling.
+12. Scan a nutrition label and review the OCR prefill. Incorrect or ambiguous values must remain editable or blank.
+13. Create a cooked recipe, record yield and portions, add a portion and grams to the diary, then prepare another batch. Verify ingredient and standalone histories stay separate.
+14. Add, edit, and remove diary entries; use the Today heading to replace the active day in place, then inspect the 7-day, 4-week, and 6-month reports.
+15. Manually add a body check-in with tape measurements, import a scale screenshot, and review an adaptive-goal suggestion without accepting it.
+16. Rotate, background, kill, and relaunch the app. Verify profile, foods, recipes, photos, history, and totals remain intact.
+17. Flag a failed scan, add optional feedback, export the combined review ZIP, and inspect its separate `catalogue/` and `support/` folders. Confirm private/non-opted-in foods and unflagged scans are absent.
+
+## Field feedback to capture
+
+- Search terms with no useful local or Open Food Facts result.
+- Time and taps from launch to a saved food.
+- Awkward serving sizes, cooking methods, package splits, or recipes.
+- Incorrect nutrition/allergen data and the provenance shown.
 - Text that is unclear, clipped, too small, or poorly translated.
 - Crashes, freezes, visual jumps, or totals that appear incorrect.
 
-Screenshots plus the exact action immediately before a problem are ideal.
+Include the app version, phone model, Android version, screenshot, and exact preceding action.
 
-## Known prototype limitations
+## Private-alpha boundaries
 
-- The calorie target is formula-derived; manual calorie/macro overrides are not available yet.
-- Diary entries can be added or deleted but not edited, grouped into meals, or undone. Rapid repeat additions of the same food merge within two minutes; later additions remain separate.
-- The local catalogue is persistent but currently contains only bundled sample foods; users cannot create foods yet.
-- Reports, reminders, export/delete controls, and broader migration coverage remain for the private-alpha milestone.
+- The 191-food built-in catalogue contains rounded generic reference values; brands and home recipes vary. Package labels and weighed saved recipes take precedence.
+- Open Food Facts is community data and needs user review. Network coverage is not guaranteed.
+- OCR is an entry aid, never an authoritative nutrition source.
+- The release APK produced locally is unsigned. Use the debug APK for direct trusted-device testing until a private signing key and distribution channel are configured.
+- Full diary/profile backup and restore is not yet available. Review-export ZIPs contain opted-in catalogue items only.
+- Cloud backup is disabled because the database contains private nutrition and body data.

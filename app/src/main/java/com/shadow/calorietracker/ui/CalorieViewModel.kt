@@ -16,6 +16,7 @@ import com.shadow.calorietracker.data.NutritionLabelOcr
 import com.shadow.calorietracker.data.NutritionLabelPrefill
 import com.shadow.calorietracker.data.BodyScaleOcr
 import com.shadow.calorietracker.data.BodyScalePrefill
+import com.shadow.calorietracker.data.SupportDiagnosticStore
 import com.shadow.calorietracker.data.BuiltInCatalogueImporter
 import com.shadow.calorietracker.model.Food
 import com.shadow.calorietracker.model.BodyMeasurement
@@ -90,6 +91,8 @@ enum class NutritionLabelScanStatus { IDLE, PROCESSING, SUCCESS, ERROR }
 data class NutritionLabelScanState(
     val status: NutritionLabelScanStatus = NutritionLabelScanStatus.IDLE,
     val prefill: NutritionLabelPrefill? = null,
+    val stagedImagePath: String? = null,
+    val flaggedForSupport: Boolean = false,
 )
 
 enum class BodyScaleScanStatus { IDLE, PROCESSING, SUCCESS, ERROR }
@@ -97,6 +100,8 @@ enum class BodyScaleScanStatus { IDLE, PROCESSING, SUCCESS, ERROR }
 data class BodyScaleScanState(
     val status: BodyScaleScanStatus = BodyScaleScanStatus.IDLE,
     val prefill: BodyScalePrefill? = null,
+    val stagedImagePath: String? = null,
+    val flaggedForSupport: Boolean = false,
 )
 
 enum class CatalogueExportStatus { IDLE, EXPORTING, SUCCESS, ERROR }
@@ -105,14 +110,23 @@ data class CatalogueExportState(
     val result: CatalogueExportResult? = null,
 )
 
+data class SupportExportState(
+    val savedDiagnosticCount: Int = 0,
+)
+
 class CalorieViewModel(application: Application) : AndroidViewModel(application) {
     private val database = AppDatabase.get(application)
     private val repository = CalorieRepository(database, BuiltInCatalogueImporter(application, database))
     private val openFoodFacts = OpenFoodFactsClient()
     private val foodImageStore = FoodImageStore(application)
-    private val catalogueExporter = CatalogueExporter(application, database)
+    private val supportDiagnostics = SupportDiagnosticStore(application)
+    private val catalogueExporter = CatalogueExporter(application, database, supportDiagnostics)
     private val _catalogueExportState = MutableStateFlow(CatalogueExportState())
     val catalogueExportState: StateFlow<CatalogueExportState> = _catalogueExportState.asStateFlow()
+    private val _supportExportState = MutableStateFlow(
+        SupportExportState(savedDiagnosticCount = supportDiagnostics.count()),
+    )
+    val supportExportState: StateFlow<SupportExportState> = _supportExportState.asStateFlow()
     private val _foodLookupState = MutableStateFlow(FoodLookupState())
     val foodLookupState: StateFlow<FoodLookupState> = _foodLookupState.asStateFlow()
     private var lookupJob: Job? = null
@@ -195,17 +209,36 @@ class CalorieViewModel(application: Application) : AndroidViewModel(application)
         bodyScaleScanJob?.cancel()
         _bodyScaleScanState.value = BodyScaleScanState(BodyScaleScanStatus.PROCESSING)
         bodyScaleScanJob = viewModelScope.launch {
+            var stagedPath: String? = null
             _bodyScaleScanState.value = try {
-                BodyScaleScanState(BodyScaleScanStatus.SUCCESS, bodyScaleOcr.scan(uri))
+                val staged = supportDiagnostics.stage(uri, "body-scale")
+                stagedPath = staged.absolutePath
+                val prefill = bodyScaleOcr.scan(Uri.fromFile(staged))
+                if (prefill.measurement != null) supportDiagnostics.discard(stagedPath)
+                BodyScaleScanState(
+                    status = BodyScaleScanStatus.SUCCESS,
+                    prefill = prefill,
+                    stagedImagePath = stagedPath.takeIf { prefill.measurement == null },
+                )
             } catch (error: Exception) {
                 Log.w("BodyScaleOcr", "Scale report scan failed", error)
-                BodyScaleScanState(BodyScaleScanStatus.ERROR)
+                BodyScaleScanState(BodyScaleScanStatus.ERROR, stagedImagePath = stagedPath)
             }
+        }
+    }
+
+    fun flagBodyScaleScanForSupport() {
+        val state = _bodyScaleScanState.value
+        val path = state.stagedImagePath ?: return
+        if (supportDiagnostics.flag(path, "body-scale", "ocr-or-parser-failure")) {
+            _bodyScaleScanState.value = state.copy(stagedImagePath = null, flaggedForSupport = true)
+            refreshSupportCount()
         }
     }
 
     fun clearBodyScaleScan() {
         bodyScaleScanJob?.cancel()
+        supportDiagnostics.discard(_bodyScaleScanState.value.stagedImagePath)
         _bodyScaleScanState.value = BodyScaleScanState()
     }
 
@@ -224,11 +257,11 @@ class CalorieViewModel(application: Application) : AndroidViewModel(application)
         viewModelScope.launch { repository.archivePersonalFood(foodId) }
     }
 
-    fun exportReviewCatalogue(uri: Uri) {
+    fun exportReviewCatalogue(uri: Uri, feedback: String = "") {
         _catalogueExportState.value = CatalogueExportState(CatalogueExportStatus.EXPORTING)
         viewModelScope.launch {
             _catalogueExportState.value = try {
-                CatalogueExportState(CatalogueExportStatus.SUCCESS, catalogueExporter.exportTo(uri))
+                CatalogueExportState(CatalogueExportStatus.SUCCESS, catalogueExporter.exportTo(uri, feedback))
             } catch (error: Exception) {
                 Log.w("CatalogueExport", "Catalogue export failed", error)
                 CatalogueExportState(CatalogueExportStatus.ERROR)
@@ -295,14 +328,20 @@ class CalorieViewModel(application: Application) : AndroidViewModel(application)
         nutritionLabelScanJob?.cancel()
         _nutritionLabelScanState.value = NutritionLabelScanState(NutritionLabelScanStatus.PROCESSING)
         nutritionLabelScanJob = viewModelScope.launch {
+            var stagedPath: String? = null
             _nutritionLabelScanState.value = try {
+                val staged = supportDiagnostics.stage(uri, "nutrition-label")
+                stagedPath = staged.absolutePath
+                val prefill = nutritionLabelOcr.scan(Uri.fromFile(staged), suggestedName)
+                if (prefill.warnings.isEmpty()) supportDiagnostics.discard(stagedPath)
                 NutritionLabelScanState(
-                    NutritionLabelScanStatus.SUCCESS,
-                    nutritionLabelOcr.scan(uri, suggestedName),
+                    status = NutritionLabelScanStatus.SUCCESS,
+                    prefill = prefill,
+                    stagedImagePath = stagedPath.takeIf { prefill.warnings.isNotEmpty() },
                 )
             } catch (error: Exception) {
                 Log.w("NutritionLabelOcr", "Label scan failed", error)
-                NutritionLabelScanState(NutritionLabelScanStatus.ERROR)
+                NutritionLabelScanState(NutritionLabelScanStatus.ERROR, stagedImagePath = stagedPath)
             } finally {
                 if (uri.authority == "${getApplication<Application>().packageName}.fileprovider") {
                     runCatching { getApplication<Application>().contentResolver.delete(uri, null, null) }
@@ -311,9 +350,28 @@ class CalorieViewModel(application: Application) : AndroidViewModel(application)
         }
     }
 
+    fun flagNutritionLabelScanForSupport() {
+        val state = _nutritionLabelScanState.value
+        val path = state.stagedImagePath ?: return
+        if (supportDiagnostics.flag(path, "nutrition-label", "ocr-or-image-decode-failure")) {
+            _nutritionLabelScanState.value = state.copy(stagedImagePath = null, flaggedForSupport = true)
+            refreshSupportCount()
+        }
+    }
+
     fun clearNutritionLabelScan() {
         nutritionLabelScanJob?.cancel()
+        supportDiagnostics.discard(_nutritionLabelScanState.value.stagedImagePath)
         _nutritionLabelScanState.value = NutritionLabelScanState()
+    }
+
+    fun clearSavedDiagnostics() {
+        supportDiagnostics.clear()
+        _supportExportState.value = SupportExportState(savedDiagnosticCount = 0)
+    }
+
+    private fun refreshSupportCount() {
+        _supportExportState.value = _supportExportState.value.copy(savedDiagnosticCount = supportDiagnostics.count())
     }
 
     override fun onCleared() {

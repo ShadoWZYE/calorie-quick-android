@@ -8,13 +8,19 @@ import java.util.zip.ZipOutputStream
 import org.json.JSONArray
 import org.json.JSONObject
 
-data class CatalogueExportResult(val itemCount: Int, val imageCount: Int)
+data class CatalogueExportResult(
+    val itemCount: Int,
+    val imageCount: Int,
+    val diagnosticCount: Int = 0,
+    val hasFeedback: Boolean = false,
+)
 
 class CatalogueExporter(
     private val context: Context,
     private val database: AppDatabase,
+    private val supportDiagnostics: SupportDiagnosticStore,
 ) {
-    suspend fun exportTo(destination: Uri): CatalogueExportResult {
+    suspend fun exportTo(destination: Uri, feedback: String = ""): CatalogueExportResult {
         val foods = database.foodDao().listReviewableFoods()
         val recipes = database.recipeDao().listReviewableRecipes()
         val batches = database.recipeDao().listAllBatches().groupBy(RecipeBatchEntity::recipeFoodId)
@@ -133,23 +139,30 @@ class CatalogueExporter(
             .put("foods", foodJson)
             .put("recipes", recipeJson)
 
+        var supportResult = SupportExportResult(0, false)
         requireNotNull(context.contentResolver.openOutputStream(destination)).use { output ->
             ZipOutputStream(output).use { zip ->
-                zip.putNextEntry(ZipEntry("catalogue.json"))
+                zip.putNextEntry(ZipEntry("catalogue/catalogue.json"))
                 zip.write(manifest.toString(2).toByteArray())
                 zip.closeEntry()
                 imageEntries.forEach { (entryName, file) ->
-                    zip.putNextEntry(ZipEntry(entryName))
+                    zip.putNextEntry(ZipEntry("catalogue/$entryName"))
                     file.inputStream().use { it.copyTo(zip) }
                     zip.closeEntry()
                 }
+                supportResult = supportDiagnostics.appendTo(zip, feedback)
             }
         }
         val foodIds = foods.map { it.food.id }
         if (foodIds.isNotEmpty()) database.foodDao().markExported(foodIds)
         val recipeIds = recipes.map(RecipeEntity::foodId)
         if (recipeIds.isNotEmpty()) database.recipeDao().markExported(recipeIds)
-        return CatalogueExportResult(foodJson.length() + recipeJson.length(), imageEntries.size)
+        return CatalogueExportResult(
+            itemCount = foodJson.length() + recipeJson.length(),
+            imageCount = imageEntries.size,
+            diagnosticCount = supportResult.diagnosticCount,
+            hasFeedback = supportResult.hasFeedback,
+        )
     }
 
     private fun nutritionJson(row: FoodWithServings): JSONObject {

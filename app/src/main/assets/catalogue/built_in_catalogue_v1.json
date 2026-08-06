@@ -1,6 +1,6 @@
 {
   "schema": "calorie-quick-built-in-catalogue",
-  "version": 1,
+  "version": 2,
   "source": {
     "name": "USDA FoodData Central — curated common-food snapshot",
     "url": "https://fdc.nal.usda.gov/",
@@ -19,7 +19,7 @@
         "ro": "Proaspăt, cu coajă"
       },
       "category": "fruit",
-      "sourceId": "usda-fdc-cc0:curated-v1:apple",
+      "sourceId": "usda-fdc-cc0:curated-v2:apple",
       "aliases": [
         "mere"
       ],
@@ -57,7 +57,7 @@
         "ro": "Proaspătă"
       },
       "category": "fruit",
-      "sourceId": "usda-fdc-cc0:curated-v1:banana",
+      "sourceId": "usda-fdc-cc0:curated-v2:banana",
       "aliases": [
         "banane"
       ],
@@ -106,7 +106,7 @@
         "ro": "Proaspătă"
       },
       "category": "fruit",
-      "sourceId": "usda-fdc-cc0:curated-v1:orange",
+      "sourceId": "usda-fdc-cc0:curated-v2:orange",
       "aliases": [
         "portocale"
       ],
@@ -144,7 +144,7 @@
         "ro": "Proaspătă, cu coajă"
       },
       "category": "fruit",
-      "sourceId": "usda-fdc-cc0:curated-v1:pear",
+      "sourceId": "usda-fdc-cc0:curated-v2:pear",
       "aliases": [
         "pere"
       ],
@@ -182,7 +182,7 @@
         "ro": "Proaspete"
       },
       "category": "fruit",
-      "sourceId": "usda-fdc-cc0:curated-v1:strawberries",
+      "sourceId": "usda-fdc-cc0:curated-v2:strawberries",
       "aliases": [
         "strawberry",
         "capsuni"
@@ -223,7 +223,7 @@
         "ro": "Proaspete"
       },
       "category": "fruit",
-      "sourceId": "usda-fdc-cc0:curated-v1:blueberries",
+      "sourceId": "usda-fdc-cc0:curated-v2:blueberries",
       "aliases": [
         "blueberry"
       ],
@@ -263,7 +263,7 @@
         "ro": "Proaspeți"
       },
       "category": "fruit",
-      "sourceId": "usda-fdc-cc0:curated-v1:grapes",
+      "sourceId": "usda-fdc-cc0:curated-v2:grapes",
       "aliases": [
         "grape"
       ],
@@ -303,7 +303,7 @@
         "ro": "Proaspăt"
       },
       "category": "fruit",
-      "sourceId": "usda-fdc-cc0:curated-v1:watermelon",
+      "sourceId": "usda-fdc-cc0:curated-v2:watermelon",
       "aliases": [
         "pepene rosu"
       ],
@@ -343,7 +343,7 @@
         "ro": "Proaspăt"
       },
       "category": "fruit",
-      "sourceId": "usda-fdc-cc0:curated-v1:avocado",
+      "sourceId": "usda-fdc-cc0:curated-v2:avocado",
       "aliases": [],
       "nutritionPer100g": {
         "calories": 160,
@@ -381,7 +381,7 @@
         "ro": "Proaspătă"
       },
       "category": "fruit",
-      "sourceId": "usda-fdc-cc0:curated-v1:lemon",
+      "sourceId": "usda-fdc-cc0:curated-v2:lemon",
       "aliases": [
         "lamaie"
       ],
@@ -419,7 +419,7 @@
         "ro": "Crudă"
       },
       "category": "vegetables",
-      "sourceId": "usda-fdc-cc0:curated-v1:tomato",
+      "sourceId": "usda-fdc-cc0:curated-v2:tomato",
       "aliases": [
         "tomatoes",
         "rosie",
@@ -459,7 +459,7 @@
         "ro": "Crud, cu coajă"
       },
       "category": "vegetables",
-      "sourceId": "usda-fdc-cc0:curated-v1:cucumber",
+      "sourceId": "usda-fdc-cc0:curated-v2:cucumber",
       "aliases": [
         "cucumbers",
         "castraveti"
@@ -498,7 +498,7 @@
         "ro": "Crudă"
       },
       "category": "vegetables",
-      "sourceId": "usda-fdc-cc0:curated-v1:onion",
+      "sourceId": "usda-fdc-cc0:curated-v2:onion",
       "aliases": [
         "onions"
       ],
@@ -536,7 +536,7 @@
         "ro": "Crud"
       },
       "category": "vegetables",
-      "sourceId": "usda-fdc-cc0:curated-v1:garlic",
+      "sourceId": "usda-fdc-cc0:curated-v2:garlic",
       "aliases": [],
       "nutritionPer100g": {
         "calories": 149,
@@ -575,7 +575,7 @@
         "ro": "Crud"
       },
       "category": "vegetables",
-      "sourceId": "usda-fdc-cc0:curated-v1:carrot",
+      "sourceId": "usda-fdc-cc0:curated-v2:carrot",
       "aliases": [
         "carrots",
         "morcovi"
@@ -614,7 +614,7 @@
         "ro": "Crud"
       },
       "category": "vegetables",
-      "sourceId": "usda-fdc-cc0:curated-v1:broccoli",
+      "sourceId": "usda-fdc-cc0:curated-v2:broccoli",
       "aliases": [],
       "nutritionPer100g": {
         "calories": 34,
@@ -652,7 +652,7 @@
         "ro": "Crud"
       },
       "category": "vegetables",
-      "sourceId": "usda-fdc-cc0:curated-v1:spinach",
+      "sourceId": "usda-fdc-cc0:curated-v2:spinach",
       "aliases": [],
       "nutritionPer100g": {
         "calories": 23,
@@ -690,7 +690,7 @@
         "ro": "Crud"
       },
       "category": "vegetables",
-      "sourceId": "usda-fdc-cc0:curated-v1:bell-pepper",
+      "sourceId": "usda-fdc-cc0:curated-v2:bell-pepper",
       "aliases": [
         "sweet pepper",
         "capsicum",
@@ -730,7 +730,7 @@
         "ro": "Crudă"
       },
       "category": "vegetables",
-      "sourceId": "usda-fdc-cc0:curated-v1:cabbage",
+      "sourceId": "usda-fdc-cc0:curated-v2:cabbage",
       "aliases": [
         "varza"
       ],
@@ -770,7 +770,7 @@
         "ro": "Crude"
       },
       "category": "vegetables",
-      "sourceId": "usda-fdc-cc0:curated-v1:mushrooms",
+      "sourceId": "usda-fdc-cc0:curated-v2:mushrooms",
       "aliases": [
         "mushroom",
         "ciuperci albe"
@@ -811,7 +811,7 @@
         "ro": "Crud"
       },
       "category": "vegetables",
-      "sourceId": "usda-fdc-cc0:curated-v1:zucchini",
+      "sourceId": "usda-fdc-cc0:curated-v2:zucchini",
       "aliases": [
         "courgette",
         "dovlecei"
@@ -850,7 +850,7 @@
         "ro": "Crudă"
       },
       "category": "vegetables",
-      "sourceId": "usda-fdc-cc0:curated-v1:eggplant",
+      "sourceId": "usda-fdc-cc0:curated-v2:eggplant",
       "aliases": [
         "aubergine",
         "vanata",
@@ -878,7 +878,7 @@
         "ro": "Gătit, pulpă și coajă"
       },
       "category": "vegetables",
-      "sourceId": "usda-fdc-cc0:curated-v1:potato",
+      "sourceId": "usda-fdc-cc0:curated-v2:potato",
       "aliases": [
         "potatoes",
         "cartofi"
@@ -935,7 +935,7 @@
         "ro": "Gătit"
       },
       "category": "vegetables",
-      "sourceId": "usda-fdc-cc0:curated-v1:sweet-potato",
+      "sourceId": "usda-fdc-cc0:curated-v2:sweet-potato",
       "aliases": [
         "sweet potatoes",
         "cartofi dulci"
@@ -962,7 +962,7 @@
         "ro": "Uscați"
       },
       "category": "grains",
-      "sourceId": "usda-fdc-cc0:curated-v1:oats",
+      "sourceId": "usda-fdc-cc0:curated-v2:oats",
       "aliases": [
         "oatmeal",
         "ovaz"
@@ -1005,7 +1005,7 @@
         "ro": "Gătit"
       },
       "category": "grains",
-      "sourceId": "usda-fdc-cc0:curated-v1:rice",
+      "sourceId": "usda-fdc-cc0:curated-v2:rice",
       "aliases": [
         "cooked white rice",
         "orez fiert"
@@ -1032,7 +1032,7 @@
         "ro": "Gătit"
       },
       "category": "grains",
-      "sourceId": "usda-fdc-cc0:curated-v1:brown-rice",
+      "sourceId": "usda-fdc-cc0:curated-v2:brown-rice",
       "aliases": [
         "wholegrain rice",
         "orez integral"
@@ -1059,7 +1059,7 @@
         "ro": "Fierte, simple"
       },
       "category": "grains",
-      "sourceId": "usda-fdc-cc0:curated-v1:pasta",
+      "sourceId": "usda-fdc-cc0:curated-v2:pasta",
       "aliases": [
         "spaghetti",
         "macaroni",
@@ -1089,7 +1089,7 @@
         "ro": "Preparată comercial"
       },
       "category": "bakery",
-      "sourceId": "usda-fdc-cc0:curated-v1:white-bread",
+      "sourceId": "usda-fdc-cc0:curated-v2:white-bread",
       "aliases": [
         "paine alba"
       ],
@@ -1132,7 +1132,7 @@
         "ro": "Preparată comercial"
       },
       "category": "bakery",
-      "sourceId": "usda-fdc-cc0:curated-v1:whole-wheat-bread",
+      "sourceId": "usda-fdc-cc0:curated-v2:whole-wheat-bread",
       "aliases": [
         "wholemeal bread",
         "paine integrala"
@@ -1176,7 +1176,7 @@
         "ro": "Integral, uscat"
       },
       "category": "grains",
-      "sourceId": "usda-fdc-cc0:curated-v1:cornmeal",
+      "sourceId": "usda-fdc-cc0:curated-v2:cornmeal",
       "aliases": [
         "malai",
         "polenta flour"
@@ -1203,7 +1203,7 @@
         "ro": "Fiartă cu apă"
       },
       "category": "grains",
-      "sourceId": "usda-fdc-cc0:curated-v1:polenta",
+      "sourceId": "usda-fdc-cc0:curated-v2:polenta",
       "aliases": [
         "mamaliga"
       ],
@@ -1229,7 +1229,7 @@
         "ro": "Fiartă"
       },
       "category": "grains",
-      "sourceId": "usda-fdc-cc0:curated-v1:quinoa",
+      "sourceId": "usda-fdc-cc0:curated-v2:quinoa",
       "aliases": [],
       "nutritionPer100g": {
         "calories": 120,
@@ -1253,7 +1253,7 @@
         "ro": "Gătit, fără piele"
       },
       "category": "meat",
-      "sourceId": "usda-fdc-cc0:curated-v1:chicken-breast",
+      "sourceId": "usda-fdc-cc0:curated-v2:chicken-breast",
       "aliases": [
         "chicken fillet",
         "pui"
@@ -1310,7 +1310,7 @@
         "ro": "Copt, fără piele"
       },
       "category": "meat",
-      "sourceId": "usda-fdc-cc0:curated-v1:turkey-breast",
+      "sourceId": "usda-fdc-cc0:curated-v2:turkey-breast",
       "aliases": [
         "turkey fillet",
         "curcan"
@@ -1337,7 +1337,7 @@
         "ro": "Gătită, aproximativ 85% slabă"
       },
       "category": "meat",
-      "sourceId": "usda-fdc-cc0:curated-v1:ground-beef",
+      "sourceId": "usda-fdc-cc0:curated-v2:ground-beef",
       "aliases": [
         "minced beef",
         "vita tocata"
@@ -1364,7 +1364,7 @@
         "ro": "Copt, numai carne slabă"
       },
       "category": "meat",
-      "sourceId": "usda-fdc-cc0:curated-v1:pork-loin",
+      "sourceId": "usda-fdc-cc0:curated-v2:pork-loin",
       "aliases": [
         "pork tenderloin",
         "muschi de porc"
@@ -1391,7 +1391,7 @@
         "ro": "Gătit la căldură uscată"
       },
       "category": "fish",
-      "sourceId": "usda-fdc-cc0:curated-v1:salmon",
+      "sourceId": "usda-fdc-cc0:curated-v2:salmon",
       "aliases": [
         "somon"
       ],
@@ -1419,7 +1419,7 @@
         "ro": "Conservat în apă, scurs"
       },
       "category": "fish",
-      "sourceId": "usda-fdc-cc0:curated-v1:tuna",
+      "sourceId": "usda-fdc-cc0:curated-v2:tuna",
       "aliases": [
         "canned tuna",
         "ton conserva"
@@ -1448,7 +1448,7 @@
         "ro": "Gătit la căldură uscată"
       },
       "category": "fish",
-      "sourceId": "usda-fdc-cc0:curated-v1:cod",
+      "sourceId": "usda-fdc-cc0:curated-v2:cod",
       "aliases": [],
       "nutritionPer100g": {
         "calories": 89,
@@ -1474,7 +1474,7 @@
         "ro": "Fiert"
       },
       "category": "eggs",
-      "sourceId": "usda-fdc-cc0:curated-v1:eggs",
+      "sourceId": "usda-fdc-cc0:curated-v2:eggs",
       "aliases": [
         "egg",
         "oua",
@@ -1549,7 +1549,7 @@
         "ro": "Fiartă"
       },
       "category": "legumes",
-      "sourceId": "usda-fdc-cc0:curated-v1:lentils",
+      "sourceId": "usda-fdc-cc0:curated-v2:lentils",
       "aliases": [
         "linte fiarta"
       ],
@@ -1575,7 +1575,7 @@
         "ro": "Fiert"
       },
       "category": "legumes",
-      "sourceId": "usda-fdc-cc0:curated-v1:chickpeas",
+      "sourceId": "usda-fdc-cc0:curated-v2:chickpeas",
       "aliases": [
         "garbanzo beans",
         "naut"
@@ -1602,7 +1602,7 @@
         "ro": "Fiartă"
       },
       "category": "legumes",
-      "sourceId": "usda-fdc-cc0:curated-v1:kidney-beans",
+      "sourceId": "usda-fdc-cc0:curated-v2:kidney-beans",
       "aliases": [
         "red beans",
         "fasole rosie"
@@ -1629,7 +1629,7 @@
         "ro": "Preparat cu calciu"
       },
       "category": "plant-protein",
-      "sourceId": "usda-fdc-cc0:curated-v1:tofu",
+      "sourceId": "usda-fdc-cc0:curated-v2:tofu",
       "aliases": [
         "bean curd"
       ],
@@ -1657,7 +1657,7 @@
         "ro": "Aproximativ 3,25% grăsime"
       },
       "category": "dairy",
-      "sourceId": "usda-fdc-cc0:curated-v1:whole-milk",
+      "sourceId": "usda-fdc-cc0:curated-v2:whole-milk",
       "aliases": [
         "full fat milk",
         "lapte 3.5"
@@ -1700,7 +1700,7 @@
         "ro": "Aproximativ 1,5% grăsime"
       },
       "category": "dairy",
-      "sourceId": "usda-fdc-cc0:curated-v1:semi-skimmed-milk",
+      "sourceId": "usda-fdc-cc0:curated-v2:semi-skimmed-milk",
       "aliases": [
         "low fat milk",
         "lapte 1.5"
@@ -1743,7 +1743,7 @@
         "ro": "Din lapte integral"
       },
       "category": "dairy",
-      "sourceId": "usda-fdc-cc0:curated-v1:plain-yogurt",
+      "sourceId": "usda-fdc-cc0:curated-v2:plain-yogurt",
       "aliases": [
         "natural yogurt",
         "iaurt natural"
@@ -1772,7 +1772,7 @@
         "ro": "Aproximativ 2% grăsime"
       },
       "category": "dairy",
-      "sourceId": "usda-fdc-cc0:curated-v1:greek-yogurt",
+      "sourceId": "usda-fdc-cc0:curated-v2:greek-yogurt",
       "aliases": [
         "strained yogurt"
       ],
@@ -1812,7 +1812,7 @@
         "ro": "Simplu, din lapte integral"
       },
       "category": "dairy",
-      "sourceId": "usda-fdc-cc0:curated-v1:kefir",
+      "sourceId": "usda-fdc-cc0:curated-v2:kefir",
       "aliases": [
         "chefir"
       ],
@@ -1854,7 +1854,7 @@
         "ro": "Grasă"
       },
       "category": "dairy",
-      "sourceId": "usda-fdc-cc0:curated-v1:cheddar",
+      "sourceId": "usda-fdc-cc0:curated-v2:cheddar",
       "aliases": [
         "cheddar",
         "branza cheddar"
@@ -1897,7 +1897,7 @@
         "ro": "Aproximativ 2% grăsime"
       },
       "category": "dairy",
-      "sourceId": "usda-fdc-cc0:curated-v1:cottage-cheese",
+      "sourceId": "usda-fdc-cc0:curated-v2:cottage-cheese",
       "aliases": [
         "branza de vaci"
       ],
@@ -1925,7 +1925,7 @@
         "ro": "Brânză în saramură"
       },
       "category": "dairy",
-      "sourceId": "usda-fdc-cc0:curated-v1:feta",
+      "sourceId": "usda-fdc-cc0:curated-v2:feta",
       "aliases": [
         "feta"
       ],
@@ -1953,7 +1953,7 @@
         "ro": "Aproximativ 20% grăsime"
       },
       "category": "dairy",
-      "sourceId": "usda-fdc-cc0:curated-v1:sour-cream",
+      "sourceId": "usda-fdc-cc0:curated-v2:sour-cream",
       "aliases": [
         "smantana"
       ],
@@ -1996,7 +1996,7 @@
         "ro": "Nesărat"
       },
       "category": "fats",
-      "sourceId": "usda-fdc-cc0:curated-v1:butter",
+      "sourceId": "usda-fdc-cc0:curated-v2:butter",
       "aliases": [],
       "nutritionPer100g": {
         "calories": 717,
@@ -2037,7 +2037,7 @@
         "ro": "Grăsime pură"
       },
       "category": "fats",
-      "sourceId": "usda-fdc-cc0:curated-v1:olive-oil",
+      "sourceId": "usda-fdc-cc0:curated-v2:olive-oil",
       "aliases": [
         "ulei masline"
       ],
@@ -2091,7 +2091,7 @@
         "ro": "Grăsime pură"
       },
       "category": "fats",
-      "sourceId": "usda-fdc-cc0:curated-v1:sunflower-oil",
+      "sourceId": "usda-fdc-cc0:curated-v2:sunflower-oil",
       "aliases": [
         "ulei floarea soarelui"
       ],
@@ -2145,7 +2145,7 @@
         "ro": "Granulat"
       },
       "category": "pantry",
-      "sourceId": "usda-fdc-cc0:curated-v1:sugar",
+      "sourceId": "usda-fdc-cc0:curated-v2:sugar",
       "aliases": [
         "granulated sugar",
         "zahar"
@@ -2200,7 +2200,7 @@
         "ro": "Pură"
       },
       "category": "pantry",
-      "sourceId": "usda-fdc-cc0:curated-v1:honey",
+      "sourceId": "usda-fdc-cc0:curated-v2:honey",
       "aliases": [],
       "nutritionPer100g": {
         "calories": 304,
@@ -2252,7 +2252,7 @@
         "ro": "Fin"
       },
       "category": "nuts-seeds",
-      "sourceId": "usda-fdc-cc0:curated-v1:peanut-butter",
+      "sourceId": "usda-fdc-cc0:curated-v2:peanut-butter",
       "aliases": [
         "unt arahide"
       ],
@@ -2295,7 +2295,7 @@
         "ro": "Crude"
       },
       "category": "nuts-seeds",
-      "sourceId": "usda-fdc-cc0:curated-v1:almonds",
+      "sourceId": "usda-fdc-cc0:curated-v2:almonds",
       "aliases": [
         "almond"
       ],
@@ -2337,7 +2337,7 @@
         "ro": "Crude"
       },
       "category": "nuts-seeds",
-      "sourceId": "usda-fdc-cc0:curated-v1:walnuts",
+      "sourceId": "usda-fdc-cc0:curated-v2:walnuts",
       "aliases": [
         "walnut"
       ],
@@ -2366,6 +2366,4527 @@
       "allergens": {
         "NUTS": "CONTAINS"
       },
+      "preparations": []
+    },
+    {
+      "id": "kiwi",
+      "name": {
+        "en": "Kiwi",
+        "ro": "Kiwi"
+      },
+      "detail": {
+        "en": "Fresh",
+        "ro": "Proaspăt"
+      },
+      "category": "fruit",
+      "sourceId": "usda-fdc-cc0:curated-v2:kiwi",
+      "aliases": [
+        "kiwifruit"
+      ],
+      "nutritionPer100g": {
+        "calories": 61,
+        "proteinGrams": 1.1,
+        "carbsGrams": 14.7,
+        "fatGrams": 0.5,
+        "fiberGrams": 3.0
+      },
+      "servings": [
+        {
+          "id": "kiwi-medium",
+          "label": {
+            "en": "1 medium kiwi",
+            "ro": "1 kiwi mediu"
+          },
+          "grams": 69,
+          "suggestedAmounts": [
+            1,
+            2,
+            3
+          ]
+        }
+      ],
+      "allergens": {},
+      "preparations": []
+    },
+    {
+      "id": "peach",
+      "name": {
+        "en": "Peach",
+        "ro": "Piersică"
+      },
+      "detail": {
+        "en": "Fresh",
+        "ro": "Proaspătă"
+      },
+      "category": "fruit",
+      "sourceId": "usda-fdc-cc0:curated-v2:peach",
+      "aliases": [
+        "peaches",
+        "piersica"
+      ],
+      "nutritionPer100g": {
+        "calories": 39,
+        "proteinGrams": 0.9,
+        "carbsGrams": 9.5,
+        "fatGrams": 0.3,
+        "fiberGrams": 1.5
+      },
+      "servings": [
+        {
+          "id": "peach-medium",
+          "label": {
+            "en": "1 medium peach",
+            "ro": "1 piersică medie"
+          },
+          "grams": 150,
+          "suggestedAmounts": [
+            1
+          ]
+        }
+      ],
+      "allergens": {},
+      "preparations": []
+    },
+    {
+      "id": "plum",
+      "name": {
+        "en": "Plum",
+        "ro": "Prună"
+      },
+      "detail": {
+        "en": "Fresh",
+        "ro": "Proaspătă"
+      },
+      "category": "fruit",
+      "sourceId": "usda-fdc-cc0:curated-v2:plum",
+      "aliases": [
+        "plums",
+        "prune"
+      ],
+      "nutritionPer100g": {
+        "calories": 46,
+        "proteinGrams": 0.7,
+        "carbsGrams": 11.4,
+        "fatGrams": 0.3,
+        "fiberGrams": 1.4
+      },
+      "servings": [
+        {
+          "id": "plum-medium",
+          "label": {
+            "en": "1 medium plum",
+            "ro": "1 prună medie"
+          },
+          "grams": 66,
+          "suggestedAmounts": [
+            1,
+            2,
+            3,
+            4
+          ]
+        }
+      ],
+      "allergens": {},
+      "preparations": []
+    },
+    {
+      "id": "apricot",
+      "name": {
+        "en": "Apricot",
+        "ro": "Caisă"
+      },
+      "detail": {
+        "en": "Fresh",
+        "ro": "Proaspătă"
+      },
+      "category": "fruit",
+      "sourceId": "usda-fdc-cc0:curated-v2:apricot",
+      "aliases": [
+        "apricots",
+        "caise"
+      ],
+      "nutritionPer100g": {
+        "calories": 48,
+        "proteinGrams": 1.4,
+        "carbsGrams": 11.1,
+        "fatGrams": 0.4,
+        "fiberGrams": 2.0
+      },
+      "servings": [
+        {
+          "id": "apricot-medium",
+          "label": {
+            "en": "1 apricot",
+            "ro": "1 caisă"
+          },
+          "grams": 35,
+          "suggestedAmounts": [
+            1,
+            2,
+            3,
+            4
+          ]
+        }
+      ],
+      "allergens": {},
+      "preparations": []
+    },
+    {
+      "id": "cherries",
+      "name": {
+        "en": "Cherries",
+        "ro": "Cireșe"
+      },
+      "detail": {
+        "en": "Fresh, sweet",
+        "ro": "Proaspete, dulci"
+      },
+      "category": "fruit",
+      "sourceId": "usda-fdc-cc0:curated-v2:cherries",
+      "aliases": [
+        "cherry",
+        "cirese"
+      ],
+      "nutritionPer100g": {
+        "calories": 63,
+        "proteinGrams": 1.1,
+        "carbsGrams": 16.0,
+        "fatGrams": 0.2,
+        "fiberGrams": 2.1
+      },
+      "servings": [
+        {
+          "id": "cherries-cup",
+          "label": {
+            "en": "1 cup",
+            "ro": "1 cană"
+          },
+          "grams": 138,
+          "suggestedAmounts": [
+            0.5,
+            1,
+            2
+          ]
+        }
+      ],
+      "allergens": {},
+      "preparations": []
+    },
+    {
+      "id": "raspberries",
+      "name": {
+        "en": "Raspberries",
+        "ro": "Zmeură"
+      },
+      "detail": {
+        "en": "Fresh",
+        "ro": "Proaspătă"
+      },
+      "category": "fruit",
+      "sourceId": "usda-fdc-cc0:curated-v2:raspberries",
+      "aliases": [
+        "raspberry",
+        "zmeura"
+      ],
+      "nutritionPer100g": {
+        "calories": 52,
+        "proteinGrams": 1.2,
+        "carbsGrams": 11.9,
+        "fatGrams": 0.7,
+        "fiberGrams": 6.5
+      },
+      "servings": [
+        {
+          "id": "raspberries-cup",
+          "label": {
+            "en": "1 cup",
+            "ro": "1 cană"
+          },
+          "grams": 123,
+          "suggestedAmounts": [
+            0.5,
+            1,
+            2
+          ]
+        }
+      ],
+      "allergens": {},
+      "preparations": []
+    },
+    {
+      "id": "blackberries",
+      "name": {
+        "en": "Blackberries",
+        "ro": "Mure"
+      },
+      "detail": {
+        "en": "Fresh",
+        "ro": "Proaspete"
+      },
+      "category": "fruit",
+      "sourceId": "usda-fdc-cc0:curated-v2:blackberries",
+      "aliases": [
+        "blackberry"
+      ],
+      "nutritionPer100g": {
+        "calories": 43,
+        "proteinGrams": 1.4,
+        "carbsGrams": 9.6,
+        "fatGrams": 0.5,
+        "fiberGrams": 5.3
+      },
+      "servings": [
+        {
+          "id": "blackberries-cup",
+          "label": {
+            "en": "1 cup",
+            "ro": "1 cană"
+          },
+          "grams": 144,
+          "suggestedAmounts": [
+            0.5,
+            1,
+            2
+          ]
+        }
+      ],
+      "allergens": {},
+      "preparations": []
+    },
+    {
+      "id": "pineapple",
+      "name": {
+        "en": "Pineapple",
+        "ro": "Ananas"
+      },
+      "detail": {
+        "en": "Fresh",
+        "ro": "Proaspăt"
+      },
+      "category": "fruit",
+      "sourceId": "usda-fdc-cc0:curated-v2:pineapple",
+      "aliases": [],
+      "nutritionPer100g": {
+        "calories": 50,
+        "proteinGrams": 0.5,
+        "carbsGrams": 13.1,
+        "fatGrams": 0.1,
+        "fiberGrams": 1.4
+      },
+      "servings": [
+        {
+          "id": "pineapple-cup",
+          "label": {
+            "en": "1 cup chunks",
+            "ro": "1 cană bucăți"
+          },
+          "grams": 165,
+          "suggestedAmounts": [
+            0.5,
+            1,
+            2
+          ]
+        }
+      ],
+      "allergens": {},
+      "preparations": []
+    },
+    {
+      "id": "mango",
+      "name": {
+        "en": "Mango",
+        "ro": "Mango"
+      },
+      "detail": {
+        "en": "Fresh",
+        "ro": "Proaspăt"
+      },
+      "category": "fruit",
+      "sourceId": "usda-fdc-cc0:curated-v2:mango",
+      "aliases": [],
+      "nutritionPer100g": {
+        "calories": 60,
+        "proteinGrams": 0.8,
+        "carbsGrams": 15.0,
+        "fatGrams": 0.4,
+        "fiberGrams": 1.6
+      },
+      "servings": [
+        {
+          "id": "mango-cup",
+          "label": {
+            "en": "1 cup pieces",
+            "ro": "1 cană bucăți"
+          },
+          "grams": 165,
+          "suggestedAmounts": [
+            0.5,
+            1,
+            2
+          ]
+        }
+      ],
+      "allergens": {},
+      "preparations": []
+    },
+    {
+      "id": "grapefruit",
+      "name": {
+        "en": "Grapefruit",
+        "ro": "Grepfrut"
+      },
+      "detail": {
+        "en": "Fresh",
+        "ro": "Proaspăt"
+      },
+      "category": "fruit",
+      "sourceId": "usda-fdc-cc0:curated-v2:grapefruit",
+      "aliases": [],
+      "nutritionPer100g": {
+        "calories": 42,
+        "proteinGrams": 0.8,
+        "carbsGrams": 10.7,
+        "fatGrams": 0.1,
+        "fiberGrams": 1.6
+      },
+      "servings": [
+        {
+          "id": "grapefruit-half",
+          "label": {
+            "en": "1/2 fruit",
+            "ro": "1/2 fruct"
+          },
+          "grams": 123,
+          "suggestedAmounts": [
+            1,
+            2
+          ]
+        }
+      ],
+      "allergens": {},
+      "preparations": []
+    },
+    {
+      "id": "pomegranate",
+      "name": {
+        "en": "Pomegranate",
+        "ro": "Rodie"
+      },
+      "detail": {
+        "en": "Fresh seeds",
+        "ro": "Semințe proaspete"
+      },
+      "category": "fruit",
+      "sourceId": "usda-fdc-cc0:curated-v2:pomegranate",
+      "aliases": [
+        "pomegranate seeds",
+        "rodie seminte"
+      ],
+      "nutritionPer100g": {
+        "calories": 83,
+        "proteinGrams": 1.7,
+        "carbsGrams": 18.7,
+        "fatGrams": 1.2,
+        "fiberGrams": 4.0
+      },
+      "servings": [
+        {
+          "id": "pomegranate-half-cup",
+          "label": {
+            "en": "1/2 cup seeds",
+            "ro": "1/2 cană semințe"
+          },
+          "grams": 87,
+          "suggestedAmounts": [
+            1,
+            2
+          ]
+        }
+      ],
+      "allergens": {},
+      "preparations": []
+    },
+    {
+      "id": "cantaloupe",
+      "name": {
+        "en": "Cantaloupe melon",
+        "ro": "Pepene galben"
+      },
+      "detail": {
+        "en": "Fresh",
+        "ro": "Proaspăt"
+      },
+      "category": "fruit",
+      "sourceId": "usda-fdc-cc0:curated-v2:cantaloupe",
+      "aliases": [
+        "melon"
+      ],
+      "nutritionPer100g": {
+        "calories": 34,
+        "proteinGrams": 0.8,
+        "carbsGrams": 8.2,
+        "fatGrams": 0.2,
+        "fiberGrams": 0.9
+      },
+      "servings": [
+        {
+          "id": "cantaloupe-cup",
+          "label": {
+            "en": "1 cup diced",
+            "ro": "1 cană cuburi"
+          },
+          "grams": 160,
+          "suggestedAmounts": [
+            0.5,
+            1,
+            2
+          ]
+        }
+      ],
+      "allergens": {},
+      "preparations": []
+    },
+    {
+      "id": "raisins",
+      "name": {
+        "en": "Raisins",
+        "ro": "Stafide"
+      },
+      "detail": {
+        "en": "Seedless, dried",
+        "ro": "Fără sâmburi, uscate"
+      },
+      "category": "fruit",
+      "sourceId": "usda-fdc-cc0:curated-v2:raisins",
+      "aliases": [],
+      "nutritionPer100g": {
+        "calories": 299,
+        "proteinGrams": 3.1,
+        "carbsGrams": 79.2,
+        "fatGrams": 0.5,
+        "fiberGrams": 3.7
+      },
+      "servings": [
+        {
+          "id": "raisins-tablespoon",
+          "label": {
+            "en": "1 tablespoon",
+            "ro": "1 lingură"
+          },
+          "grams": 9,
+          "suggestedAmounts": [
+            1,
+            2,
+            3,
+            4
+          ]
+        }
+      ],
+      "allergens": {},
+      "preparations": []
+    },
+    {
+      "id": "dates",
+      "name": {
+        "en": "Dates",
+        "ro": "Curmale"
+      },
+      "detail": {
+        "en": "Dried",
+        "ro": "Uscate"
+      },
+      "category": "fruit",
+      "sourceId": "usda-fdc-cc0:curated-v2:dates",
+      "aliases": [],
+      "nutritionPer100g": {
+        "calories": 282,
+        "proteinGrams": 2.5,
+        "carbsGrams": 75.0,
+        "fatGrams": 0.4,
+        "fiberGrams": 8.0
+      },
+      "servings": [
+        {
+          "id": "dates-date",
+          "label": {
+            "en": "1 date",
+            "ro": "1 curmală"
+          },
+          "grams": 24,
+          "suggestedAmounts": [
+            1,
+            2,
+            3,
+            4
+          ]
+        }
+      ],
+      "allergens": {},
+      "preparations": []
+    },
+    {
+      "id": "cauliflower",
+      "name": {
+        "en": "Cauliflower",
+        "ro": "Conopidă"
+      },
+      "detail": {
+        "en": "Raw",
+        "ro": "Crudă"
+      },
+      "category": "vegetables",
+      "sourceId": "usda-fdc-cc0:curated-v2:cauliflower",
+      "aliases": [
+        "conopida"
+      ],
+      "nutritionPer100g": {
+        "calories": 25,
+        "proteinGrams": 1.9,
+        "carbsGrams": 5.0,
+        "fatGrams": 0.3,
+        "fiberGrams": 2.0
+      },
+      "servings": [],
+      "allergens": {},
+      "preparations": []
+    },
+    {
+      "id": "green-beans",
+      "name": {
+        "en": "Green beans",
+        "ro": "Fasole verde"
+      },
+      "detail": {
+        "en": "Cooked",
+        "ro": "Fiartă"
+      },
+      "category": "vegetables",
+      "sourceId": "usda-fdc-cc0:curated-v2:green-beans",
+      "aliases": [
+        "string beans",
+        "pastai"
+      ],
+      "nutritionPer100g": {
+        "calories": 35,
+        "proteinGrams": 1.9,
+        "carbsGrams": 7.9,
+        "fatGrams": 0.3,
+        "fiberGrams": 3.2
+      },
+      "servings": [],
+      "allergens": {},
+      "preparations": []
+    },
+    {
+      "id": "green-peas",
+      "name": {
+        "en": "Green peas",
+        "ro": "Mazăre"
+      },
+      "detail": {
+        "en": "Cooked",
+        "ro": "Fiartă"
+      },
+      "category": "vegetables",
+      "sourceId": "usda-fdc-cc0:curated-v2:green-peas",
+      "aliases": [
+        "peas",
+        "mazare"
+      ],
+      "nutritionPer100g": {
+        "calories": 84,
+        "proteinGrams": 5.4,
+        "carbsGrams": 15.6,
+        "fatGrams": 0.2,
+        "fiberGrams": 5.5
+      },
+      "servings": [],
+      "allergens": {},
+      "preparations": []
+    },
+    {
+      "id": "sweet-corn",
+      "name": {
+        "en": "Sweet corn",
+        "ro": "Porumb dulce"
+      },
+      "detail": {
+        "en": "Cooked kernels",
+        "ro": "Boabe fierte"
+      },
+      "category": "vegetables",
+      "sourceId": "usda-fdc-cc0:curated-v2:sweet-corn",
+      "aliases": [
+        "corn",
+        "porumb"
+      ],
+      "nutritionPer100g": {
+        "calories": 96,
+        "proteinGrams": 3.4,
+        "carbsGrams": 21.0,
+        "fatGrams": 1.5,
+        "fiberGrams": 2.4
+      },
+      "servings": [],
+      "allergens": {},
+      "preparations": []
+    },
+    {
+      "id": "lettuce",
+      "name": {
+        "en": "Lettuce",
+        "ro": "Salată verde"
+      },
+      "detail": {
+        "en": "Raw",
+        "ro": "Crudă"
+      },
+      "category": "vegetables",
+      "sourceId": "usda-fdc-cc0:curated-v2:lettuce",
+      "aliases": [
+        "salata verde"
+      ],
+      "nutritionPer100g": {
+        "calories": 15,
+        "proteinGrams": 1.4,
+        "carbsGrams": 2.9,
+        "fatGrams": 0.2,
+        "fiberGrams": 1.3
+      },
+      "servings": [],
+      "allergens": {},
+      "preparations": []
+    },
+    {
+      "id": "kale",
+      "name": {
+        "en": "Kale",
+        "ro": "Kale"
+      },
+      "detail": {
+        "en": "Raw",
+        "ro": "Crud"
+      },
+      "category": "vegetables",
+      "sourceId": "usda-fdc-cc0:curated-v2:kale",
+      "aliases": [],
+      "nutritionPer100g": {
+        "calories": 49,
+        "proteinGrams": 4.3,
+        "carbsGrams": 8.8,
+        "fatGrams": 0.9,
+        "fiberGrams": 3.6
+      },
+      "servings": [],
+      "allergens": {},
+      "preparations": []
+    },
+    {
+      "id": "beetroot",
+      "name": {
+        "en": "Beetroot",
+        "ro": "Sfeclă roșie"
+      },
+      "detail": {
+        "en": "Cooked",
+        "ro": "Fiartă"
+      },
+      "category": "vegetables",
+      "sourceId": "usda-fdc-cc0:curated-v2:beetroot",
+      "aliases": [
+        "beet",
+        "sfecla rosie"
+      ],
+      "nutritionPer100g": {
+        "calories": 44,
+        "proteinGrams": 1.7,
+        "carbsGrams": 10.0,
+        "fatGrams": 0.2,
+        "fiberGrams": 2.0
+      },
+      "servings": [],
+      "allergens": {},
+      "preparations": []
+    },
+    {
+      "id": "celery",
+      "name": {
+        "en": "Celery stalks",
+        "ro": "Tije de țelină"
+      },
+      "detail": {
+        "en": "Raw",
+        "ro": "Crude"
+      },
+      "category": "vegetables",
+      "sourceId": "usda-fdc-cc0:curated-v2:celery",
+      "aliases": [
+        "apio",
+        "telina apio"
+      ],
+      "nutritionPer100g": {
+        "calories": 14,
+        "proteinGrams": 0.7,
+        "carbsGrams": 3.0,
+        "fatGrams": 0.2,
+        "fiberGrams": 1.6
+      },
+      "servings": [],
+      "allergens": {
+        "CELERY": "CONTAINS"
+      },
+      "preparations": []
+    },
+    {
+      "id": "celeriac",
+      "name": {
+        "en": "Celeriac",
+        "ro": "Țelină rădăcină"
+      },
+      "detail": {
+        "en": "Raw",
+        "ro": "Crudă"
+      },
+      "category": "vegetables",
+      "sourceId": "usda-fdc-cc0:curated-v2:celeriac",
+      "aliases": [
+        "celery root",
+        "telina"
+      ],
+      "nutritionPer100g": {
+        "calories": 42,
+        "proteinGrams": 1.5,
+        "carbsGrams": 9.2,
+        "fatGrams": 0.3,
+        "fiberGrams": 1.8
+      },
+      "servings": [],
+      "allergens": {
+        "CELERY": "CONTAINS"
+      },
+      "preparations": []
+    },
+    {
+      "id": "leek",
+      "name": {
+        "en": "Leek",
+        "ro": "Praz"
+      },
+      "detail": {
+        "en": "Raw",
+        "ro": "Crud"
+      },
+      "category": "vegetables",
+      "sourceId": "usda-fdc-cc0:curated-v2:leek",
+      "aliases": [
+        "leeks"
+      ],
+      "nutritionPer100g": {
+        "calories": 61,
+        "proteinGrams": 1.5,
+        "carbsGrams": 14.2,
+        "fatGrams": 0.3,
+        "fiberGrams": 1.8
+      },
+      "servings": [],
+      "allergens": {},
+      "preparations": []
+    },
+    {
+      "id": "asparagus",
+      "name": {
+        "en": "Asparagus",
+        "ro": "Sparanghel"
+      },
+      "detail": {
+        "en": "Cooked",
+        "ro": "Gătit"
+      },
+      "category": "vegetables",
+      "sourceId": "usda-fdc-cc0:curated-v2:asparagus",
+      "aliases": [],
+      "nutritionPer100g": {
+        "calories": 22,
+        "proteinGrams": 2.4,
+        "carbsGrams": 4.1,
+        "fatGrams": 0.2,
+        "fiberGrams": 2.0
+      },
+      "servings": [],
+      "allergens": {},
+      "preparations": []
+    },
+    {
+      "id": "pumpkin",
+      "name": {
+        "en": "Pumpkin",
+        "ro": "Dovleac"
+      },
+      "detail": {
+        "en": "Cooked",
+        "ro": "Gătit"
+      },
+      "category": "vegetables",
+      "sourceId": "usda-fdc-cc0:curated-v2:pumpkin",
+      "aliases": [],
+      "nutritionPer100g": {
+        "calories": 20,
+        "proteinGrams": 0.7,
+        "carbsGrams": 4.9,
+        "fatGrams": 0.1,
+        "fiberGrams": 1.1
+      },
+      "servings": [],
+      "allergens": {},
+      "preparations": []
+    },
+    {
+      "id": "radish",
+      "name": {
+        "en": "Radish",
+        "ro": "Ridiche"
+      },
+      "detail": {
+        "en": "Raw",
+        "ro": "Crudă"
+      },
+      "category": "vegetables",
+      "sourceId": "usda-fdc-cc0:curated-v2:radish",
+      "aliases": [
+        "radishes",
+        "ridichi"
+      ],
+      "nutritionPer100g": {
+        "calories": 16,
+        "proteinGrams": 0.7,
+        "carbsGrams": 3.4,
+        "fatGrams": 0.1,
+        "fiberGrams": 1.6
+      },
+      "servings": [],
+      "allergens": {},
+      "preparations": []
+    },
+    {
+      "id": "sauerkraut",
+      "name": {
+        "en": "Sauerkraut",
+        "ro": "Varză murată"
+      },
+      "detail": {
+        "en": "Drained, generic",
+        "ro": "Scursă, valoare generică"
+      },
+      "category": "vegetables",
+      "sourceId": "usda-fdc-cc0:curated-v2:sauerkraut",
+      "aliases": [
+        "pickled cabbage",
+        "varza murata"
+      ],
+      "nutritionPer100g": {
+        "calories": 19,
+        "proteinGrams": 0.9,
+        "carbsGrams": 4.3,
+        "fatGrams": 0.1,
+        "fiberGrams": 2.9
+      },
+      "servings": [],
+      "allergens": {},
+      "preparations": []
+    },
+    {
+      "id": "pickled-cucumbers",
+      "name": {
+        "en": "Pickled cucumbers",
+        "ro": "Castraveți murați"
+      },
+      "detail": {
+        "en": "Drained, generic",
+        "ro": "Scurși, valoare generică"
+      },
+      "category": "vegetables",
+      "sourceId": "usda-fdc-cc0:curated-v2:pickled-cucumbers",
+      "aliases": [
+        "pickles",
+        "castraveti murati"
+      ],
+      "nutritionPer100g": {
+        "calories": 12,
+        "proteinGrams": 0.5,
+        "carbsGrams": 2.4,
+        "fatGrams": 0.3,
+        "fiberGrams": 1.0
+      },
+      "servings": [],
+      "allergens": {},
+      "preparations": []
+    },
+    {
+      "id": "basmati-rice",
+      "name": {
+        "en": "Basmati rice",
+        "ro": "Orez basmati"
+      },
+      "detail": {
+        "en": "Cooked",
+        "ro": "Fiert"
+      },
+      "category": "grains",
+      "sourceId": "usda-fdc-cc0:curated-v2:basmati-rice",
+      "aliases": [
+        "orez basmati fiert"
+      ],
+      "nutritionPer100g": {
+        "calories": 121,
+        "proteinGrams": 3.5,
+        "carbsGrams": 25.2,
+        "fatGrams": 0.4,
+        "fiberGrams": 0.4
+      },
+      "servings": [],
+      "allergens": {},
+      "preparations": []
+    },
+    {
+      "id": "couscous",
+      "name": {
+        "en": "Couscous",
+        "ro": "Cușcuș"
+      },
+      "detail": {
+        "en": "Cooked",
+        "ro": "Gătit"
+      },
+      "category": "grains",
+      "sourceId": "usda-fdc-cc0:curated-v2:couscous",
+      "aliases": [
+        "cuscus"
+      ],
+      "nutritionPer100g": {
+        "calories": 112,
+        "proteinGrams": 3.8,
+        "carbsGrams": 23.2,
+        "fatGrams": 0.2,
+        "fiberGrams": 1.4
+      },
+      "servings": [],
+      "allergens": {
+        "GLUTEN": "CONTAINS"
+      },
+      "preparations": []
+    },
+    {
+      "id": "bulgur",
+      "name": {
+        "en": "Bulgur",
+        "ro": "Bulgur"
+      },
+      "detail": {
+        "en": "Cooked",
+        "ro": "Fiert"
+      },
+      "category": "grains",
+      "sourceId": "usda-fdc-cc0:curated-v2:bulgur",
+      "aliases": [],
+      "nutritionPer100g": {
+        "calories": 83,
+        "proteinGrams": 3.1,
+        "carbsGrams": 18.6,
+        "fatGrams": 0.2,
+        "fiberGrams": 4.5
+      },
+      "servings": [],
+      "allergens": {
+        "GLUTEN": "CONTAINS"
+      },
+      "preparations": []
+    },
+    {
+      "id": "barley",
+      "name": {
+        "en": "Pearled barley",
+        "ro": "Orz perlat"
+      },
+      "detail": {
+        "en": "Cooked",
+        "ro": "Fiert"
+      },
+      "category": "grains",
+      "sourceId": "usda-fdc-cc0:curated-v2:barley",
+      "aliases": [
+        "arpacas"
+      ],
+      "nutritionPer100g": {
+        "calories": 123,
+        "proteinGrams": 2.3,
+        "carbsGrams": 28.2,
+        "fatGrams": 0.4,
+        "fiberGrams": 3.8
+      },
+      "servings": [],
+      "allergens": {
+        "GLUTEN": "CONTAINS"
+      },
+      "preparations": []
+    },
+    {
+      "id": "wheat-flour",
+      "name": {
+        "en": "Wheat flour",
+        "ro": "Făină de grâu"
+      },
+      "detail": {
+        "en": "All-purpose",
+        "ro": "Albă, universală"
+      },
+      "category": "grains",
+      "sourceId": "usda-fdc-cc0:curated-v2:wheat-flour",
+      "aliases": [
+        "plain flour",
+        "faina alba"
+      ],
+      "nutritionPer100g": {
+        "calories": 364,
+        "proteinGrams": 10.3,
+        "carbsGrams": 76.3,
+        "fatGrams": 1.0,
+        "fiberGrams": 2.7
+      },
+      "servings": [],
+      "allergens": {
+        "GLUTEN": "CONTAINS"
+      },
+      "preparations": []
+    },
+    {
+      "id": "whole-wheat-flour",
+      "name": {
+        "en": "Whole-wheat flour",
+        "ro": "Făină integrală"
+      },
+      "detail": {
+        "en": "Whole grain",
+        "ro": "Din bob integral"
+      },
+      "category": "grains",
+      "sourceId": "usda-fdc-cc0:curated-v2:whole-wheat-flour",
+      "aliases": [
+        "wholemeal flour",
+        "faina integrala"
+      ],
+      "nutritionPer100g": {
+        "calories": 340,
+        "proteinGrams": 13.2,
+        "carbsGrams": 72.0,
+        "fatGrams": 2.5,
+        "fiberGrams": 10.7
+      },
+      "servings": [],
+      "allergens": {
+        "GLUTEN": "CONTAINS"
+      },
+      "preparations": []
+    },
+    {
+      "id": "semolina",
+      "name": {
+        "en": "Semolina",
+        "ro": "Griș"
+      },
+      "detail": {
+        "en": "Dry wheat semolina",
+        "ro": "Griș de grâu uscat"
+      },
+      "category": "grains",
+      "sourceId": "usda-fdc-cc0:curated-v2:semolina",
+      "aliases": [
+        "gris"
+      ],
+      "nutritionPer100g": {
+        "calories": 360,
+        "proteinGrams": 12.7,
+        "carbsGrams": 72.8,
+        "fatGrams": 1.1,
+        "fiberGrams": 3.9
+      },
+      "servings": [],
+      "allergens": {
+        "GLUTEN": "CONTAINS"
+      },
+      "preparations": []
+    },
+    {
+      "id": "rye-bread",
+      "name": {
+        "en": "Rye bread",
+        "ro": "Pâine de secară"
+      },
+      "detail": {
+        "en": "Generic",
+        "ro": "Valoare generică"
+      },
+      "category": "bakery",
+      "sourceId": "usda-fdc-cc0:curated-v2:rye-bread",
+      "aliases": [
+        "paine secara"
+      ],
+      "nutritionPer100g": {
+        "calories": 259,
+        "proteinGrams": 8.5,
+        "carbsGrams": 48.3,
+        "fatGrams": 3.3,
+        "fiberGrams": 5.8
+      },
+      "servings": [
+        {
+          "id": "rye-bread-slice",
+          "label": {
+            "en": "1 slice",
+            "ro": "1 felie"
+          },
+          "grams": 32,
+          "suggestedAmounts": [
+            1,
+            2,
+            3,
+            4
+          ]
+        }
+      ],
+      "allergens": {
+        "GLUTEN": "CONTAINS"
+      },
+      "preparations": []
+    },
+    {
+      "id": "pita-bread",
+      "name": {
+        "en": "Pita bread",
+        "ro": "Lipie pita"
+      },
+      "detail": {
+        "en": "White wheat",
+        "ro": "Din grâu alb"
+      },
+      "category": "bakery",
+      "sourceId": "usda-fdc-cc0:curated-v2:pita-bread",
+      "aliases": [
+        "pita",
+        "lipie"
+      ],
+      "nutritionPer100g": {
+        "calories": 275,
+        "proteinGrams": 9.1,
+        "carbsGrams": 55.7,
+        "fatGrams": 1.2,
+        "fiberGrams": 2.2
+      },
+      "servings": [
+        {
+          "id": "pita-bread-piece",
+          "label": {
+            "en": "1 pita",
+            "ro": "1 lipie"
+          },
+          "grams": 60,
+          "suggestedAmounts": [
+            0.5,
+            1,
+            2
+          ]
+        }
+      ],
+      "allergens": {
+        "GLUTEN": "CONTAINS"
+      },
+      "preparations": []
+    },
+    {
+      "id": "wheat-tortilla",
+      "name": {
+        "en": "Wheat tortilla",
+        "ro": "Tortilla de grâu"
+      },
+      "detail": {
+        "en": "Generic",
+        "ro": "Valoare generică"
+      },
+      "category": "bakery",
+      "sourceId": "usda-fdc-cc0:curated-v2:wheat-tortilla",
+      "aliases": [
+        "wrap"
+      ],
+      "nutritionPer100g": {
+        "calories": 312,
+        "proteinGrams": 8.3,
+        "carbsGrams": 52.1,
+        "fatGrams": 7.5,
+        "fiberGrams": 3.3
+      },
+      "servings": [
+        {
+          "id": "wheat-tortilla-piece",
+          "label": {
+            "en": "1 tortilla",
+            "ro": "1 tortilla"
+          },
+          "grams": 50,
+          "suggestedAmounts": [
+            1,
+            2,
+            3
+          ]
+        }
+      ],
+      "allergens": {
+        "GLUTEN": "CONTAINS"
+      },
+      "preparations": []
+    },
+    {
+      "id": "bagel",
+      "name": {
+        "en": "Plain bagel",
+        "ro": "Bagel simplu"
+      },
+      "detail": {
+        "en": "Generic",
+        "ro": "Valoare generică"
+      },
+      "category": "bakery",
+      "sourceId": "usda-fdc-cc0:curated-v2:bagel",
+      "aliases": [],
+      "nutritionPer100g": {
+        "calories": 257,
+        "proteinGrams": 10.0,
+        "carbsGrams": 50.5,
+        "fatGrams": 1.7,
+        "fiberGrams": 2.3
+      },
+      "servings": [
+        {
+          "id": "bagel-piece",
+          "label": {
+            "en": "1 medium bagel",
+            "ro": "1 bagel mediu"
+          },
+          "grams": 98,
+          "suggestedAmounts": [
+            1
+          ]
+        }
+      ],
+      "allergens": {
+        "GLUTEN": "CONTAINS"
+      },
+      "preparations": []
+    },
+    {
+      "id": "croissant",
+      "name": {
+        "en": "Butter croissant",
+        "ro": "Croasant cu unt"
+      },
+      "detail": {
+        "en": "Generic",
+        "ro": "Valoare generică"
+      },
+      "category": "bakery",
+      "sourceId": "usda-fdc-cc0:curated-v2:croissant",
+      "aliases": [
+        "croasant"
+      ],
+      "nutritionPer100g": {
+        "calories": 406,
+        "proteinGrams": 8.2,
+        "carbsGrams": 45.8,
+        "fatGrams": 21.0,
+        "fiberGrams": 2.6
+      },
+      "servings": [
+        {
+          "id": "croissant-piece",
+          "label": {
+            "en": "1 medium croissant",
+            "ro": "1 croasant mediu"
+          },
+          "grams": 57,
+          "suggestedAmounts": [
+            1
+          ]
+        }
+      ],
+      "allergens": {
+        "GLUTEN": "CONTAINS",
+        "MILK": "CONTAINS",
+        "EGGS": "MAY_CONTAIN"
+      },
+      "preparations": []
+    },
+    {
+      "id": "pretzel",
+      "name": {
+        "en": "Soft pretzel",
+        "ro": "Covrig"
+      },
+      "detail": {
+        "en": "Plain, generic estimate",
+        "ro": "Simplu, valoare generică"
+      },
+      "category": "bakery",
+      "sourceId": "usda-fdc-cc0:curated-v2:pretzel",
+      "aliases": [
+        "covrigi"
+      ],
+      "nutritionPer100g": {
+        "calories": 338,
+        "proteinGrams": 9.9,
+        "carbsGrams": 69.4,
+        "fatGrams": 3.1,
+        "fiberGrams": 2.7
+      },
+      "servings": [
+        {
+          "id": "pretzel-piece",
+          "label": {
+            "en": "1 medium pretzel",
+            "ro": "1 covrig mediu"
+          },
+          "grams": 80,
+          "suggestedAmounts": [
+            1
+          ]
+        }
+      ],
+      "allergens": {
+        "GLUTEN": "CONTAINS"
+      },
+      "preparations": []
+    },
+    {
+      "id": "chicken-thigh",
+      "name": {
+        "en": "Chicken thigh",
+        "ro": "Pulpă superioară de pui"
+      },
+      "detail": {
+        "en": "Roasted, meat and skin",
+        "ro": "Coaptă, carne și piele"
+      },
+      "category": "meat",
+      "sourceId": "usda-fdc-cc0:curated-v2:chicken-thigh",
+      "aliases": [
+        "pulpa pui"
+      ],
+      "nutritionPer100g": {
+        "calories": 229,
+        "proteinGrams": 25.0,
+        "carbsGrams": 0.0,
+        "fatGrams": 15.0,
+        "fiberGrams": 0.0
+      },
+      "servings": [],
+      "allergens": {},
+      "preparations": []
+    },
+    {
+      "id": "chicken-drumstick",
+      "name": {
+        "en": "Chicken drumstick",
+        "ro": "Ciocănel de pui"
+      },
+      "detail": {
+        "en": "Roasted, meat and skin",
+        "ro": "Copt, carne și piele"
+      },
+      "category": "meat",
+      "sourceId": "usda-fdc-cc0:curated-v2:chicken-drumstick",
+      "aliases": [
+        "copanel pui"
+      ],
+      "nutritionPer100g": {
+        "calories": 216,
+        "proteinGrams": 27.0,
+        "carbsGrams": 0.0,
+        "fatGrams": 11.2,
+        "fiberGrams": 0.0
+      },
+      "servings": [],
+      "allergens": {},
+      "preparations": []
+    },
+    {
+      "id": "beef-steak",
+      "name": {
+        "en": "Beef steak",
+        "ro": "Friptură de vită"
+      },
+      "detail": {
+        "en": "Grilled, lean and fat",
+        "ro": "La grătar, carne și grăsime"
+      },
+      "category": "meat",
+      "sourceId": "usda-fdc-cc0:curated-v2:beef-steak",
+      "aliases": [
+        "steak",
+        "vita gratar"
+      ],
+      "nutritionPer100g": {
+        "calories": 271,
+        "proteinGrams": 26.0,
+        "carbsGrams": 0.0,
+        "fatGrams": 18.0,
+        "fiberGrams": 0.0
+      },
+      "servings": [],
+      "allergens": {},
+      "preparations": []
+    },
+    {
+      "id": "pork-chop",
+      "name": {
+        "en": "Pork chop",
+        "ro": "Cotlet de porc"
+      },
+      "detail": {
+        "en": "Cooked",
+        "ro": "Gătit"
+      },
+      "category": "meat",
+      "sourceId": "usda-fdc-cc0:curated-v2:pork-chop",
+      "aliases": [
+        "cotlet porc"
+      ],
+      "nutritionPer100g": {
+        "calories": 231,
+        "proteinGrams": 25.7,
+        "carbsGrams": 0.0,
+        "fatGrams": 13.9,
+        "fiberGrams": 0.0
+      },
+      "servings": [],
+      "allergens": {},
+      "preparations": []
+    },
+    {
+      "id": "lamb",
+      "name": {
+        "en": "Lamb",
+        "ro": "Carne de miel"
+      },
+      "detail": {
+        "en": "Roasted, lean and fat",
+        "ro": "Coaptă, carne și grăsime"
+      },
+      "category": "meat",
+      "sourceId": "usda-fdc-cc0:curated-v2:lamb",
+      "aliases": [
+        "miel"
+      ],
+      "nutritionPer100g": {
+        "calories": 258,
+        "proteinGrams": 25.6,
+        "carbsGrams": 0.0,
+        "fatGrams": 16.5,
+        "fiberGrams": 0.0
+      },
+      "servings": [],
+      "allergens": {},
+      "preparations": []
+    },
+    {
+      "id": "bacon",
+      "name": {
+        "en": "Bacon",
+        "ro": "Bacon"
+      },
+      "detail": {
+        "en": "Pan-fried, generic",
+        "ro": "Prăjit, valoare generică"
+      },
+      "category": "meat",
+      "sourceId": "usda-fdc-cc0:curated-v2:bacon",
+      "aliases": [],
+      "nutritionPer100g": {
+        "calories": 541,
+        "proteinGrams": 37.0,
+        "carbsGrams": 1.4,
+        "fatGrams": 42.0,
+        "fiberGrams": 0.0
+      },
+      "servings": [
+        {
+          "id": "bacon-slice",
+          "label": {
+            "en": "1 cooked slice",
+            "ro": "1 felie gătită"
+          },
+          "grams": 8,
+          "suggestedAmounts": [
+            1,
+            2,
+            3,
+            4
+          ]
+        }
+      ],
+      "allergens": {},
+      "preparations": []
+    },
+    {
+      "id": "ham",
+      "name": {
+        "en": "Cooked ham",
+        "ro": "Șuncă fiartă"
+      },
+      "detail": {
+        "en": "Generic",
+        "ro": "Valoare generică"
+      },
+      "category": "meat",
+      "sourceId": "usda-fdc-cc0:curated-v2:ham",
+      "aliases": [
+        "sunca"
+      ],
+      "nutritionPer100g": {
+        "calories": 145,
+        "proteinGrams": 21.0,
+        "carbsGrams": 1.5,
+        "fatGrams": 7.0,
+        "fiberGrams": 0.0
+      },
+      "servings": [
+        {
+          "id": "ham-slice",
+          "label": {
+            "en": "1 slice",
+            "ro": "1 felie"
+          },
+          "grams": 28,
+          "suggestedAmounts": [
+            1,
+            2,
+            3,
+            4
+          ]
+        }
+      ],
+      "allergens": {},
+      "preparations": []
+    },
+    {
+      "id": "sausage",
+      "name": {
+        "en": "Pork sausage",
+        "ro": "Cârnat de porc"
+      },
+      "detail": {
+        "en": "Cooked, generic",
+        "ro": "Gătit, valoare generică"
+      },
+      "category": "meat",
+      "sourceId": "usda-fdc-cc0:curated-v2:sausage",
+      "aliases": [
+        "sausages",
+        "carnat",
+        "carnati"
+      ],
+      "nutritionPer100g": {
+        "calories": 301,
+        "proteinGrams": 12.0,
+        "carbsGrams": 2.0,
+        "fatGrams": 27.0,
+        "fiberGrams": 0.0
+      },
+      "servings": [
+        {
+          "id": "sausage-link",
+          "label": {
+            "en": "1 sausage",
+            "ro": "1 cârnat"
+          },
+          "grams": 75,
+          "suggestedAmounts": [
+            1,
+            2,
+            3
+          ]
+        }
+      ],
+      "allergens": {},
+      "preparations": []
+    },
+    {
+      "id": "trout",
+      "name": {
+        "en": "Trout",
+        "ro": "Păstrăv"
+      },
+      "detail": {
+        "en": "Cooked, dry heat",
+        "ro": "Gătit la căldură uscată"
+      },
+      "category": "fish",
+      "sourceId": "usda-fdc-cc0:curated-v2:trout",
+      "aliases": [
+        "pastrav"
+      ],
+      "nutritionPer100g": {
+        "calories": 168,
+        "proteinGrams": 23.8,
+        "carbsGrams": 0.0,
+        "fatGrams": 7.4,
+        "fiberGrams": 0.0
+      },
+      "servings": [],
+      "allergens": {
+        "FISH": "CONTAINS"
+      },
+      "preparations": []
+    },
+    {
+      "id": "mackerel",
+      "name": {
+        "en": "Mackerel",
+        "ro": "Macrou"
+      },
+      "detail": {
+        "en": "Cooked",
+        "ro": "Gătit"
+      },
+      "category": "fish",
+      "sourceId": "usda-fdc-cc0:curated-v2:mackerel",
+      "aliases": [
+        "macrou"
+      ],
+      "nutritionPer100g": {
+        "calories": 262,
+        "proteinGrams": 23.9,
+        "carbsGrams": 0.0,
+        "fatGrams": 17.8,
+        "fiberGrams": 0.0
+      },
+      "servings": [],
+      "allergens": {
+        "FISH": "CONTAINS"
+      },
+      "preparations": []
+    },
+    {
+      "id": "sardines",
+      "name": {
+        "en": "Sardines",
+        "ro": "Sardine"
+      },
+      "detail": {
+        "en": "Canned in oil, drained",
+        "ro": "Conservate în ulei, scurse"
+      },
+      "category": "fish",
+      "sourceId": "usda-fdc-cc0:curated-v2:sardines",
+      "aliases": [],
+      "nutritionPer100g": {
+        "calories": 208,
+        "proteinGrams": 24.6,
+        "carbsGrams": 0.0,
+        "fatGrams": 11.5,
+        "fiberGrams": 0.0
+      },
+      "servings": [],
+      "allergens": {
+        "FISH": "CONTAINS"
+      },
+      "preparations": []
+    },
+    {
+      "id": "shrimp",
+      "name": {
+        "en": "Shrimp",
+        "ro": "Creveți"
+      },
+      "detail": {
+        "en": "Cooked",
+        "ro": "Gătiți"
+      },
+      "category": "fish",
+      "sourceId": "usda-fdc-cc0:curated-v2:shrimp",
+      "aliases": [
+        "prawns",
+        "creveti"
+      ],
+      "nutritionPer100g": {
+        "calories": 99,
+        "proteinGrams": 24.0,
+        "carbsGrams": 0.2,
+        "fatGrams": 0.3,
+        "fiberGrams": 0.0
+      },
+      "servings": [],
+      "allergens": {
+        "CRUSTACEANS": "CONTAINS"
+      },
+      "preparations": []
+    },
+    {
+      "id": "mussels",
+      "name": {
+        "en": "Mussels",
+        "ro": "Midii"
+      },
+      "detail": {
+        "en": "Cooked",
+        "ro": "Gătite"
+      },
+      "category": "fish",
+      "sourceId": "usda-fdc-cc0:curated-v2:mussels",
+      "aliases": [],
+      "nutritionPer100g": {
+        "calories": 172,
+        "proteinGrams": 23.8,
+        "carbsGrams": 7.4,
+        "fatGrams": 4.5,
+        "fiberGrams": 0.0
+      },
+      "servings": [],
+      "allergens": {
+        "MOLLUSCS": "CONTAINS"
+      },
+      "preparations": []
+    },
+    {
+      "id": "egg-white",
+      "name": {
+        "en": "Egg white",
+        "ro": "Albuș de ou"
+      },
+      "detail": {
+        "en": "Cooked",
+        "ro": "Gătit"
+      },
+      "category": "eggs",
+      "sourceId": "usda-fdc-cc0:curated-v2:egg-white",
+      "aliases": [
+        "albus"
+      ],
+      "nutritionPer100g": {
+        "calories": 52,
+        "proteinGrams": 10.9,
+        "carbsGrams": 0.7,
+        "fatGrams": 0.2,
+        "fiberGrams": 0.0
+      },
+      "servings": [
+        {
+          "id": "egg-white-large",
+          "label": {
+            "en": "1 large egg white",
+            "ro": "1 albuș de ou mare"
+          },
+          "grams": 33,
+          "suggestedAmounts": [
+            1,
+            2,
+            3,
+            4
+          ]
+        }
+      ],
+      "allergens": {
+        "EGGS": "CONTAINS"
+      },
+      "preparations": []
+    },
+    {
+      "id": "egg-yolk",
+      "name": {
+        "en": "Egg yolk",
+        "ro": "Gălbenuș de ou"
+      },
+      "detail": {
+        "en": "Cooked",
+        "ro": "Gătit"
+      },
+      "category": "eggs",
+      "sourceId": "usda-fdc-cc0:curated-v2:egg-yolk",
+      "aliases": [
+        "galbenus"
+      ],
+      "nutritionPer100g": {
+        "calories": 322,
+        "proteinGrams": 15.9,
+        "carbsGrams": 3.6,
+        "fatGrams": 26.5,
+        "fiberGrams": 0.0
+      },
+      "servings": [
+        {
+          "id": "egg-yolk-large",
+          "label": {
+            "en": "1 large egg yolk",
+            "ro": "1 gălbenuș de ou mare"
+          },
+          "grams": 17,
+          "suggestedAmounts": [
+            1,
+            2,
+            3,
+            4
+          ]
+        }
+      ],
+      "allergens": {
+        "EGGS": "CONTAINS"
+      },
+      "preparations": []
+    },
+    {
+      "id": "white-beans",
+      "name": {
+        "en": "White beans",
+        "ro": "Fasole albă"
+      },
+      "detail": {
+        "en": "Cooked",
+        "ro": "Fiartă"
+      },
+      "category": "legumes",
+      "sourceId": "usda-fdc-cc0:curated-v2:white-beans",
+      "aliases": [
+        "cannellini",
+        "fasole alba"
+      ],
+      "nutritionPer100g": {
+        "calories": 139,
+        "proteinGrams": 9.7,
+        "carbsGrams": 25.1,
+        "fatGrams": 0.4,
+        "fiberGrams": 6.3
+      },
+      "servings": [],
+      "allergens": {},
+      "preparations": []
+    },
+    {
+      "id": "black-beans",
+      "name": {
+        "en": "Black beans",
+        "ro": "Fasole neagră"
+      },
+      "detail": {
+        "en": "Cooked",
+        "ro": "Fiartă"
+      },
+      "category": "legumes",
+      "sourceId": "usda-fdc-cc0:curated-v2:black-beans",
+      "aliases": [
+        "fasole neagra"
+      ],
+      "nutritionPer100g": {
+        "calories": 132,
+        "proteinGrams": 8.9,
+        "carbsGrams": 23.7,
+        "fatGrams": 0.5,
+        "fiberGrams": 8.7
+      },
+      "servings": [],
+      "allergens": {},
+      "preparations": []
+    },
+    {
+      "id": "split-peas",
+      "name": {
+        "en": "Split peas",
+        "ro": "Mazăre uscată despicată"
+      },
+      "detail": {
+        "en": "Cooked",
+        "ro": "Fiartă"
+      },
+      "category": "legumes",
+      "sourceId": "usda-fdc-cc0:curated-v2:split-peas",
+      "aliases": [
+        "mazare uscata"
+      ],
+      "nutritionPer100g": {
+        "calories": 118,
+        "proteinGrams": 8.3,
+        "carbsGrams": 21.1,
+        "fatGrams": 0.4,
+        "fiberGrams": 8.3
+      },
+      "servings": [],
+      "allergens": {},
+      "preparations": []
+    },
+    {
+      "id": "edamame",
+      "name": {
+        "en": "Edamame",
+        "ro": "Edamame"
+      },
+      "detail": {
+        "en": "Cooked, shelled",
+        "ro": "Fiert, fără păstăi"
+      },
+      "category": "legumes",
+      "sourceId": "usda-fdc-cc0:curated-v2:edamame",
+      "aliases": [],
+      "nutritionPer100g": {
+        "calories": 121,
+        "proteinGrams": 11.9,
+        "carbsGrams": 8.9,
+        "fatGrams": 5.2,
+        "fiberGrams": 5.2
+      },
+      "servings": [],
+      "allergens": {
+        "SOY": "CONTAINS"
+      },
+      "preparations": []
+    },
+    {
+      "id": "hummus",
+      "name": {
+        "en": "Hummus",
+        "ro": "Hummus"
+      },
+      "detail": {
+        "en": "Prepared, generic",
+        "ro": "Preparat, valoare generică"
+      },
+      "category": "plant-protein",
+      "sourceId": "usda-fdc-cc0:curated-v2:hummus",
+      "aliases": [],
+      "nutritionPer100g": {
+        "calories": 166,
+        "proteinGrams": 7.9,
+        "carbsGrams": 14.3,
+        "fatGrams": 9.6,
+        "fiberGrams": 6.0
+      },
+      "servings": [
+        {
+          "id": "hummus-tablespoon",
+          "label": {
+            "en": "1 tablespoon",
+            "ro": "1 lingură"
+          },
+          "grams": 15,
+          "suggestedAmounts": [
+            1,
+            2,
+            3,
+            4
+          ]
+        }
+      ],
+      "allergens": {
+        "SESAME": "CONTAINS"
+      },
+      "preparations": []
+    },
+    {
+      "id": "skim-milk",
+      "name": {
+        "en": "Skim milk",
+        "ro": "Lapte degresat"
+      },
+      "detail": {
+        "en": "About 0.1% fat",
+        "ro": "Aproximativ 0,1% grăsime"
+      },
+      "category": "dairy",
+      "sourceId": "usda-fdc-cc0:curated-v2:skim-milk",
+      "aliases": [],
+      "nutritionPer100g": {
+        "calories": 34,
+        "proteinGrams": 3.4,
+        "carbsGrams": 5.0,
+        "fatGrams": 0.1,
+        "fiberGrams": 0.0
+      },
+      "servings": [
+        {
+          "id": "skim-milk-cup",
+          "label": {
+            "en": "1 cup",
+            "ro": "1 cană"
+          },
+          "grams": 244,
+          "suggestedAmounts": [
+            0.5,
+            1,
+            2
+          ]
+        }
+      ],
+      "allergens": {
+        "MILK": "CONTAINS"
+      },
+      "preparations": []
+    },
+    {
+      "id": "mozzarella",
+      "name": {
+        "en": "Mozzarella",
+        "ro": "Mozzarella"
+      },
+      "detail": {
+        "en": "Whole milk",
+        "ro": "Din lapte integral"
+      },
+      "category": "dairy",
+      "sourceId": "usda-fdc-cc0:curated-v2:mozzarella",
+      "aliases": [],
+      "nutritionPer100g": {
+        "calories": 300,
+        "proteinGrams": 22.2,
+        "carbsGrams": 2.2,
+        "fatGrams": 22.4,
+        "fiberGrams": 0.0
+      },
+      "servings": [],
+      "allergens": {
+        "MILK": "CONTAINS"
+      },
+      "preparations": []
+    },
+    {
+      "id": "parmesan",
+      "name": {
+        "en": "Parmesan",
+        "ro": "Parmezan"
+      },
+      "detail": {
+        "en": "Hard cheese",
+        "ro": "Brânză tare"
+      },
+      "category": "dairy",
+      "sourceId": "usda-fdc-cc0:curated-v2:parmesan",
+      "aliases": [],
+      "nutritionPer100g": {
+        "calories": 431,
+        "proteinGrams": 38.0,
+        "carbsGrams": 4.1,
+        "fatGrams": 29.0,
+        "fiberGrams": 0.0
+      },
+      "servings": [
+        {
+          "id": "parmesan-tablespoon",
+          "label": {
+            "en": "1 tablespoon grated",
+            "ro": "1 lingură rasă"
+          },
+          "grams": 5,
+          "suggestedAmounts": [
+            1,
+            2,
+            3,
+            4
+          ]
+        }
+      ],
+      "allergens": {
+        "MILK": "CONTAINS"
+      },
+      "preparations": []
+    },
+    {
+      "id": "gouda",
+      "name": {
+        "en": "Gouda",
+        "ro": "Gouda"
+      },
+      "detail": {
+        "en": "Full fat",
+        "ro": "Grasă"
+      },
+      "category": "dairy",
+      "sourceId": "usda-fdc-cc0:curated-v2:gouda",
+      "aliases": [],
+      "nutritionPer100g": {
+        "calories": 356,
+        "proteinGrams": 24.9,
+        "carbsGrams": 2.2,
+        "fatGrams": 27.4,
+        "fiberGrams": 0.0
+      },
+      "servings": [
+        {
+          "id": "gouda-slice",
+          "label": {
+            "en": "1 slice",
+            "ro": "1 felie"
+          },
+          "grams": 25,
+          "suggestedAmounts": [
+            1,
+            2,
+            3,
+            4
+          ]
+        }
+      ],
+      "allergens": {
+        "MILK": "CONTAINS"
+      },
+      "preparations": []
+    },
+    {
+      "id": "telemea",
+      "name": {
+        "en": "Telemea cheese",
+        "ro": "Telemea"
+      },
+      "detail": {
+        "en": "Brined cow's cheese, generic",
+        "ro": "Brânză de vacă în saramură, valoare generică"
+      },
+      "category": "dairy",
+      "sourceId": "usda-fdc-cc0:curated-v2:telemea",
+      "aliases": [
+        "branza telemea"
+      ],
+      "nutritionPer100g": {
+        "calories": 280,
+        "proteinGrams": 17.0,
+        "carbsGrams": 2.0,
+        "fatGrams": 23.0,
+        "fiberGrams": 0.0
+      },
+      "servings": [],
+      "allergens": {
+        "MILK": "CONTAINS"
+      },
+      "preparations": []
+    },
+    {
+      "id": "ricotta",
+      "name": {
+        "en": "Ricotta",
+        "ro": "Ricotta"
+      },
+      "detail": {
+        "en": "Whole milk",
+        "ro": "Din lapte integral"
+      },
+      "category": "dairy",
+      "sourceId": "usda-fdc-cc0:curated-v2:ricotta",
+      "aliases": [],
+      "nutritionPer100g": {
+        "calories": 174,
+        "proteinGrams": 11.3,
+        "carbsGrams": 3.0,
+        "fatGrams": 13.0,
+        "fiberGrams": 0.0
+      },
+      "servings": [],
+      "allergens": {
+        "MILK": "CONTAINS"
+      },
+      "preparations": []
+    },
+    {
+      "id": "cream-cheese",
+      "name": {
+        "en": "Cream cheese",
+        "ro": "Cremă de brânză"
+      },
+      "detail": {
+        "en": "Full fat",
+        "ro": "Grasă"
+      },
+      "category": "dairy",
+      "sourceId": "usda-fdc-cc0:curated-v2:cream-cheese",
+      "aliases": [
+        "crema branza"
+      ],
+      "nutritionPer100g": {
+        "calories": 342,
+        "proteinGrams": 6.2,
+        "carbsGrams": 5.5,
+        "fatGrams": 34.4,
+        "fiberGrams": 0.0
+      },
+      "servings": [
+        {
+          "id": "cream-cheese-tablespoon",
+          "label": {
+            "en": "1 tablespoon",
+            "ro": "1 lingură"
+          },
+          "grams": 15,
+          "suggestedAmounts": [
+            1,
+            2,
+            3,
+            4
+          ]
+        }
+      ],
+      "allergens": {
+        "MILK": "CONTAINS"
+      },
+      "preparations": []
+    },
+    {
+      "id": "whipping-cream",
+      "name": {
+        "en": "Whipping cream",
+        "ro": "Smântână pentru frișcă"
+      },
+      "detail": {
+        "en": "About 35% fat",
+        "ro": "Aproximativ 35% grăsime"
+      },
+      "category": "dairy",
+      "sourceId": "usda-fdc-cc0:curated-v2:whipping-cream",
+      "aliases": [
+        "heavy cream",
+        "frisca lichida"
+      ],
+      "nutritionPer100g": {
+        "calories": 340,
+        "proteinGrams": 2.8,
+        "carbsGrams": 2.9,
+        "fatGrams": 36.1,
+        "fiberGrams": 0.0
+      },
+      "servings": [],
+      "allergens": {
+        "MILK": "CONTAINS"
+      },
+      "preparations": []
+    },
+    {
+      "id": "skyr",
+      "name": {
+        "en": "Skyr",
+        "ro": "Skyr"
+      },
+      "detail": {
+        "en": "Plain, low fat",
+        "ro": "Simplu, slab"
+      },
+      "category": "dairy",
+      "sourceId": "usda-fdc-cc0:curated-v2:skyr",
+      "aliases": [],
+      "nutritionPer100g": {
+        "calories": 63,
+        "proteinGrams": 11.0,
+        "carbsGrams": 4.0,
+        "fatGrams": 0.2,
+        "fiberGrams": 0.0
+      },
+      "servings": [],
+      "allergens": {
+        "MILK": "CONTAINS"
+      },
+      "preparations": []
+    },
+    {
+      "id": "cashews",
+      "name": {
+        "en": "Cashews",
+        "ro": "Caju"
+      },
+      "detail": {
+        "en": "Raw",
+        "ro": "Crud"
+      },
+      "category": "nuts-seeds",
+      "sourceId": "usda-fdc-cc0:curated-v2:cashews",
+      "aliases": [],
+      "nutritionPer100g": {
+        "calories": 553,
+        "proteinGrams": 18.2,
+        "carbsGrams": 30.2,
+        "fatGrams": 43.9,
+        "fiberGrams": 3.3
+      },
+      "servings": [
+        {
+          "id": "cashews-handful",
+          "label": {
+            "en": "1 handful",
+            "ro": "1 pumn"
+          },
+          "grams": 28,
+          "suggestedAmounts": [
+            0.5,
+            1,
+            2
+          ]
+        }
+      ],
+      "allergens": {
+        "NUTS": "CONTAINS"
+      },
+      "preparations": []
+    },
+    {
+      "id": "pistachios",
+      "name": {
+        "en": "Pistachios",
+        "ro": "Fistic"
+      },
+      "detail": {
+        "en": "Dry roasted",
+        "ro": "Copt uscat"
+      },
+      "category": "nuts-seeds",
+      "sourceId": "usda-fdc-cc0:curated-v2:pistachios",
+      "aliases": [],
+      "nutritionPer100g": {
+        "calories": 562,
+        "proteinGrams": 20.3,
+        "carbsGrams": 27.5,
+        "fatGrams": 45.4,
+        "fiberGrams": 10.3
+      },
+      "servings": [
+        {
+          "id": "pistachios-handful",
+          "label": {
+            "en": "1 handful",
+            "ro": "1 pumn"
+          },
+          "grams": 28,
+          "suggestedAmounts": [
+            0.5,
+            1,
+            2
+          ]
+        }
+      ],
+      "allergens": {
+        "NUTS": "CONTAINS"
+      },
+      "preparations": []
+    },
+    {
+      "id": "hazelnuts",
+      "name": {
+        "en": "Hazelnuts",
+        "ro": "Alune de pădure"
+      },
+      "detail": {
+        "en": "Raw",
+        "ro": "Crude"
+      },
+      "category": "nuts-seeds",
+      "sourceId": "usda-fdc-cc0:curated-v2:hazelnuts",
+      "aliases": [
+        "alune padure"
+      ],
+      "nutritionPer100g": {
+        "calories": 628,
+        "proteinGrams": 15.0,
+        "carbsGrams": 16.7,
+        "fatGrams": 60.8,
+        "fiberGrams": 9.7
+      },
+      "servings": [],
+      "allergens": {
+        "NUTS": "CONTAINS"
+      },
+      "preparations": []
+    },
+    {
+      "id": "sunflower-seeds",
+      "name": {
+        "en": "Sunflower seeds",
+        "ro": "Semințe de floarea-soarelui"
+      },
+      "detail": {
+        "en": "Kernels, dry roasted",
+        "ro": "Miez, copt uscat"
+      },
+      "category": "nuts-seeds",
+      "sourceId": "usda-fdc-cc0:curated-v2:sunflower-seeds",
+      "aliases": [],
+      "nutritionPer100g": {
+        "calories": 584,
+        "proteinGrams": 20.8,
+        "carbsGrams": 20.0,
+        "fatGrams": 51.5,
+        "fiberGrams": 8.6
+      },
+      "servings": [],
+      "allergens": {
+        "NUTS": "MAY_CONTAIN"
+      },
+      "preparations": []
+    },
+    {
+      "id": "pumpkin-seeds",
+      "name": {
+        "en": "Pumpkin seeds",
+        "ro": "Semințe de dovleac"
+      },
+      "detail": {
+        "en": "Roasted kernels",
+        "ro": "Miez copt"
+      },
+      "category": "nuts-seeds",
+      "sourceId": "usda-fdc-cc0:curated-v2:pumpkin-seeds",
+      "aliases": [],
+      "nutritionPer100g": {
+        "calories": 559,
+        "proteinGrams": 30.2,
+        "carbsGrams": 10.7,
+        "fatGrams": 49.1,
+        "fiberGrams": 6.0
+      },
+      "servings": [],
+      "allergens": {},
+      "preparations": []
+    },
+    {
+      "id": "chia-seeds",
+      "name": {
+        "en": "Chia seeds",
+        "ro": "Semințe de chia"
+      },
+      "detail": {
+        "en": "Dried",
+        "ro": "Uscate"
+      },
+      "category": "nuts-seeds",
+      "sourceId": "usda-fdc-cc0:curated-v2:chia-seeds",
+      "aliases": [],
+      "nutritionPer100g": {
+        "calories": 486,
+        "proteinGrams": 16.5,
+        "carbsGrams": 42.1,
+        "fatGrams": 30.7,
+        "fiberGrams": 34.4
+      },
+      "servings": [
+        {
+          "id": "chia-seeds-tablespoon",
+          "label": {
+            "en": "1 tablespoon",
+            "ro": "1 lingură"
+          },
+          "grams": 12,
+          "suggestedAmounts": [
+            1,
+            2,
+            3
+          ]
+        }
+      ],
+      "allergens": {},
+      "preparations": []
+    },
+    {
+      "id": "flax-seeds",
+      "name": {
+        "en": "Flax seeds",
+        "ro": "Semințe de in"
+      },
+      "detail": {
+        "en": "Whole",
+        "ro": "Întregi"
+      },
+      "category": "nuts-seeds",
+      "sourceId": "usda-fdc-cc0:curated-v2:flax-seeds",
+      "aliases": [
+        "linseed",
+        "seminte in"
+      ],
+      "nutritionPer100g": {
+        "calories": 534,
+        "proteinGrams": 18.3,
+        "carbsGrams": 28.9,
+        "fatGrams": 42.2,
+        "fiberGrams": 27.3
+      },
+      "servings": [
+        {
+          "id": "flax-seeds-tablespoon",
+          "label": {
+            "en": "1 tablespoon",
+            "ro": "1 lingură"
+          },
+          "grams": 10,
+          "suggestedAmounts": [
+            1,
+            2,
+            3
+          ]
+        }
+      ],
+      "allergens": {},
+      "preparations": []
+    },
+    {
+      "id": "tahini",
+      "name": {
+        "en": "Tahini",
+        "ro": "Tahini"
+      },
+      "detail": {
+        "en": "Sesame paste",
+        "ro": "Pastă de susan"
+      },
+      "category": "nuts-seeds",
+      "sourceId": "usda-fdc-cc0:curated-v2:tahini",
+      "aliases": [],
+      "nutritionPer100g": {
+        "calories": 595,
+        "proteinGrams": 17.0,
+        "carbsGrams": 21.2,
+        "fatGrams": 53.8,
+        "fiberGrams": 9.3
+      },
+      "servings": [
+        {
+          "id": "tahini-tablespoon",
+          "label": {
+            "en": "1 tablespoon",
+            "ro": "1 lingură"
+          },
+          "grams": 15,
+          "suggestedAmounts": [
+            1,
+            2,
+            3
+          ]
+        }
+      ],
+      "allergens": {
+        "SESAME": "CONTAINS"
+      },
+      "preparations": []
+    },
+    {
+      "id": "maple-syrup",
+      "name": {
+        "en": "Maple syrup",
+        "ro": "Sirop de arțar"
+      },
+      "detail": {
+        "en": "Pure",
+        "ro": "Pur"
+      },
+      "category": "pantry",
+      "sourceId": "usda-fdc-cc0:curated-v2:maple-syrup",
+      "aliases": [
+        "sirop artar"
+      ],
+      "nutritionPer100g": {
+        "calories": 260,
+        "proteinGrams": 0.0,
+        "carbsGrams": 67.0,
+        "fatGrams": 0.1,
+        "fiberGrams": 0.0
+      },
+      "servings": [
+        {
+          "id": "maple-syrup-tablespoon",
+          "label": {
+            "en": "1 tablespoon",
+            "ro": "1 lingură"
+          },
+          "grams": 20,
+          "suggestedAmounts": [
+            1,
+            2,
+            3
+          ]
+        }
+      ],
+      "allergens": {},
+      "preparations": []
+    },
+    {
+      "id": "fruit-jam",
+      "name": {
+        "en": "Fruit jam",
+        "ro": "Gem de fructe"
+      },
+      "detail": {
+        "en": "Generic",
+        "ro": "Valoare generică"
+      },
+      "category": "pantry",
+      "sourceId": "usda-fdc-cc0:curated-v2:fruit-jam",
+      "aliases": [
+        "jelly",
+        "gem",
+        "dulceata"
+      ],
+      "nutritionPer100g": {
+        "calories": 250,
+        "proteinGrams": 0.4,
+        "carbsGrams": 65.0,
+        "fatGrams": 0.1,
+        "fiberGrams": 1.0
+      },
+      "servings": [
+        {
+          "id": "fruit-jam-tablespoon",
+          "label": {
+            "en": "1 tablespoon",
+            "ro": "1 lingură"
+          },
+          "grams": 20,
+          "suggestedAmounts": [
+            1,
+            2,
+            3
+          ]
+        }
+      ],
+      "allergens": {},
+      "preparations": []
+    },
+    {
+      "id": "cocoa-powder",
+      "name": {
+        "en": "Cocoa powder",
+        "ro": "Pudră de cacao"
+      },
+      "detail": {
+        "en": "Unsweetened",
+        "ro": "Neîndulcită"
+      },
+      "category": "pantry",
+      "sourceId": "usda-fdc-cc0:curated-v2:cocoa-powder",
+      "aliases": [
+        "cacao"
+      ],
+      "nutritionPer100g": {
+        "calories": 228,
+        "proteinGrams": 19.6,
+        "carbsGrams": 57.9,
+        "fatGrams": 13.7,
+        "fiberGrams": 37.0
+      },
+      "servings": [
+        {
+          "id": "cocoa-powder-tablespoon",
+          "label": {
+            "en": "1 tablespoon",
+            "ro": "1 lingură"
+          },
+          "grams": 5,
+          "suggestedAmounts": [
+            1,
+            2,
+            3,
+            4
+          ]
+        }
+      ],
+      "allergens": {},
+      "preparations": []
+    },
+    {
+      "id": "dark-chocolate",
+      "name": {
+        "en": "Dark chocolate",
+        "ro": "Ciocolată neagră"
+      },
+      "detail": {
+        "en": "70–85% cocoa, generic",
+        "ro": "70–85% cacao, valoare generică"
+      },
+      "category": "pantry",
+      "sourceId": "usda-fdc-cc0:curated-v2:dark-chocolate",
+      "aliases": [
+        "ciocolata neagra"
+      ],
+      "nutritionPer100g": {
+        "calories": 598,
+        "proteinGrams": 7.8,
+        "carbsGrams": 45.9,
+        "fatGrams": 42.6,
+        "fiberGrams": 10.9
+      },
+      "servings": [
+        {
+          "id": "dark-chocolate-square",
+          "label": {
+            "en": "1 square",
+            "ro": "1 pătrățel"
+          },
+          "grams": 10,
+          "suggestedAmounts": [
+            1,
+            2,
+            3,
+            4
+          ]
+        }
+      ],
+      "allergens": {
+        "MILK": "MAY_CONTAIN",
+        "NUTS": "MAY_CONTAIN"
+      },
+      "preparations": []
+    },
+    {
+      "id": "ketchup",
+      "name": {
+        "en": "Ketchup",
+        "ro": "Ketchup"
+      },
+      "detail": {
+        "en": "Generic",
+        "ro": "Valoare generică"
+      },
+      "category": "pantry",
+      "sourceId": "usda-fdc-cc0:curated-v2:ketchup",
+      "aliases": [],
+      "nutritionPer100g": {
+        "calories": 112,
+        "proteinGrams": 1.3,
+        "carbsGrams": 26.0,
+        "fatGrams": 0.2,
+        "fiberGrams": 0.3
+      },
+      "servings": [
+        {
+          "id": "ketchup-tablespoon",
+          "label": {
+            "en": "1 tablespoon",
+            "ro": "1 lingură"
+          },
+          "grams": 17,
+          "suggestedAmounts": [
+            1,
+            2,
+            3
+          ]
+        }
+      ],
+      "allergens": {},
+      "preparations": []
+    },
+    {
+      "id": "mayonnaise",
+      "name": {
+        "en": "Mayonnaise",
+        "ro": "Maioneză"
+      },
+      "detail": {
+        "en": "Regular, generic",
+        "ro": "Clasică, valoare generică"
+      },
+      "category": "pantry",
+      "sourceId": "usda-fdc-cc0:curated-v2:mayonnaise",
+      "aliases": [
+        "maioneza"
+      ],
+      "nutritionPer100g": {
+        "calories": 680,
+        "proteinGrams": 1.0,
+        "carbsGrams": 0.6,
+        "fatGrams": 75.0,
+        "fiberGrams": 0.0
+      },
+      "servings": [
+        {
+          "id": "mayonnaise-tablespoon",
+          "label": {
+            "en": "1 tablespoon",
+            "ro": "1 lingură"
+          },
+          "grams": 14,
+          "suggestedAmounts": [
+            1,
+            2,
+            3
+          ]
+        }
+      ],
+      "allergens": {
+        "EGGS": "CONTAINS",
+        "MUSTARD": "MAY_CONTAIN"
+      },
+      "preparations": []
+    },
+    {
+      "id": "mustard",
+      "name": {
+        "en": "Mustard",
+        "ro": "Muștar"
+      },
+      "detail": {
+        "en": "Prepared yellow",
+        "ro": "Preparat"
+      },
+      "category": "pantry",
+      "sourceId": "usda-fdc-cc0:curated-v2:mustard",
+      "aliases": [
+        "mustar"
+      ],
+      "nutritionPer100g": {
+        "calories": 66,
+        "proteinGrams": 4.4,
+        "carbsGrams": 5.8,
+        "fatGrams": 4.0,
+        "fiberGrams": 3.3
+      },
+      "servings": [
+        {
+          "id": "mustard-teaspoon",
+          "label": {
+            "en": "1 teaspoon",
+            "ro": "1 linguriță"
+          },
+          "grams": 5,
+          "suggestedAmounts": [
+            1,
+            2,
+            3,
+            4
+          ]
+        }
+      ],
+      "allergens": {
+        "MUSTARD": "CONTAINS"
+      },
+      "preparations": []
+    },
+    {
+      "id": "soy-sauce",
+      "name": {
+        "en": "Soy sauce",
+        "ro": "Sos de soia"
+      },
+      "detail": {
+        "en": "Regular",
+        "ro": "Clasic"
+      },
+      "category": "pantry",
+      "sourceId": "usda-fdc-cc0:curated-v2:soy-sauce",
+      "aliases": [],
+      "nutritionPer100g": {
+        "calories": 53,
+        "proteinGrams": 8.1,
+        "carbsGrams": 4.9,
+        "fatGrams": 0.6,
+        "fiberGrams": 0.8
+      },
+      "servings": [
+        {
+          "id": "soy-sauce-tablespoon",
+          "label": {
+            "en": "1 tablespoon",
+            "ro": "1 lingură"
+          },
+          "grams": 16,
+          "suggestedAmounts": [
+            1,
+            2,
+            3
+          ]
+        }
+      ],
+      "allergens": {
+        "SOY": "CONTAINS",
+        "GLUTEN": "MAY_CONTAIN"
+      },
+      "preparations": []
+    },
+    {
+      "id": "vegetable-soup",
+      "name": {
+        "en": "Vegetable soup",
+        "ro": "Ciorbă de legume"
+      },
+      "detail": {
+        "en": "Homestyle, generic estimate",
+        "ro": "De casă, valoare generică"
+      },
+      "category": "prepared-meals",
+      "sourceId": "usda-fdc-cc0:curated-v2:vegetable-soup",
+      "aliases": [
+        "ciorba legume",
+        "supa legume"
+      ],
+      "nutritionPer100g": {
+        "calories": 42,
+        "proteinGrams": 1.5,
+        "carbsGrams": 6.5,
+        "fatGrams": 1.2,
+        "fiberGrams": 1.5
+      },
+      "servings": [
+        {
+          "id": "vegetable-soup-bowl",
+          "label": {
+            "en": "1 bowl",
+            "ro": "1 bol"
+          },
+          "grams": 350,
+          "suggestedAmounts": [
+            0.5,
+            1,
+            2
+          ]
+        }
+      ],
+      "allergens": {},
+      "preparations": []
+    },
+    {
+      "id": "chicken-soup",
+      "name": {
+        "en": "Chicken soup",
+        "ro": "Ciorbă de pui"
+      },
+      "detail": {
+        "en": "Homestyle, generic estimate",
+        "ro": "De casă, valoare generică"
+      },
+      "category": "prepared-meals",
+      "sourceId": "usda-fdc-cc0:curated-v2:chicken-soup",
+      "aliases": [
+        "ciorba pui",
+        "supa pui"
+      ],
+      "nutritionPer100g": {
+        "calories": 55,
+        "proteinGrams": 4.5,
+        "carbsGrams": 5.0,
+        "fatGrams": 2.0,
+        "fiberGrams": 0.5
+      },
+      "servings": [
+        {
+          "id": "chicken-soup-bowl",
+          "label": {
+            "en": "1 bowl",
+            "ro": "1 bol"
+          },
+          "grams": 350,
+          "suggestedAmounts": [
+            0.5,
+            1,
+            2
+          ]
+        }
+      ],
+      "allergens": {},
+      "preparations": []
+    },
+    {
+      "id": "sarmale",
+      "name": {
+        "en": "Stuffed cabbage rolls",
+        "ro": "Sarmale"
+      },
+      "detail": {
+        "en": "Meat and rice, generic estimate",
+        "ro": "Cu carne și orez, valoare generică"
+      },
+      "category": "prepared-meals",
+      "sourceId": "usda-fdc-cc0:curated-v2:sarmale",
+      "aliases": [
+        "cabbage rolls"
+      ],
+      "nutritionPer100g": {
+        "calories": 151,
+        "proteinGrams": 7.0,
+        "carbsGrams": 10.0,
+        "fatGrams": 9.0,
+        "fiberGrams": 1.5
+      },
+      "servings": [
+        {
+          "id": "sarmale-piece",
+          "label": {
+            "en": "1 roll",
+            "ro": "1 sarma"
+          },
+          "grams": 80,
+          "suggestedAmounts": [
+            1,
+            2,
+            3,
+            4
+          ]
+        }
+      ],
+      "allergens": {},
+      "preparations": []
+    },
+    {
+      "id": "zacusca",
+      "name": {
+        "en": "Zacuscă",
+        "ro": "Zacuscă"
+      },
+      "detail": {
+        "en": "Vegetable spread, generic estimate",
+        "ro": "Pastă de legume, valoare generică"
+      },
+      "category": "prepared-meals",
+      "sourceId": "usda-fdc-cc0:curated-v2:zacusca",
+      "aliases": [
+        "zacusca"
+      ],
+      "nutritionPer100g": {
+        "calories": 105,
+        "proteinGrams": 1.5,
+        "carbsGrams": 9.0,
+        "fatGrams": 7.0,
+        "fiberGrams": 2.5
+      },
+      "servings": [
+        {
+          "id": "zacusca-tablespoon",
+          "label": {
+            "en": "1 tablespoon",
+            "ro": "1 lingură"
+          },
+          "grams": 20,
+          "suggestedAmounts": [
+            1,
+            2,
+            3,
+            4
+          ]
+        }
+      ],
+      "allergens": {},
+      "preparations": []
+    },
+    {
+      "id": "eggplant-salad",
+      "name": {
+        "en": "Eggplant spread",
+        "ro": "Salată de vinete"
+      },
+      "detail": {
+        "en": "With oil, generic estimate",
+        "ro": "Cu ulei, valoare generică"
+      },
+      "category": "prepared-meals",
+      "sourceId": "usda-fdc-cc0:curated-v2:eggplant-salad",
+      "aliases": [
+        "salata vinete",
+        "vinete coapte"
+      ],
+      "nutritionPer100g": {
+        "calories": 145,
+        "proteinGrams": 1.2,
+        "carbsGrams": 6.5,
+        "fatGrams": 13.0,
+        "fiberGrams": 3.0
+      },
+      "servings": [
+        {
+          "id": "eggplant-salad-tablespoon",
+          "label": {
+            "en": "1 tablespoon",
+            "ro": "1 lingură"
+          },
+          "grams": 20,
+          "suggestedAmounts": [
+            1,
+            2,
+            3,
+            4
+          ]
+        }
+      ],
+      "allergens": {},
+      "preparations": []
+    },
+    {
+      "id": "mashed-beans",
+      "name": {
+        "en": "Mashed bean spread",
+        "ro": "Fasole bătută"
+      },
+      "detail": {
+        "en": "Generic estimate",
+        "ro": "Valoare generică"
+      },
+      "category": "prepared-meals",
+      "sourceId": "usda-fdc-cc0:curated-v2:mashed-beans",
+      "aliases": [
+        "fasole batuta"
+      ],
+      "nutritionPer100g": {
+        "calories": 142,
+        "proteinGrams": 7.0,
+        "carbsGrams": 21.0,
+        "fatGrams": 3.5,
+        "fiberGrams": 6.0
+      },
+      "servings": [],
+      "allergens": {},
+      "preparations": []
+    },
+    {
+      "id": "mici",
+      "name": {
+        "en": "Grilled minced-meat rolls",
+        "ro": "Mici"
+      },
+      "detail": {
+        "en": "Generic estimate",
+        "ro": "Valoare generică"
+      },
+      "category": "prepared-meals",
+      "sourceId": "usda-fdc-cc0:curated-v2:mici",
+      "aliases": [
+        "mititei"
+      ],
+      "nutritionPer100g": {
+        "calories": 280,
+        "proteinGrams": 18.0,
+        "carbsGrams": 2.0,
+        "fatGrams": 22.0,
+        "fiberGrams": 0.0
+      },
+      "servings": [
+        {
+          "id": "mici-piece",
+          "label": {
+            "en": "1 piece",
+            "ro": "1 mic"
+          },
+          "grams": 70,
+          "suggestedAmounts": [
+            1,
+            2,
+            3,
+            4
+          ]
+        }
+      ],
+      "allergens": {},
+      "preparations": []
+    },
+    {
+      "id": "cozonac",
+      "name": {
+        "en": "Cozonac",
+        "ro": "Cozonac"
+      },
+      "detail": {
+        "en": "Sweet bread, generic estimate",
+        "ro": "Pâine dulce, valoare generică"
+      },
+      "category": "prepared-meals",
+      "sourceId": "usda-fdc-cc0:curated-v2:cozonac",
+      "aliases": [],
+      "nutritionPer100g": {
+        "calories": 356,
+        "proteinGrams": 8.0,
+        "carbsGrams": 52.0,
+        "fatGrams": 13.0,
+        "fiberGrams": 2.0
+      },
+      "servings": [
+        {
+          "id": "cozonac-slice",
+          "label": {
+            "en": "1 slice",
+            "ro": "1 felie"
+          },
+          "grams": 60,
+          "suggestedAmounts": [
+            1,
+            2,
+            3
+          ]
+        }
+      ],
+      "allergens": {
+        "GLUTEN": "CONTAINS",
+        "MILK": "CONTAINS",
+        "EGGS": "CONTAINS",
+        "NUTS": "MAY_CONTAIN"
+      },
+      "preparations": []
+    },
+    {
+      "id": "black-coffee",
+      "name": {
+        "en": "Black coffee",
+        "ro": "Cafea neagră"
+      },
+      "detail": {
+        "en": "Brewed, unsweetened",
+        "ro": "Preparată, neîndulcită"
+      },
+      "category": "beverages",
+      "sourceId": "usda-fdc-cc0:curated-v2:black-coffee",
+      "aliases": [
+        "coffee",
+        "cafea"
+      ],
+      "nutritionPer100g": {
+        "calories": 1,
+        "proteinGrams": 0.1,
+        "carbsGrams": 0.0,
+        "fatGrams": 0.0,
+        "fiberGrams": 0.0
+      },
+      "servings": [
+        {
+          "id": "black-coffee-cup",
+          "label": {
+            "en": "1 cup",
+            "ro": "1 cană"
+          },
+          "grams": 240,
+          "suggestedAmounts": [
+            1,
+            2,
+            3
+          ]
+        }
+      ],
+      "allergens": {},
+      "preparations": []
+    },
+    {
+      "id": "tea",
+      "name": {
+        "en": "Tea",
+        "ro": "Ceai"
+      },
+      "detail": {
+        "en": "Brewed, unsweetened",
+        "ro": "Preparat, neîndulcit"
+      },
+      "category": "beverages",
+      "sourceId": "usda-fdc-cc0:curated-v2:tea",
+      "aliases": [],
+      "nutritionPer100g": {
+        "calories": 1,
+        "proteinGrams": 0.0,
+        "carbsGrams": 0.3,
+        "fatGrams": 0.0,
+        "fiberGrams": 0.0
+      },
+      "servings": [
+        {
+          "id": "tea-cup",
+          "label": {
+            "en": "1 cup",
+            "ro": "1 cană"
+          },
+          "grams": 240,
+          "suggestedAmounts": [
+            1,
+            2,
+            3
+          ]
+        }
+      ],
+      "allergens": {},
+      "preparations": []
+    },
+    {
+      "id": "orange-juice",
+      "name": {
+        "en": "Orange juice",
+        "ro": "Suc de portocale"
+      },
+      "detail": {
+        "en": "100% juice",
+        "ro": "Suc 100%"
+      },
+      "category": "beverages",
+      "sourceId": "usda-fdc-cc0:curated-v2:orange-juice",
+      "aliases": [],
+      "nutritionPer100g": {
+        "calories": 45,
+        "proteinGrams": 0.7,
+        "carbsGrams": 10.4,
+        "fatGrams": 0.2,
+        "fiberGrams": 0.2
+      },
+      "servings": [
+        {
+          "id": "orange-juice-glass",
+          "label": {
+            "en": "1 glass",
+            "ro": "1 pahar"
+          },
+          "grams": 250,
+          "suggestedAmounts": [
+            0.5,
+            1,
+            2
+          ]
+        }
+      ],
+      "allergens": {},
+      "preparations": []
+    },
+    {
+      "id": "apple-juice",
+      "name": {
+        "en": "Apple juice",
+        "ro": "Suc de mere"
+      },
+      "detail": {
+        "en": "100% juice",
+        "ro": "Suc 100%"
+      },
+      "category": "beverages",
+      "sourceId": "usda-fdc-cc0:curated-v2:apple-juice",
+      "aliases": [],
+      "nutritionPer100g": {
+        "calories": 46,
+        "proteinGrams": 0.1,
+        "carbsGrams": 11.3,
+        "fatGrams": 0.1,
+        "fiberGrams": 0.2
+      },
+      "servings": [
+        {
+          "id": "apple-juice-glass",
+          "label": {
+            "en": "1 glass",
+            "ro": "1 pahar"
+          },
+          "grams": 250,
+          "suggestedAmounts": [
+            0.5,
+            1,
+            2
+          ]
+        }
+      ],
+      "allergens": {},
+      "preparations": []
+    },
+    {
+      "id": "cola",
+      "name": {
+        "en": "Cola soft drink",
+        "ro": "Băutură tip cola"
+      },
+      "detail": {
+        "en": "Sugar-sweetened, generic",
+        "ro": "Cu zahăr, valoare generică"
+      },
+      "category": "beverages",
+      "sourceId": "usda-fdc-cc0:curated-v2:cola",
+      "aliases": [
+        "soda",
+        "suc acidulat"
+      ],
+      "nutritionPer100g": {
+        "calories": 42,
+        "proteinGrams": 0.0,
+        "carbsGrams": 10.6,
+        "fatGrams": 0.0,
+        "fiberGrams": 0.0
+      },
+      "servings": [
+        {
+          "id": "cola-glass",
+          "label": {
+            "en": "1 glass",
+            "ro": "1 pahar"
+          },
+          "grams": 250,
+          "suggestedAmounts": [
+            1,
+            2
+          ]
+        }
+      ],
+      "allergens": {},
+      "preparations": []
+    },
+    {
+      "id": "beer",
+      "name": {
+        "en": "Beer",
+        "ro": "Bere"
+      },
+      "detail": {
+        "en": "About 5% alcohol",
+        "ro": "Aproximativ 5% alcool"
+      },
+      "category": "beverages",
+      "sourceId": "usda-fdc-cc0:curated-v2:beer",
+      "aliases": [],
+      "nutritionPer100g": {
+        "calories": 43,
+        "proteinGrams": 0.5,
+        "carbsGrams": 3.6,
+        "fatGrams": 0.0,
+        "fiberGrams": 0.0
+      },
+      "servings": [
+        {
+          "id": "beer-bottle",
+          "label": {
+            "en": "1 bottle",
+            "ro": "1 sticlă"
+          },
+          "grams": 330,
+          "suggestedAmounts": [
+            1,
+            2
+          ]
+        }
+      ],
+      "allergens": {},
+      "preparations": []
+    },
+    {
+      "id": "red-wine",
+      "name": {
+        "en": "Red wine",
+        "ro": "Vin roșu"
+      },
+      "detail": {
+        "en": "About 12% alcohol",
+        "ro": "Aproximativ 12% alcool"
+      },
+      "category": "beverages",
+      "sourceId": "usda-fdc-cc0:curated-v2:red-wine",
+      "aliases": [
+        "vin rosu"
+      ],
+      "nutritionPer100g": {
+        "calories": 85,
+        "proteinGrams": 0.1,
+        "carbsGrams": 2.6,
+        "fatGrams": 0.0,
+        "fiberGrams": 0.0
+      },
+      "servings": [
+        {
+          "id": "red-wine-glass",
+          "label": {
+            "en": "1 glass",
+            "ro": "1 pahar"
+          },
+          "grams": 150,
+          "suggestedAmounts": [
+            1,
+            2
+          ]
+        }
+      ],
+      "allergens": {
+        "SULPHITES": "MAY_CONTAIN"
+      },
+      "preparations": []
+    },
+    {
+      "id": "salt",
+      "name": {
+        "en": "Salt",
+        "ro": "Sare"
+      },
+      "detail": {
+        "en": "Table salt",
+        "ro": "Sare de masă"
+      },
+      "category": "pantry",
+      "sourceId": "usda-fdc-cc0:curated-v2:salt",
+      "aliases": [
+        "sea salt",
+        "sare de mare"
+      ],
+      "nutritionPer100g": {
+        "calories": 0,
+        "proteinGrams": 0.0,
+        "carbsGrams": 0.0,
+        "fatGrams": 0.0,
+        "fiberGrams": 0.0
+      },
+      "servings": [
+        {
+          "id": "salt-teaspoon",
+          "label": {
+            "en": "1 teaspoon",
+            "ro": "1 linguriță"
+          },
+          "grams": 6,
+          "suggestedAmounts": [
+            0.25,
+            0.5,
+            1,
+            2
+          ]
+        }
+      ],
+      "allergens": {},
+      "preparations": []
+    },
+    {
+      "id": "baking-powder",
+      "name": {
+        "en": "Baking powder",
+        "ro": "Praf de copt"
+      },
+      "detail": {
+        "en": "Leavening agent",
+        "ro": "Agent de afânare"
+      },
+      "category": "pantry",
+      "sourceId": "usda-fdc-cc0:curated-v2:baking-powder",
+      "aliases": [],
+      "nutritionPer100g": {
+        "calories": 53,
+        "proteinGrams": 0.0,
+        "carbsGrams": 28.1,
+        "fatGrams": 0.0,
+        "fiberGrams": 0.2
+      },
+      "servings": [
+        {
+          "id": "baking-powder-teaspoon",
+          "label": {
+            "en": "1 teaspoon",
+            "ro": "1 linguriță"
+          },
+          "grams": 4,
+          "suggestedAmounts": [
+            0.5,
+            1,
+            2,
+            3
+          ]
+        }
+      ],
+      "allergens": {},
+      "preparations": []
+    },
+    {
+      "id": "baking-soda",
+      "name": {
+        "en": "Baking soda",
+        "ro": "Bicarbonat de sodiu"
+      },
+      "detail": {
+        "en": "Leavening agent",
+        "ro": "Agent de afânare"
+      },
+      "category": "pantry",
+      "sourceId": "usda-fdc-cc0:curated-v2:baking-soda",
+      "aliases": [
+        "sodium bicarbonate",
+        "bicarbonat"
+      ],
+      "nutritionPer100g": {
+        "calories": 0,
+        "proteinGrams": 0.0,
+        "carbsGrams": 0.0,
+        "fatGrams": 0.0,
+        "fiberGrams": 0.0
+      },
+      "servings": [
+        {
+          "id": "baking-soda-teaspoon",
+          "label": {
+            "en": "1 teaspoon",
+            "ro": "1 linguriță"
+          },
+          "grams": 5,
+          "suggestedAmounts": [
+            0.25,
+            0.5,
+            1,
+            2
+          ]
+        }
+      ],
+      "allergens": {},
+      "preparations": []
+    },
+    {
+      "id": "dry-yeast",
+      "name": {
+        "en": "Dry yeast",
+        "ro": "Drojdie uscată"
+      },
+      "detail": {
+        "en": "Active dry",
+        "ro": "Activă, uscată"
+      },
+      "category": "pantry",
+      "sourceId": "usda-fdc-cc0:curated-v2:dry-yeast",
+      "aliases": [
+        "yeast",
+        "drojdie"
+      ],
+      "nutritionPer100g": {
+        "calories": 325,
+        "proteinGrams": 40.4,
+        "carbsGrams": 41.2,
+        "fatGrams": 7.6,
+        "fiberGrams": 26.9
+      },
+      "servings": [
+        {
+          "id": "dry-yeast-teaspoon",
+          "label": {
+            "en": "1 teaspoon",
+            "ro": "1 linguriță"
+          },
+          "grams": 3,
+          "suggestedAmounts": [
+            1,
+            2,
+            3
+          ]
+        }
+      ],
+      "allergens": {},
+      "preparations": []
+    },
+    {
+      "id": "cornstarch",
+      "name": {
+        "en": "Cornstarch",
+        "ro": "Amidon de porumb"
+      },
+      "detail": {
+        "en": "Dry",
+        "ro": "Uscat"
+      },
+      "category": "pantry",
+      "sourceId": "usda-fdc-cc0:curated-v2:cornstarch",
+      "aliases": [
+        "corn flour",
+        "amidon"
+      ],
+      "nutritionPer100g": {
+        "calories": 381,
+        "proteinGrams": 0.3,
+        "carbsGrams": 91.3,
+        "fatGrams": 0.1,
+        "fiberGrams": 0.9
+      },
+      "servings": [
+        {
+          "id": "cornstarch-tablespoon",
+          "label": {
+            "en": "1 tablespoon",
+            "ro": "1 lingură"
+          },
+          "grams": 8,
+          "suggestedAmounts": [
+            1,
+            2,
+            3,
+            4
+          ]
+        }
+      ],
+      "allergens": {},
+      "preparations": []
+    },
+    {
+      "id": "breadcrumbs",
+      "name": {
+        "en": "Breadcrumbs",
+        "ro": "Pesmet"
+      },
+      "detail": {
+        "en": "Dry, plain",
+        "ro": "Uscat, simplu"
+      },
+      "category": "pantry",
+      "sourceId": "usda-fdc-cc0:curated-v2:breadcrumbs",
+      "aliases": [
+        "bread crumbs"
+      ],
+      "nutritionPer100g": {
+        "calories": 395,
+        "proteinGrams": 13.4,
+        "carbsGrams": 71.9,
+        "fatGrams": 5.3,
+        "fiberGrams": 4.5
+      },
+      "servings": [
+        {
+          "id": "breadcrumbs-tablespoon",
+          "label": {
+            "en": "1 tablespoon",
+            "ro": "1 lingură"
+          },
+          "grams": 7,
+          "suggestedAmounts": [
+            1,
+            2,
+            3,
+            4
+          ]
+        }
+      ],
+      "allergens": {
+        "GLUTEN": "CONTAINS"
+      },
+      "preparations": []
+    },
+    {
+      "id": "rice-flour",
+      "name": {
+        "en": "Rice flour",
+        "ro": "Făină de orez"
+      },
+      "detail": {
+        "en": "White rice, dry",
+        "ro": "Din orez alb, uscată"
+      },
+      "category": "grains",
+      "sourceId": "usda-fdc-cc0:curated-v2:rice-flour",
+      "aliases": [
+        "faina orez"
+      ],
+      "nutritionPer100g": {
+        "calories": 366,
+        "proteinGrams": 5.9,
+        "carbsGrams": 80.1,
+        "fatGrams": 1.4,
+        "fiberGrams": 2.4
+      },
+      "servings": [],
+      "allergens": {},
+      "preparations": []
+    },
+    {
+      "id": "almond-flour",
+      "name": {
+        "en": "Almond flour",
+        "ro": "Făină de migdale"
+      },
+      "detail": {
+        "en": "Ground almonds",
+        "ro": "Migdale măcinate"
+      },
+      "category": "nuts-seeds",
+      "sourceId": "usda-fdc-cc0:curated-v2:almond-flour",
+      "aliases": [
+        "almond meal",
+        "faina migdale"
+      ],
+      "nutritionPer100g": {
+        "calories": 571,
+        "proteinGrams": 21.4,
+        "carbsGrams": 21.4,
+        "fatGrams": 50.0,
+        "fiberGrams": 10.7
+      },
+      "servings": [],
+      "allergens": {
+        "NUTS": "CONTAINS"
+      },
+      "preparations": []
+    },
+    {
+      "id": "coconut-flour",
+      "name": {
+        "en": "Coconut flour",
+        "ro": "Făină de cocos"
+      },
+      "detail": {
+        "en": "Defatted, generic",
+        "ro": "Degresată, valoare generică"
+      },
+      "category": "grains",
+      "sourceId": "usda-fdc-cc0:curated-v2:coconut-flour",
+      "aliases": [
+        "faina cocos"
+      ],
+      "nutritionPer100g": {
+        "calories": 400,
+        "proteinGrams": 20.0,
+        "carbsGrams": 60.0,
+        "fatGrams": 13.3,
+        "fiberGrams": 33.3
+      },
+      "servings": [],
+      "allergens": {},
+      "preparations": []
+    },
+    {
+      "id": "vanilla-extract",
+      "name": {
+        "en": "Vanilla extract",
+        "ro": "Extract de vanilie"
+      },
+      "detail": {
+        "en": "Pure, generic",
+        "ro": "Pur, valoare generică"
+      },
+      "category": "pantry",
+      "sourceId": "usda-fdc-cc0:curated-v2:vanilla-extract",
+      "aliases": [
+        "vanilla essence",
+        "esenta vanilie"
+      ],
+      "nutritionPer100g": {
+        "calories": 288,
+        "proteinGrams": 0.1,
+        "carbsGrams": 12.7,
+        "fatGrams": 0.1,
+        "fiberGrams": 0.0
+      },
+      "servings": [
+        {
+          "id": "vanilla-extract-teaspoon",
+          "label": {
+            "en": "1 teaspoon",
+            "ro": "1 linguriță"
+          },
+          "grams": 4,
+          "suggestedAmounts": [
+            0.5,
+            1,
+            2,
+            3
+          ]
+        }
+      ],
+      "allergens": {},
+      "preparations": []
+    },
+    {
+      "id": "cinnamon",
+      "name": {
+        "en": "Ground cinnamon",
+        "ro": "Scorțișoară măcinată"
+      },
+      "detail": {
+        "en": "Dried spice",
+        "ro": "Condiment uscat"
+      },
+      "category": "pantry",
+      "sourceId": "usda-fdc-cc0:curated-v2:cinnamon",
+      "aliases": [
+        "scortisoara"
+      ],
+      "nutritionPer100g": {
+        "calories": 247,
+        "proteinGrams": 4.0,
+        "carbsGrams": 80.6,
+        "fatGrams": 1.2,
+        "fiberGrams": 53.1
+      },
+      "servings": [
+        {
+          "id": "cinnamon-teaspoon",
+          "label": {
+            "en": "1 teaspoon",
+            "ro": "1 linguriță"
+          },
+          "grams": 3,
+          "suggestedAmounts": [
+            0.5,
+            1,
+            2
+          ]
+        }
+      ],
+      "allergens": {},
+      "preparations": []
+    },
+    {
+      "id": "paprika",
+      "name": {
+        "en": "Paprika",
+        "ro": "Boia"
+      },
+      "detail": {
+        "en": "Ground spice",
+        "ro": "Condiment măcinat"
+      },
+      "category": "pantry",
+      "sourceId": "usda-fdc-cc0:curated-v2:paprika",
+      "aliases": [
+        "boia dulce"
+      ],
+      "nutritionPer100g": {
+        "calories": 282,
+        "proteinGrams": 14.1,
+        "carbsGrams": 54.0,
+        "fatGrams": 13.0,
+        "fiberGrams": 34.9
+      },
+      "servings": [
+        {
+          "id": "paprika-teaspoon",
+          "label": {
+            "en": "1 teaspoon",
+            "ro": "1 linguriță"
+          },
+          "grams": 2,
+          "suggestedAmounts": [
+            0.5,
+            1,
+            2,
+            3
+          ]
+        }
+      ],
+      "allergens": {},
+      "preparations": []
+    },
+    {
+      "id": "black-pepper",
+      "name": {
+        "en": "Black pepper",
+        "ro": "Piper negru"
+      },
+      "detail": {
+        "en": "Ground",
+        "ro": "Măcinat"
+      },
+      "category": "pantry",
+      "sourceId": "usda-fdc-cc0:curated-v2:black-pepper",
+      "aliases": [
+        "pepper",
+        "piper"
+      ],
+      "nutritionPer100g": {
+        "calories": 251,
+        "proteinGrams": 10.4,
+        "carbsGrams": 64.0,
+        "fatGrams": 3.3,
+        "fiberGrams": 25.3
+      },
+      "servings": [
+        {
+          "id": "black-pepper-teaspoon",
+          "label": {
+            "en": "1 teaspoon",
+            "ro": "1 linguriță"
+          },
+          "grams": 2,
+          "suggestedAmounts": [
+            0.25,
+            0.5,
+            1,
+            2
+          ]
+        }
+      ],
+      "allergens": {},
+      "preparations": []
+    },
+    {
+      "id": "oregano",
+      "name": {
+        "en": "Dried oregano",
+        "ro": "Oregano uscat"
+      },
+      "detail": {
+        "en": "Dried herb",
+        "ro": "Plantă aromatică uscată"
+      },
+      "category": "pantry",
+      "sourceId": "usda-fdc-cc0:curated-v2:oregano",
+      "aliases": [],
+      "nutritionPer100g": {
+        "calories": 265,
+        "proteinGrams": 9.0,
+        "carbsGrams": 68.9,
+        "fatGrams": 4.3,
+        "fiberGrams": 42.5
+      },
+      "servings": [
+        {
+          "id": "oregano-teaspoon",
+          "label": {
+            "en": "1 teaspoon",
+            "ro": "1 linguriță"
+          },
+          "grams": 1,
+          "suggestedAmounts": [
+            1,
+            2,
+            3
+          ]
+        }
+      ],
+      "allergens": {},
+      "preparations": []
+    },
+    {
+      "id": "basil",
+      "name": {
+        "en": "Fresh basil",
+        "ro": "Busuioc proaspăt"
+      },
+      "detail": {
+        "en": "Fresh herb",
+        "ro": "Plantă aromatică proaspătă"
+      },
+      "category": "vegetables",
+      "sourceId": "usda-fdc-cc0:curated-v2:basil",
+      "aliases": [
+        "busuioc"
+      ],
+      "nutritionPer100g": {
+        "calories": 23,
+        "proteinGrams": 3.2,
+        "carbsGrams": 2.7,
+        "fatGrams": 0.6,
+        "fiberGrams": 1.6
+      },
+      "servings": [],
+      "allergens": {},
+      "preparations": []
+    },
+    {
+      "id": "parsley",
+      "name": {
+        "en": "Fresh parsley",
+        "ro": "Pătrunjel proaspăt"
+      },
+      "detail": {
+        "en": "Fresh herb",
+        "ro": "Plantă aromatică proaspătă"
+      },
+      "category": "vegetables",
+      "sourceId": "usda-fdc-cc0:curated-v2:parsley",
+      "aliases": [
+        "patrunjel"
+      ],
+      "nutritionPer100g": {
+        "calories": 36,
+        "proteinGrams": 3.0,
+        "carbsGrams": 6.3,
+        "fatGrams": 0.8,
+        "fiberGrams": 3.3
+      },
+      "servings": [],
+      "allergens": {},
+      "preparations": []
+    },
+    {
+      "id": "dill",
+      "name": {
+        "en": "Fresh dill",
+        "ro": "Mărar proaspăt"
+      },
+      "detail": {
+        "en": "Fresh herb",
+        "ro": "Plantă aromatică proaspătă"
+      },
+      "category": "vegetables",
+      "sourceId": "usda-fdc-cc0:curated-v2:dill",
+      "aliases": [
+        "marar"
+      ],
+      "nutritionPer100g": {
+        "calories": 43,
+        "proteinGrams": 3.5,
+        "carbsGrams": 7.0,
+        "fatGrams": 1.1,
+        "fiberGrams": 2.1
+      },
+      "servings": [],
+      "allergens": {},
+      "preparations": []
+    },
+    {
+      "id": "tomato-paste",
+      "name": {
+        "en": "Tomato paste",
+        "ro": "Pastă de tomate"
+      },
+      "detail": {
+        "en": "Concentrated, generic",
+        "ro": "Concentrată, valoare generică"
+      },
+      "category": "pantry",
+      "sourceId": "usda-fdc-cc0:curated-v2:tomato-paste",
+      "aliases": [
+        "tomato puree",
+        "pasta tomate"
+      ],
+      "nutritionPer100g": {
+        "calories": 82,
+        "proteinGrams": 4.3,
+        "carbsGrams": 18.9,
+        "fatGrams": 0.5,
+        "fiberGrams": 4.1
+      },
+      "servings": [
+        {
+          "id": "tomato-paste-tablespoon",
+          "label": {
+            "en": "1 tablespoon",
+            "ro": "1 lingură"
+          },
+          "grams": 16,
+          "suggestedAmounts": [
+            1,
+            2,
+            3,
+            4
+          ]
+        }
+      ],
+      "allergens": {},
+      "preparations": []
+    },
+    {
+      "id": "canned-tomatoes",
+      "name": {
+        "en": "Canned tomatoes",
+        "ro": "Roșii la conservă"
+      },
+      "detail": {
+        "en": "With juice, generic",
+        "ro": "În suc, valoare generică"
+      },
+      "category": "pantry",
+      "sourceId": "usda-fdc-cc0:curated-v2:canned-tomatoes",
+      "aliases": [
+        "chopped tomatoes",
+        "rosii conserva"
+      ],
+      "nutritionPer100g": {
+        "calories": 24,
+        "proteinGrams": 1.2,
+        "carbsGrams": 5.3,
+        "fatGrams": 0.2,
+        "fiberGrams": 1.5
+      },
+      "servings": [],
+      "allergens": {},
+      "preparations": []
+    },
+    {
+      "id": "coconut-milk",
+      "name": {
+        "en": "Coconut milk",
+        "ro": "Lapte de cocos"
+      },
+      "detail": {
+        "en": "Canned, full fat",
+        "ro": "Conservat, gras"
+      },
+      "category": "pantry",
+      "sourceId": "usda-fdc-cc0:curated-v2:coconut-milk",
+      "aliases": [],
+      "nutritionPer100g": {
+        "calories": 230,
+        "proteinGrams": 2.3,
+        "carbsGrams": 5.5,
+        "fatGrams": 23.8,
+        "fiberGrams": 2.2
+      },
+      "servings": [
+        {
+          "id": "coconut-milk-tablespoon",
+          "label": {
+            "en": "1 tablespoon",
+            "ro": "1 lingură"
+          },
+          "grams": 15,
+          "suggestedAmounts": [
+            1,
+            2,
+            3,
+            4
+          ]
+        }
+      ],
+      "allergens": {},
+      "preparations": []
+    },
+    {
+      "id": "apple-cider-vinegar",
+      "name": {
+        "en": "Apple cider vinegar",
+        "ro": "Oțet de mere"
+      },
+      "detail": {
+        "en": "Generic",
+        "ro": "Valoare generică"
+      },
+      "category": "pantry",
+      "sourceId": "usda-fdc-cc0:curated-v2:apple-cider-vinegar",
+      "aliases": [
+        "otet mere"
+      ],
+      "nutritionPer100g": {
+        "calories": 21,
+        "proteinGrams": 0.0,
+        "carbsGrams": 0.9,
+        "fatGrams": 0.0,
+        "fiberGrams": 0.0
+      },
+      "servings": [
+        {
+          "id": "apple-cider-vinegar-tablespoon",
+          "label": {
+            "en": "1 tablespoon",
+            "ro": "1 lingură"
+          },
+          "grams": 15,
+          "suggestedAmounts": [
+            1,
+            2,
+            3
+          ]
+        }
+      ],
+      "allergens": {},
+      "preparations": []
+    },
+    {
+      "id": "balsamic-vinegar",
+      "name": {
+        "en": "Balsamic vinegar",
+        "ro": "Oțet balsamic"
+      },
+      "detail": {
+        "en": "Generic",
+        "ro": "Valoare generică"
+      },
+      "category": "pantry",
+      "sourceId": "usda-fdc-cc0:curated-v2:balsamic-vinegar",
+      "aliases": [
+        "otet balsamic"
+      ],
+      "nutritionPer100g": {
+        "calories": 88,
+        "proteinGrams": 0.5,
+        "carbsGrams": 17.0,
+        "fatGrams": 0.0,
+        "fiberGrams": 0.0
+      },
+      "servings": [
+        {
+          "id": "balsamic-vinegar-tablespoon",
+          "label": {
+            "en": "1 tablespoon",
+            "ro": "1 lingură"
+          },
+          "grams": 16,
+          "suggestedAmounts": [
+            1,
+            2,
+            3
+          ]
+        }
+      ],
+      "allergens": {
+        "SULPHITES": "MAY_CONTAIN"
+      },
+      "preparations": []
+    },
+    {
+      "id": "stock-cube",
+      "name": {
+        "en": "Stock cube",
+        "ro": "Cub de supă"
+      },
+      "detail": {
+        "en": "Prepared seasoning, generic",
+        "ro": "Condiment preparat, valoare generică"
+      },
+      "category": "pantry",
+      "sourceId": "usda-fdc-cc0:curated-v2:stock-cube",
+      "aliases": [
+        "bouillon cube",
+        "cub concentrat"
+      ],
+      "nutritionPer100g": {
+        "calories": 198,
+        "proteinGrams": 14.6,
+        "carbsGrams": 23.5,
+        "fatGrams": 4.7,
+        "fiberGrams": 0.0
+      },
+      "servings": [
+        {
+          "id": "stock-cube-cube",
+          "label": {
+            "en": "1 cube",
+            "ro": "1 cub"
+          },
+          "grams": 10,
+          "suggestedAmounts": [
+            0.5,
+            1,
+            2
+          ]
+        }
+      ],
+      "allergens": {
+        "CELERY": "MAY_CONTAIN"
+      },
+      "preparations": []
+    },
+    {
+      "id": "green-olives",
+      "name": {
+        "en": "Green olives",
+        "ro": "Măsline verzi"
+      },
+      "detail": {
+        "en": "Brined, drained",
+        "ro": "În saramură, scurse"
+      },
+      "category": "pantry",
+      "sourceId": "usda-fdc-cc0:curated-v2:green-olives",
+      "aliases": [
+        "olives",
+        "masline verzi"
+      ],
+      "nutritionPer100g": {
+        "calories": 145,
+        "proteinGrams": 1.0,
+        "carbsGrams": 3.8,
+        "fatGrams": 15.3,
+        "fiberGrams": 3.3
+      },
+      "servings": [
+        {
+          "id": "green-olives-olive",
+          "label": {
+            "en": "1 olive",
+            "ro": "1 măslină"
+          },
+          "grams": 4,
+          "suggestedAmounts": [
+            1,
+            2,
+            3,
+            4
+          ]
+        }
+      ],
+      "allergens": {},
+      "preparations": []
+    },
+    {
+      "id": "black-olives",
+      "name": {
+        "en": "Black olives",
+        "ro": "Măsline negre"
+      },
+      "detail": {
+        "en": "Ripe, canned, drained",
+        "ro": "Coapte, conservate, scurse"
+      },
+      "category": "pantry",
+      "sourceId": "usda-fdc-cc0:curated-v2:black-olives",
+      "aliases": [
+        "masline negre"
+      ],
+      "nutritionPer100g": {
+        "calories": 116,
+        "proteinGrams": 0.8,
+        "carbsGrams": 6.0,
+        "fatGrams": 10.9,
+        "fiberGrams": 1.6
+      },
+      "servings": [
+        {
+          "id": "black-olives-olive",
+          "label": {
+            "en": "1 olive",
+            "ro": "1 măslină"
+          },
+          "grams": 4,
+          "suggestedAmounts": [
+            1,
+            2,
+            3,
+            4
+          ]
+        }
+      ],
+      "allergens": {},
+      "preparations": []
+    },
+    {
+      "id": "capers",
+      "name": {
+        "en": "Capers",
+        "ro": "Capere"
+      },
+      "detail": {
+        "en": "Canned, drained",
+        "ro": "Conservate, scurse"
+      },
+      "category": "pantry",
+      "sourceId": "usda-fdc-cc0:curated-v2:capers",
+      "aliases": [],
+      "nutritionPer100g": {
+        "calories": 23,
+        "proteinGrams": 2.4,
+        "carbsGrams": 4.9,
+        "fatGrams": 0.9,
+        "fiberGrams": 3.2
+      },
+      "servings": [
+        {
+          "id": "capers-tablespoon",
+          "label": {
+            "en": "1 tablespoon",
+            "ro": "1 lingură"
+          },
+          "grams": 9,
+          "suggestedAmounts": [
+            1,
+            2,
+            3
+          ]
+        }
+      ],
+      "allergens": {},
+      "preparations": []
+    },
+    {
+      "id": "gelatin",
+      "name": {
+        "en": "Gelatin powder",
+        "ro": "Gelatină pudră"
+      },
+      "detail": {
+        "en": "Unflavoured, dry",
+        "ro": "Fără aromă, uscată"
+      },
+      "category": "pantry",
+      "sourceId": "usda-fdc-cc0:curated-v2:gelatin",
+      "aliases": [
+        "gelatine",
+        "gelatina"
+      ],
+      "nutritionPer100g": {
+        "calories": 335,
+        "proteinGrams": 85.6,
+        "carbsGrams": 0.0,
+        "fatGrams": 0.1,
+        "fiberGrams": 0.0
+      },
+      "servings": [
+        {
+          "id": "gelatin-teaspoon",
+          "label": {
+            "en": "1 teaspoon",
+            "ro": "1 linguriță"
+          },
+          "grams": 3,
+          "suggestedAmounts": [
+            1,
+            2,
+            3
+          ]
+        }
+      ],
+      "allergens": {},
       "preparations": []
     }
   ]

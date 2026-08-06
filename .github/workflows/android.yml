@@ -28,5 +28,5 @@ jobs:
 
       - uses: gradle/actions/setup-gradle@v6
 
-      - name: Test and build debug APK
-        run: ./gradlew test assembleDebug
+      - name: Test, lint, and build field-test artifacts
+        run: ./gradlew test lintDebug assembleDebug assembleDebugAndroidTest assembleRelease

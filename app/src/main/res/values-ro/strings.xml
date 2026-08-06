@@ -2,6 +2,7 @@
 <resources>
     <string name="app_name">Calorii Rapid</string>
     <string name="today">Astăzi</string>
+    <string name="open_day_browser">Deschide calendarul jurnalului</string>
     <string name="daily_summary">Rezumat zilnic</string>
     <string name="remaining">rămase</string>
     <string name="kcal">kcal</string>
@@ -33,10 +34,32 @@
     <string name="open_food_facts_review_notice">Date comunitare din Open Food Facts. Verifică eticheta înainte de salvarea pe acest dispozitiv.</string>
     <string name="quick_add">Adăugare rapidă</string>
     <string name="recommended_foods">Recomandate</string>
+    <string name="food_catalogue">Catalog de alimente</string>
+    <string name="all_foods">Toate</string>
+    <string name="personal_foods">Personale</string>
+    <string name="recipes">Rețete</string>
+    <string name="category_fruit">Fructe</string>
+    <string name="category_vegetables">Legume și zarzavaturi</string>
+    <string name="category_grains">Cereale</string>
+    <string name="category_bakery">Panificație</string>
+    <string name="category_meat">Carne</string>
+    <string name="category_fish">Pește și fructe de mare</string>
+    <string name="category_eggs">Ouă</string>
+    <string name="category_legumes">Leguminoase</string>
+    <string name="category_plant_protein">Proteine vegetale</string>
+    <string name="category_dairy">Lactate</string>
+    <string name="category_fats">Grăsimi și uleiuri</string>
+    <string name="category_pantry">Cămară</string>
+    <string name="category_nuts_seeds">Nuci și semințe</string>
+    <string name="category_prepared_meals">Mâncăruri preparate</string>
+    <string name="category_beverages">Băuturi</string>
+    <string name="category_other">Altele</string>
     <string name="no_recommended_foods">Alimentele înregistrate anterior vor apărea aici. Caută în catalog pentru a-l adăuga pe primul.</string>
     <string name="today_entries">Înregistrările de astăzi</string>
+    <string name="selected_day_entries">Înregistrările acestei zile</string>
     <string name="no_entries">Nimic înregistrat. Adaugă un aliment frecvent dintr-o atingere.</string>
     <string name="no_results">Niciun aliment salvat nu corespunde căutării.</string>
+    <string name="search_expanded_all_categories">Nicio potrivire în categoria selectată · se afișează rezultatele din tot catalogul</string>
     <string name="per_100g">per 100 g</string>
     <string name="grams_short">g</string>
     <plurals name="add_food">
@@ -92,6 +115,13 @@
     <string name="nutrient_partial_entries">Total parțial: unele înregistrări au fost salvate fără acest nutrient.</string>
     <string name="fiber_g">Fibre (g)</string>
     <string name="add_personal_food">Adaugă aliment personal</string>
+    <string name="create_personal_variant">Creează variantă personală</string>
+    <string name="personal_variant_name">%1$s — varianta mea</string>
+    <string name="customize_food">Personalizează %1$s</string>
+    <string name="customize_food_action">Personalizează alimentul sau construiește o rețetă</string>
+    <string name="customize_food_explanation">Editează o copie personală a alimentului sau folosește-l ca prim ingredient într-o rețetă și adaugă lapte, zahăr, ulei ori orice altceva.</string>
+    <string name="create_recipe_from_food">Construiește rețetă</string>
+    <string name="food_recipe_name">%1$s mea</string>
     <string name="add_missing_personal_food">Nu îl găsești? Adaugă „%1$s” ca aliment personal</string>
     <string name="add_missing_barcode_food">Nu s-a găsit produsul pentru %1$s. Adaugă-l manual</string>
     <string name="edit_personal_food">Editează alimentul personal</string>
@@ -218,6 +248,11 @@
         <item quantity="few">Folosit în %1$d preparate gătite</item>
         <item quantity="other">Folosit în %1$d de preparate gătite</item>
     </plurals>
+    <plurals name="logged_as_food">
+        <item quantity="one">Înregistrat o dată ca aliment</item>
+        <item quantity="few">Înregistrat de %1$d ori ca aliment</item>
+        <item quantity="other">Înregistrat de %1$d ori ca aliment</item>
+    </plurals>
     <string name="body_progress">Progres corporal</string>
     <string name="body_progress_subtitle">Urmărește greutatea și estimările opționale ale compoziției corporale.</string>
     <string name="progress_for_name">Progres pentru %1$s</string>
@@ -327,11 +362,19 @@
     <string name="food_photo_private_hint">Este păstrată numai pe acest dispozitiv, dacă nu incluzi explicit alimentul într-un export pentru verificare.</string>
     <string name="include_in_review_export">Include în exportul pentru verificare</string>
     <string name="review_export_opt_in_hint">Activează numai dacă dorești să distribui datele nutriționale, unitățile, ingredientele și fotografia atașată pentru verificarea catalogului.</string>
-    <string name="personal_catalogue_export">Exportul catalogului personal</string>
-    <string name="personal_catalogue_export_explanation">Creează o arhivă ZIP versionată doar cu alimentele și rețetele pe care le-ai inclus pentru verificare. Poate fi distribuită manual până când va exista un catalog găzduit.</string>
-    <string name="export_review_items">Exportă elementele selectate</string>
+    <string name="personal_catalogue_export">Export pentru verificare și feedback</string>
+    <string name="personal_catalogue_export_explanation">Creează o singură arhivă ZIP cu dosare separate pentru catalog și suport. Include doar alimentele/rețetele acceptate, scanările marcate explicit și feedbackul opțional de mai jos.</string>
+    <string name="export_review_items">Exportă pachetul pentru verificare</string>
     <string name="exporting_review_items">Se exportă…</string>
     <string name="catalogue_export_success">Au fost exportate %1$d înregistrări și %2$d imagini.</string>
     <string name="catalogue_export_empty">Exportul a fost creat, dar niciun element nu a fost selectat. Activează „Include în exportul pentru verificare” când editezi un aliment sau o rețetă.</string>
     <string name="catalogue_export_error">Exportul nu a putut fi creat. Alege altă locație și încearcă din nou.</string>
+    <string name="review_bundle_export_success">Au fost exportate %1$d înregistrări de catalog, %2$d imagini de catalog și %3$d scanări marcate.</string>
+    <string name="feedback_optional">Feedback (opțional)</string>
+    <string name="saved_scan_diagnostics">%1$d imagini scanate marcate sunt salvate pe acest dispozitiv</string>
+    <string name="delete_saved_diagnostics">Șterge scanările marcate</string>
+    <string name="delete_saved_diagnostics_confirm">Ștergi definitiv toate imaginile scanate marcate acum pentru verificare?</string>
+    <string name="delete">Șterge</string>
+    <string name="flag_failed_scan">Marchează imaginea pentru export</string>
+    <string name="scan_saved_for_support">Imagine marcată. Va fi inclusă în următorul export pentru verificare.</string>
 </resources>

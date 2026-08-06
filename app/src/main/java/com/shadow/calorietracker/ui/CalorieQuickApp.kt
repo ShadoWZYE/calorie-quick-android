@@ -21,8 +21,10 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
@@ -36,6 +38,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Search
@@ -166,13 +169,16 @@ fun CalorieQuickApp(viewModel: CalorieViewModel = viewModel()) {
     val nutritionLabelScanState by viewModel.nutritionLabelScanState.collectAsStateWithLifecycle()
     val bodyScaleScanState by viewModel.bodyScaleScanState.collectAsStateWithLifecycle()
     val catalogueExportState by viewModel.catalogueExportState.collectAsStateWithLifecycle()
+    val supportExportState by viewModel.supportExportState.collectAsStateWithLifecycle()
     val profile = state.profile
     var screenName by rememberSaveable { mutableStateOf(AppScreen.TODAY.name) }
     var editingFood by remember { mutableStateOf<Food?>(null) }
+    var creatingFoodVariant by rememberSaveable { mutableStateOf(false) }
     var newFoodName by rememberSaveable { mutableStateOf("") }
     var newFoodBarcode by rememberSaveable { mutableStateOf("") }
     var nutritionLabelPrefill by remember { mutableStateOf<NutritionLabelPrefill?>(null) }
     var editingRecipe by remember { mutableStateOf<RecipeTemplate?>(null) }
+    var recipeSeedFood by remember { mutableStateOf<Food?>(null) }
 
     LaunchedEffect(nutritionLabelScanState.status, nutritionLabelScanState.prefill) {
         if (nutritionLabelScanState.status == NutritionLabelScanStatus.SUCCESS) {
@@ -183,7 +189,6 @@ fun CalorieQuickApp(viewModel: CalorieViewModel = viewModel()) {
                 newFoodBarcode = prefill.barcode.orEmpty()
                 screenName = AppScreen.FOOD_EDITOR.name
             }
-            viewModel.clearNutritionLabelScan()
         }
     }
 
@@ -193,12 +198,14 @@ fun CalorieQuickApp(viewModel: CalorieViewModel = viewModel()) {
         screenName == AppScreen.SETTINGS.name -> SettingsScreen(
             profile = profile,
             exportState = catalogueExportState,
+            supportExportState = supportExportState,
             onBack = { screenName = AppScreen.TODAY.name },
             onSave = {
                 viewModel.saveProfile(it)
                 screenName = AppScreen.TODAY.name
             },
             onExport = viewModel::exportReviewCatalogue,
+            onClearSavedDiagnostics = viewModel::clearSavedDiagnostics,
         )
         screenName == AppScreen.HISTORY.name -> HistoryScreen(
             state = state,
@@ -215,25 +222,36 @@ fun CalorieQuickApp(viewModel: CalorieViewModel = viewModel()) {
             onDelete = viewModel::deleteBodyMeasurement,
             onScan = viewModel::scanBodyScaleReport,
             onClearScan = viewModel::clearBodyScaleScan,
+            onFlagFailedScan = viewModel::flagBodyScaleScanForSupport,
             onSaveProfile = viewModel::saveProfile,
         )
         screenName == AppScreen.FOOD_EDITOR.name -> PersonalFoodEditorScreen(
             initial = editingFood,
+            isTemplateCopy = creatingFoodVariant,
             initialName = newFoodName,
             initialBarcode = newFoodBarcode,
             nutritionLabelPrefill = nutritionLabelPrefill,
+            nutritionLabelScanState = nutritionLabelScanState,
             existingFoods = state.foods,
-            onBack = { screenName = AppScreen.TODAY.name },
+            onBack = {
+                viewModel.clearNutritionLabelScan()
+                screenName = AppScreen.TODAY.name
+            },
             onSave = {
                 viewModel.savePersonalFood(it)
+                viewModel.clearNutritionLabelScan()
                 screenName = AppScreen.TODAY.name
             },
             onArchive = { foodId ->
                 viewModel.archivePersonalFood(foodId)
+                viewModel.clearNutritionLabelScan()
                 screenName = AppScreen.TODAY.name
             },
+            onFlagScan = viewModel::flagNutritionLabelScanForSupport,
             onOpenExistingFood = {
+                viewModel.clearNutritionLabelScan()
                 editingFood = it
+                creatingFoodVariant = false
                 nutritionLabelPrefill = null
                 newFoodName = ""
                 newFoodBarcode = ""
@@ -241,6 +259,7 @@ fun CalorieQuickApp(viewModel: CalorieViewModel = viewModel()) {
         )
         screenName == AppScreen.RECIPE_EDITOR.name -> RecipeEditorScreen(
             initial = editingRecipe,
+            seedFood = recipeSeedFood,
             foods = state.foods,
             ingredientUsage = state.ingredientUsage,
             onBack = { screenName = AppScreen.TODAY.name },
@@ -258,13 +277,14 @@ fun CalorieQuickApp(viewModel: CalorieViewModel = viewModel()) {
             onOpenSettings = { screenName = AppScreen.SETTINGS.name },
             onOpenHistory = { screenName = AppScreen.HISTORY.name },
             onOpenProgress = { screenName = AppScreen.PROGRESS.name },
-            onAdd = { food, amount, serving, batchId ->
-                viewModel.addEntry(food, amount, serving, batchId)
+            onAdd = { food, amount, serving, batchId, consumedAt ->
+                viewModel.addEntry(food, amount, serving, batchId, consumedAt)
             },
             onDelete = viewModel::deleteEntry,
             onUpdate = viewModel::updateEntry,
             onCreateFood = {
                 editingFood = null
+                creatingFoodVariant = false
                 nutritionLabelPrefill = null
                 newFoodName = it.first
                 newFoodBarcode = it.second.orEmpty()
@@ -274,17 +294,33 @@ fun CalorieQuickApp(viewModel: CalorieViewModel = viewModel()) {
                 if (it.provenance.type == FoodSourceType.RECIPE) {
                     state.recipes[it.id]?.let { recipe ->
                         editingRecipe = recipe
+                        recipeSeedFood = null
                         screenName = AppScreen.RECIPE_EDITOR.name
                     }
                 } else {
                     editingFood = it
+                    creatingFoodVariant = false
                     nutritionLabelPrefill = null
                     newFoodBarcode = ""
                     screenName = AppScreen.FOOD_EDITOR.name
                 }
             },
+            onCreateVariant = {
+                editingFood = it
+                creatingFoodVariant = true
+                nutritionLabelPrefill = null
+                newFoodName = ""
+                newFoodBarcode = ""
+                screenName = AppScreen.FOOD_EDITOR.name
+            },
             onCreateRecipe = {
                 editingRecipe = null
+                recipeSeedFood = null
+                screenName = AppScreen.RECIPE_EDITOR.name
+            },
+            onCreateRecipeFromFood = {
+                editingRecipe = null
+                recipeSeedFood = it
                 screenName = AppScreen.RECIPE_EDITOR.name
             },
             lookupState = lookupState,
@@ -294,6 +330,7 @@ fun CalorieQuickApp(viewModel: CalorieViewModel = viewModel()) {
             onClearLookup = viewModel::clearFoodLookup,
             onScanNutritionLabel = viewModel::scanNutritionLabel,
             onClearNutritionLabelScan = viewModel::clearNutritionLabelScan,
+            onFlagFailedNutritionScan = viewModel::flagNutritionLabelScanForSupport,
             onImportFood = {
                 editingFood = it
                 nutritionLabelPrefill = null
@@ -330,13 +367,16 @@ private fun OnboardingScreen(onSave: (UserProfile) -> Unit) {
 private fun SettingsScreen(
     profile: UserProfile,
     exportState: CatalogueExportState,
+    supportExportState: SupportExportState,
     onBack: () -> Unit,
     onSave: (UserProfile) -> Unit,
-    onExport: (Uri) -> Unit,
+    onExport: (Uri, String) -> Unit,
+    onClearSavedDiagnostics: () -> Unit,
 ) {
+    var pendingFeedback by remember { mutableStateOf("") }
     val exportLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.CreateDocument("application/zip"),
-    ) { uri -> uri?.let(onExport) }
+    ) { uri -> uri?.let { onExport(it, pendingFeedback) } }
     ProfileForm(
         title = stringResource(R.string.settings),
         subtitle = stringResource(R.string.settings_subtitle),
@@ -346,9 +386,12 @@ private fun SettingsScreen(
         onBack = onBack,
         onSave = onSave,
         exportState = exportState,
-        onExport = {
+        supportExportState = supportExportState,
+        onExport = { feedback ->
+            pendingFeedback = feedback
             exportLauncher.launch("calorie-quick-review-${LocalDate.now()}.zip")
         },
+        onClearSavedDiagnostics = onClearSavedDiagnostics,
     )
 }
 
@@ -356,23 +399,30 @@ private fun SettingsScreen(
 @Composable
 private fun PersonalFoodEditorScreen(
     initial: Food?,
+    isTemplateCopy: Boolean,
     initialName: String,
     initialBarcode: String,
     nutritionLabelPrefill: NutritionLabelPrefill?,
+    nutritionLabelScanState: NutritionLabelScanState,
     existingFoods: List<Food>,
     onBack: () -> Unit,
     onSave: (PersonalFoodDraft) -> Unit,
     onArchive: (String) -> Unit,
+    onFlagScan: () -> Unit,
     onOpenExistingFood: (Food) -> Unit,
 ) {
     val locale = LocalLocale.current.platformLocale
+    val variantName = initial?.let { stringResource(R.string.personal_variant_name, it.name(locale)) }.orEmpty()
     val initialPackageMeasure = initial?.takeIf(Food::isPackaged)?.servings?.firstOrNull(Serving::isPackage)
-    var name by rememberSaveable(initial?.id, initialName, nutritionLabelPrefill) {
-        mutableStateOf(initial?.name(locale) ?: nutritionLabelPrefill?.suggestedName ?: initialName)
+    var name by rememberSaveable(initial?.id, isTemplateCopy, initialName, nutritionLabelPrefill) {
+        mutableStateOf(
+            if (isTemplateCopy) variantName
+            else initial?.name(locale) ?: nutritionLabelPrefill?.suggestedName ?: initialName,
+        )
     }
     var brand by rememberSaveable(initial?.id) { mutableStateOf(initial?.brand.orEmpty()) }
-    var barcode by rememberSaveable(initial?.id, initialBarcode, nutritionLabelPrefill) {
-        mutableStateOf(initial?.barcode ?: nutritionLabelPrefill?.barcode ?: initialBarcode)
+    var barcode by rememberSaveable(initial?.id, isTemplateCopy, initialBarcode, nutritionLabelPrefill) {
+        mutableStateOf(if (isTemplateCopy) "" else initial?.barcode ?: nutritionLabelPrefill?.barcode ?: initialBarcode)
     }
     var calories by rememberSaveable(initial?.id, nutritionLabelPrefill) {
         mutableStateOf(initial?.nutritionPer100g?.calories?.toString() ?: nutritionLabelPrefill?.caloriesPer100g?.toString().orEmpty())
@@ -395,7 +445,7 @@ private fun PersonalFoodEditorScreen(
     var measures by remember(initial?.id) {
         mutableStateOf(
             initial?.servings.orEmpty().filterNot { it.id == initialPackageMeasure?.id }.map {
-                PersonalMeasure(it.id, it.label, it.grams, it.suggestedAmounts)
+                PersonalMeasure(it.id.takeUnless { isTemplateCopy }, it.label, it.grams, it.suggestedAmounts)
             },
         )
     }
@@ -433,9 +483,13 @@ private fun PersonalFoodEditorScreen(
     val fatValue = fat.localizedDoubleOrNull()
     val fiberValue = fiber.localizedDoubleOrNull()
     val packageWeightValue = packageWeight.toIntOrNull()
-    val provenance = initial?.provenance ?: FoodProvenance(
-        if (nutritionLabelPrefill != null) FoodSourceType.OCR else FoodSourceType.PERSONAL,
-    )
+    val provenance = if (isTemplateCopy) {
+        FoodProvenance(FoodSourceType.PERSONAL, sourceId = initial?.let { "variant-of:${it.id}" })
+    } else {
+        initial?.provenance ?: FoodProvenance(
+            if (nutritionLabelPrefill != null) FoodSourceType.OCR else FoodSourceType.PERSONAL,
+        )
+    }
     val barcodeConflict = barcode.trim().takeIf(String::isNotEmpty)?.let { candidate ->
         existingFoods.firstOrNull { it.id != initial?.id && it.barcode == candidate }
     }
@@ -465,6 +519,7 @@ private fun PersonalFoodEditorScreen(
                     Text(
                         stringResource(
                             when {
+                                isTemplateCopy -> R.string.create_personal_variant
                                 nutritionLabelPrefill != null -> R.string.review_scanned_label
                                 initial == null -> R.string.add_personal_food
                                 initial.isPersonal -> R.string.edit_personal_food
@@ -501,6 +556,17 @@ private fun PersonalFoodEditorScreen(
                             Text(
                                 "• ${stringResource(warning.labelResource())}",
                                 color = MaterialTheme.colorScheme.onTertiaryContainer,
+                                fontSize = 13.sp,
+                            )
+                        }
+                        if (nutritionLabelScanState.stagedImagePath != null) {
+                            OutlinedButton(onClick = onFlagScan) {
+                                Text(stringResource(R.string.flag_failed_scan))
+                            }
+                        } else if (nutritionLabelScanState.flaggedForSupport) {
+                            Text(
+                                stringResource(R.string.scan_saved_for_support),
+                                color = MaterialTheme.colorScheme.primary,
                                 fontSize = 13.sp,
                             )
                         }
@@ -785,7 +851,7 @@ private fun PersonalFoodEditorScreen(
                 onClick = {
                     onSave(
                         PersonalFoodDraft(
-                            id = initial?.id,
+                            id = initial?.id.takeUnless { isTemplateCopy },
                             name = name.trim(),
                             brand = brand,
                             barcode = barcode,
@@ -800,7 +866,7 @@ private fun PersonalFoodEditorScreen(
                             measures = measures + if (isPackaged) {
                                 listOf(
                                     PersonalMeasure(
-                                        id = initialPackageMeasure?.id,
+                                        id = initialPackageMeasure?.id.takeUnless { isTemplateCopy },
                                         label = LocalizedText(packageLabel.trim(), packageLabel.trim()),
                                         grams = requireNotNull(packageWeightValue),
                                         suggestedAmounts = packageFractions.toList(),
@@ -821,7 +887,7 @@ private fun PersonalFoodEditorScreen(
                 modifier = Modifier.fillMaxWidth(),
             ) { Text(stringResource(R.string.save_food)) }
         }
-        if (initial?.isPersonal == true) {
+        if (initial?.isPersonal == true && !isTemplateCopy) {
             item {
                 OutlinedButton(onClick = { confirmArchive = true }, modifier = Modifier.fillMaxWidth()) {
                     Text(stringResource(R.string.archive_food), color = MaterialTheme.colorScheme.error)
@@ -849,6 +915,7 @@ private fun PersonalFoodEditorScreen(
 @Composable
 private fun RecipeEditorScreen(
     initial: RecipeTemplate?,
+    seedFood: Food?,
     foods: List<Food>,
     ingredientUsage: Map<String, Int>,
     onBack: () -> Unit,
@@ -856,9 +923,13 @@ private fun RecipeEditorScreen(
     onArchive: (String) -> Unit,
 ) {
     val locale = LocalLocale.current.platformLocale
-    var name by rememberSaveable(initial?.activeBatchId) { mutableStateOf(initial?.name.orEmpty()) }
-    var ingredientQuery by rememberSaveable(initial?.activeBatchId) { mutableStateOf("") }
-    var ingredients by remember(initial?.activeBatchId) {
+    val seedGrams = seedFood?.servings?.firstOrNull()?.grams ?: 100
+    val seedRecipeName = seedFood?.let { stringResource(R.string.food_recipe_name, it.name(locale)) }.orEmpty()
+    var name by rememberSaveable(initial?.activeBatchId, seedFood?.id) {
+        mutableStateOf(initial?.name ?: seedRecipeName)
+    }
+    var ingredientQuery by rememberSaveable(initial?.activeBatchId, seedFood?.id) { mutableStateOf("") }
+    var ingredients by remember(initial?.activeBatchId, seedFood?.id) {
         mutableStateOf(
             initial?.ingredients.orEmpty().map { snapshot ->
                 foods.firstOrNull { it.id == snapshot.foodId }?.let { current ->
@@ -870,14 +941,18 @@ private fun RecipeEditorScreen(
                         snapshot.grams,
                     )
                 } ?: snapshot
+            }.ifEmpty {
+                listOfNotNull(seedFood?.let { food ->
+                    RecipeIngredientDraft(food.id, food.names, food.nutritionPer100g, food.allergens, seedGrams)
+                })
             },
         )
     }
-    var cookedYield by rememberSaveable(initial?.activeBatchId) {
-        mutableStateOf(initial?.cookedYieldGrams?.toString().orEmpty())
+    var cookedYield by rememberSaveable(initial?.activeBatchId, seedFood?.id) {
+        mutableStateOf(initial?.cookedYieldGrams?.toString() ?: seedFood?.let { seedGrams.toString() }.orEmpty())
     }
-    var portionCount by rememberSaveable(initial?.activeBatchId) {
-        mutableStateOf(initial?.portionCount?.toString() ?: "4")
+    var portionCount by rememberSaveable(initial?.activeBatchId, seedFood?.id) {
+        mutableStateOf(initial?.portionCount?.toString() ?: if (seedFood != null) "1" else "4")
     }
     var yieldManuallyEdited by rememberSaveable(initial?.activeBatchId) { mutableStateOf(initial != null) }
     var confirmArchive by remember { mutableStateOf(false) }
@@ -1230,7 +1305,9 @@ private fun ProfileForm(
     onSave: (UserProfile) -> Unit,
     onBack: (() -> Unit)? = null,
     exportState: CatalogueExportState? = null,
-    onExport: (() -> Unit)? = null,
+    onExport: ((String) -> Unit)? = null,
+    supportExportState: SupportExportState? = null,
+    onClearSavedDiagnostics: (() -> Unit)? = null,
 ) {
     var displayName by rememberSaveable { mutableStateOf(initial?.displayName.orEmpty()) }
     var age by rememberSaveable { mutableStateOf((initial?.age ?: 30).toString()) }
@@ -1262,6 +1339,8 @@ private fun ProfileForm(
     var carbsTarget by rememberSaveable { mutableStateOf(defaultTargets.carbsGoalGrams.toString()) }
     var fatTarget by rememberSaveable { mutableStateOf(defaultTargets.fatGoalGrams.toString()) }
     var fiberTarget by rememberSaveable { mutableStateOf(defaultTargets.fiberGoalGrams.toString()) }
+    var supportFeedback by rememberSaveable { mutableStateOf("") }
+    var confirmClearDiagnostics by rememberSaveable { mutableStateOf(false) }
 
     val ageValue = age.toIntOrNull()
     val heightValue = height.toIntOrNull()
@@ -1482,8 +1561,31 @@ private fun ProfileForm(
                 )
             }
             item {
+                OutlinedTextField(
+                    value = supportFeedback,
+                    onValueChange = { if (it.length <= 2_000) supportFeedback = it },
+                    modifier = Modifier.fillMaxWidth().heightIn(min = 120.dp),
+                    label = { Text(stringResource(R.string.feedback_optional)) },
+                    supportingText = {
+                        Text(
+                            stringResource(
+                                R.string.saved_scan_diagnostics,
+                                supportExportState?.savedDiagnosticCount ?: 0,
+                            ),
+                        )
+                    },
+                )
+            }
+            if ((supportExportState?.savedDiagnosticCount ?: 0) > 0 && onClearSavedDiagnostics != null) {
+                item {
+                    TextButton(onClick = { confirmClearDiagnostics = true }) {
+                        Text(stringResource(R.string.delete_saved_diagnostics))
+                    }
+                }
+            }
+            item {
                 OutlinedButton(
-                    onClick = onExport,
+                    onClick = { onExport(supportFeedback) },
                     enabled = exportState.status != CatalogueExportStatus.EXPORTING,
                     modifier = Modifier.fillMaxWidth(),
                 ) {
@@ -1502,10 +1604,17 @@ private fun ProfileForm(
                 CatalogueExportStatus.SUCCESS -> item {
                     val result = exportState.result
                     Text(
-                        if (result == null || result.itemCount == 0) {
+                        if (result == null ||
+                            result.itemCount == 0 && result.diagnosticCount == 0 && !result.hasFeedback
+                        ) {
                             stringResource(R.string.catalogue_export_empty)
                         } else {
-                            stringResource(R.string.catalogue_export_success, result.itemCount, result.imageCount)
+                            stringResource(
+                                R.string.review_bundle_export_success,
+                                result.itemCount,
+                                result.imageCount,
+                                result.diagnosticCount,
+                            )
                         },
                         color = MaterialTheme.colorScheme.primary,
                     )
@@ -1556,6 +1665,22 @@ private fun ProfileForm(
             ) { Text(actionLabel) }
         }
         item { Spacer(Modifier.height(24.dp)) }
+    }
+    if (confirmClearDiagnostics && onClearSavedDiagnostics != null) {
+        AlertDialog(
+            onDismissRequest = { confirmClearDiagnostics = false },
+            title = { Text(stringResource(R.string.delete_saved_diagnostics)) },
+            text = { Text(stringResource(R.string.delete_saved_diagnostics_confirm)) },
+            confirmButton = {
+                TextButton(onClick = {
+                    onClearSavedDiagnostics()
+                    confirmClearDiagnostics = false
+                }) { Text(stringResource(R.string.delete)) }
+            },
+            dismissButton = {
+                TextButton(onClick = { confirmClearDiagnostics = false }) { Text(stringResource(R.string.cancel)) }
+            },
+        )
     }
 }
 
@@ -1660,6 +1785,7 @@ private fun BodyProgressScreen(
     onDelete: (BodyMeasurement) -> Unit,
     onScan: (Uri) -> Unit,
     onClearScan: () -> Unit,
+    onFlagFailedScan: () -> Unit,
     onSaveProfile: (UserProfile) -> Unit,
 ) {
     val locale = LocalLocale.current.platformLocale
@@ -1825,11 +1951,16 @@ private fun BodyProgressScreen(
             scanState.status == BodyScaleScanStatus.SUCCESS && scanState.prefill?.measurement == null
         ) {
             item {
-                Text(
-                    stringResource(R.string.scale_scan_error),
-                    Modifier.padding(horizontal = 20.dp),
-                    color = MaterialTheme.colorScheme.error,
-                )
+                Column(Modifier.padding(horizontal = 20.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(stringResource(R.string.scale_scan_error), color = MaterialTheme.colorScheme.error)
+                    if (scanState.stagedImagePath != null) {
+                        OutlinedButton(onClick = onFlagFailedScan) {
+                            Text(stringResource(R.string.flag_failed_scan))
+                        }
+                    } else if (scanState.flaggedForSupport) {
+                        Text(stringResource(R.string.scan_saved_for_support), color = MaterialTheme.colorScheme.primary)
+                    }
+                }
             }
         }
         item { SectionTitle(R.string.check_in_history) }
@@ -2602,17 +2733,20 @@ private fun TodayScreen(
     onOpenSettings: () -> Unit,
     onOpenHistory: () -> Unit,
     onOpenProgress: () -> Unit,
-    onAdd: (Food, Double, Serving?, String?) -> Unit,
+    onAdd: (Food, Double, Serving?, String?, Long) -> Unit,
     onDelete: (FoodEntry) -> Unit,
     onUpdate: (FoodEntry, Double, Long) -> Unit,
     onCreateFood: (Pair<String, String?>) -> Unit,
     onCreateRecipe: () -> Unit,
     onEditFood: (Food) -> Unit,
+    onCreateVariant: (Food) -> Unit,
+    onCreateRecipeFromFood: (Food) -> Unit,
     onSearchGlobal: (String, String) -> Unit,
     onLookupBarcode: (String, String) -> Unit,
     onClearLookup: () -> Unit,
     onScanNutritionLabel: (Uri, String) -> Unit,
     onClearNutritionLabelScan: () -> Unit,
+    onFlagFailedNutritionScan: () -> Unit,
     onImportFood: (Food) -> Unit,
 ) {
     val context = LocalContext.current
@@ -2620,6 +2754,16 @@ private fun TodayScreen(
     var pendingCameraUri by rememberSaveable { mutableStateOf<String?>(null) }
     var showLabelSourceDialog by rememberSaveable { mutableStateOf(false) }
     var query by rememberSaveable { mutableStateOf("") }
+    var selectedCatalogueCategory by rememberSaveable { mutableStateOf<String?>(null) }
+    val zoneId = ZoneId.systemDefault()
+    val today = LocalDate.now(zoneId)
+    var selectedEpochDay by rememberSaveable { mutableStateOf(today.toEpochDay()) }
+    val selectedDate = LocalDate.ofEpochDay(selectedEpochDay.coerceAtMost(today.toEpochDay()))
+    val selectedEntries = state.allEntries.filter { entry ->
+        Instant.ofEpochMilli(entry.consumedAtEpochMillis).atZone(zoneId).toLocalDate() == selectedDate
+    }
+    val selectedTotals = selectedEntries.fold(Nutrition.Zero) { total, entry -> total + entry.nutrition }
+    val selectedFiberIncomplete = selectedEntries.any { it.nutrition.fiberGrams == null }
     val labelPhotoPicker = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
         uri?.let { onScanNutritionLabel(it, query.trim()) }
     }
@@ -2643,14 +2787,23 @@ private fun TodayScreen(
         GmsBarcodeScanning.getClient(context, options)
     }
     var selectedFood by remember { mutableStateOf<Food?>(null) }
+    var customizingFood by remember { mutableStateOf<Food?>(null) }
     var editingEntry by remember { mutableStateOf<FoodEntry?>(null) }
     var showMacroDetails by rememberSaveable { mutableStateOf(false) }
     val profile = requireNotNull(state.profile)
     val frequencyByFoodId = state.unitUsage.mapValues { (_, usages) -> usages.sumOf(UnitUsage::useCount) }
-    val displayedFoods = if (query.isBlank()) {
-        FoodRecommender.rankPreviouslyUsed(state.foods, state.totals, profile, frequencyByFoodId)
-    } else {
-        state.foods.filter { it.matches(query) }
+    val catalogueCategories = state.foods.mapNotNull(Food::categoryKey).distinct().sorted()
+    val isBrowsingCatalogue = selectedCatalogueCategory != null
+    val allLocalQueryMatches = if (query.isBlank()) emptyList() else state.foods.filter { it.matches(query) }
+    val categoryQueryMatches = allLocalQueryMatches.filter { it.matchesCatalogueCategory(selectedCatalogueCategory) }
+    val expandedSearchBeyondCategory = query.isNotBlank() && selectedCatalogueCategory != null &&
+        categoryQueryMatches.isEmpty() && allLocalQueryMatches.isNotEmpty()
+    val displayedFoods = when {
+        query.isNotBlank() -> if (expandedSearchBeyondCategory) allLocalQueryMatches else categoryQueryMatches
+        isBrowsingCatalogue -> state.foods
+            .filter { it.matchesCatalogueCategory(selectedCatalogueCategory) }
+            .sortedBy { it.name(locale) }
+        else -> FoodRecommender.rankPreviouslyUsed(state.foods, selectedTotals, profile, frequencyByFoodId)
     }
     val exactFoodExists = query.isNotBlank() && state.foods.any { it.hasExactName(query) }
     val currentLookup = lookupState.takeIf { it.query.equals(query.trim(), ignoreCase = true) }
@@ -2686,9 +2839,48 @@ private fun TodayScreen(
                     modifier = Modifier.padding(start = 20.dp, end = 10.dp, top = 8.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    Column(Modifier.weight(1f)) {
-                        Text(stringResource(R.string.today), fontSize = 30.sp, fontWeight = FontWeight.Bold)
-                        Text(stringResource(R.string.daily_summary), color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Column(
+                        Modifier
+                            .weight(1f)
+                            .clip(RoundedCornerShape(12.dp))
+                            .clickable {
+                                android.app.DatePickerDialog(
+                                    context,
+                                    { _, year, month, day ->
+                                        selectedEpochDay = LocalDate.of(year, month + 1, day).toEpochDay()
+                                    },
+                                    selectedDate.year,
+                                    selectedDate.monthValue - 1,
+                                    selectedDate.dayOfMonth,
+                                ).apply { datePicker.maxDate = System.currentTimeMillis() }.show()
+                            }
+                            .padding(horizontal = 8.dp, vertical = 4.dp),
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(
+                                if (selectedDate == today) {
+                                    stringResource(R.string.today)
+                                } else {
+                                    selectedDate.format(DateTimeFormatter.ofPattern("EEE, d MMM", locale))
+                                },
+                                fontSize = 30.sp,
+                                fontWeight = FontWeight.Bold,
+                            )
+                            Icon(
+                                Icons.Default.CalendarMonth,
+                                stringResource(R.string.open_day_browser),
+                                Modifier.padding(start = 8.dp),
+                                tint = MaterialTheme.colorScheme.primary,
+                            )
+                        }
+                        Text(
+                            if (selectedDate == today) {
+                                stringResource(R.string.daily_summary)
+                            } else {
+                                selectedDate.format(DateTimeFormatter.ofPattern("EEEE, d MMMM yyyy", locale))
+                            },
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
                     }
                     IconButton(onClick = onOpenHistory) {
                         Icon(Icons.Default.History, stringResource(R.string.history))
@@ -2701,7 +2893,7 @@ private fun TodayScreen(
                     }
                 }
             }
-            item { SummaryCard(state.totals, profile, state.fiberIncomplete) { showMacroDetails = true } }
+            item { SummaryCard(selectedTotals, profile, selectedFiberIncomplete) { showMacroDetails = true } }
             if (state.recipes.isNotEmpty()) {
                 item { SectionTitle(R.string.meal_prep) }
                 item {
@@ -2769,6 +2961,62 @@ private fun TodayScreen(
                     shape = RoundedCornerShape(18.dp),
                 )
             }
+            item {
+                LazyRow(
+                    contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 20.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    item {
+                        FilterChip(
+                            selected = selectedCatalogueCategory == null,
+                            onClick = { selectedCatalogueCategory = null },
+                            label = { Text(stringResource(R.string.recommended_foods)) },
+                        )
+                    }
+                    item {
+                        FilterChip(
+                            selected = selectedCatalogueCategory == CATALOGUE_CATEGORY_ALL,
+                            onClick = { selectedCatalogueCategory = CATALOGUE_CATEGORY_ALL },
+                            label = { Text(stringResource(R.string.all_foods)) },
+                        )
+                    }
+                    if (state.foods.any(Food::isPersonal)) {
+                        item {
+                            FilterChip(
+                                selected = selectedCatalogueCategory == CATALOGUE_CATEGORY_PERSONAL,
+                                onClick = { selectedCatalogueCategory = CATALOGUE_CATEGORY_PERSONAL },
+                                label = { Text(stringResource(R.string.personal_foods)) },
+                            )
+                        }
+                    }
+                    if (state.recipes.isNotEmpty()) {
+                        item {
+                            FilterChip(
+                                selected = selectedCatalogueCategory == CATALOGUE_CATEGORY_RECIPES,
+                                onClick = { selectedCatalogueCategory = CATALOGUE_CATEGORY_RECIPES },
+                                label = { Text(stringResource(R.string.recipes)) },
+                            )
+                        }
+                    }
+                    items(catalogueCategories, key = { it }) { category ->
+                        FilterChip(
+                            selected = selectedCatalogueCategory == category,
+                            onClick = { selectedCatalogueCategory = category },
+                            label = { Text(stringResource(category.labelResource())) },
+                        )
+                    }
+                }
+            }
+            if (expandedSearchBeyondCategory) {
+                item {
+                    Text(
+                        stringResource(R.string.search_expanded_all_categories),
+                        Modifier.padding(horizontal = 20.dp),
+                        color = MaterialTheme.colorScheme.primary,
+                        fontSize = 13.sp,
+                    )
+                }
+            }
             if (nutritionLabelScanState.status == NutritionLabelScanStatus.PROCESSING) {
                 item {
                     Row(
@@ -2782,19 +3030,27 @@ private fun TodayScreen(
                 }
             } else if (nutritionLabelScanState.status == NutritionLabelScanStatus.ERROR) {
                 item {
-                    Row(
+                    Column(
                         Modifier.fillMaxWidth().padding(horizontal = 20.dp),
-                        verticalAlignment = Alignment.CenterVertically,
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
-                        Text(
-                            stringResource(R.string.ocr_scan_error),
-                            Modifier.weight(1f),
-                            color = MaterialTheme.colorScheme.error,
-                        )
-                        TextButton(onClick = {
-                            onClearNutritionLabelScan()
-                            showLabelSourceDialog = true
-                        }) { Text(stringResource(R.string.retry)) }
+                        Text(stringResource(R.string.ocr_scan_error), color = MaterialTheme.colorScheme.error)
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            if (nutritionLabelScanState.stagedImagePath != null) {
+                                OutlinedButton(onClick = onFlagFailedNutritionScan) {
+                                    Text(stringResource(R.string.flag_failed_scan))
+                                }
+                            } else if (nutritionLabelScanState.flaggedForSupport) {
+                                Text(
+                                    stringResource(R.string.scan_saved_for_support),
+                                    color = MaterialTheme.colorScheme.primary,
+                                )
+                            }
+                            TextButton(onClick = {
+                                onClearNutritionLabelScan()
+                                showLabelSourceDialog = true
+                            }) { Text(stringResource(R.string.retry)) }
+                        }
                     }
                 }
             }
@@ -2834,16 +3090,34 @@ private fun TodayScreen(
                     }
                 }
             }
-            item { SectionTitle(if (query.isBlank()) R.string.recommended_foods else R.string.quick_add) }
+            item {
+                SectionTitle(
+                    when {
+                        query.isNotBlank() -> R.string.quick_add
+                        isBrowsingCatalogue -> R.string.food_catalogue
+                        else -> R.string.recommended_foods
+                    },
+                )
+            }
             if (displayedFoods.isEmpty()) {
                 item {
                     EmptyText(
-                        if (query.isBlank()) R.string.no_recommended_foods else R.string.no_results,
+                        if (query.isBlank() && !isBrowsingCatalogue) R.string.no_recommended_foods else R.string.no_results,
                     )
                 }
             }
             else items(displayedFoods, key = { it.id }) {
-                FoodRow(it, state.recipes[it.id], locale, state.totals, profile, { selectedFood = it }) { onEditFood(it) }
+                FoodRow(
+                    food = it,
+                    recipe = state.recipes[it.id],
+                    locale = locale,
+                    currentTotals = selectedTotals,
+                    profile = profile,
+                    standaloneUses = frequencyByFoodId[it.id] ?: 0,
+                    ingredientUses = state.ingredientUsage[it.id] ?: 0,
+                    onAdd = { selectedFood = it },
+                    onEdit = { onEditFood(it) },
+                )
             }
             if (currentLookup?.status == FoodLookupStatus.SUCCESS && remoteResults.isNotEmpty()) {
                 item { SectionTitle(R.string.open_food_facts_results) }
@@ -2893,9 +3167,9 @@ private fun TodayScreen(
                     }
                 }
             }
-            item { SectionTitle(R.string.today_entries) }
-            if (state.entries.isEmpty()) item { EmptyText(R.string.no_entries) }
-            else items(state.entries, key = { it.id }) {
+            item { SectionTitle(if (selectedDate == today) R.string.today_entries else R.string.selected_day_entries) }
+            if (selectedEntries.isEmpty()) item { EmptyText(R.string.no_entries) }
+            else items(selectedEntries, key = { it.id }) {
                 EntryRow(it, locale, onRemove = { onDelete(it) }, onEdit = { editingEntry = it })
             }
             item { Spacer(Modifier.height(24.dp)) }
@@ -2911,14 +3185,19 @@ private fun TodayScreen(
             state.preparationUsage[food.id].orEmpty(),
             locale,
             { selectedFood = null },
+            {
+                selectedFood = null
+                customizingFood = food
+            },
         ) { loggedFood, amount, serving, batchId ->
-            onAdd(loggedFood, amount, serving, batchId)
+            val time = if (selectedDate == today) LocalTime.now() else LocalTime.NOON
+            val consumedAt = selectedDate.atTime(time).atZone(zoneId).toInstant().toEpochMilli()
+            onAdd(loggedFood, amount, serving, batchId, consumedAt)
             selectedFood = null
             query = ""
         }
     }
     editingEntry?.let { entry ->
-        val zoneId = ZoneId.systemDefault()
         val batchRemaining = entry.recipeBatchId?.let { batchId ->
             state.recipes.values.asSequence().flatMap { it.batches.asSequence() }
                 .firstOrNull { it.id == batchId }?.remainingGrams
@@ -2936,7 +3215,7 @@ private fun TodayScreen(
         )
     }
     if (showMacroDetails) {
-        MacroDetailsSheet(state.totals, profile, state.fiberIncomplete) { showMacroDetails = false }
+        MacroDetailsSheet(selectedTotals, profile, selectedFiberIncomplete) { showMacroDetails = false }
     }
     if (showLabelSourceDialog) {
         AlertDialog(
@@ -2959,6 +3238,34 @@ private fun TodayScreen(
                     showLabelSourceDialog = false
                     labelPhotoPicker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
                 }) { Text(stringResource(R.string.choose_photo)) }
+            },
+        )
+    }
+    customizingFood?.let { food ->
+        AlertDialog(
+            onDismissRequest = { customizingFood = null },
+            title = { Text(stringResource(R.string.customize_food, food.name(locale))) },
+            text = { Text(stringResource(R.string.customize_food_explanation)) },
+            confirmButton = {
+                TextButton(onClick = {
+                    customizingFood = null
+                    if (food.isPersonal) onEditFood(food) else onCreateVariant(food)
+                }) {
+                    Text(
+                        stringResource(
+                            if (food.isPersonal) R.string.edit_personal_food else R.string.create_personal_variant,
+                        ),
+                    )
+                }
+            },
+            dismissButton = {
+                Row {
+                    TextButton(onClick = {
+                        customizingFood = null
+                        onCreateRecipeFromFood(food)
+                    }) { Text(stringResource(R.string.create_recipe_from_food)) }
+                    TextButton(onClick = { customizingFood = null }) { Text(stringResource(R.string.cancel)) }
+                }
             },
         )
     }
@@ -3164,6 +3471,8 @@ private fun FoodRow(
     locale: Locale,
     currentTotals: Nutrition,
     profile: UserProfile,
+    standaloneUses: Int,
+    ingredientUses: Int,
     onAdd: () -> Unit,
     onEdit: () -> Unit,
 ) {
@@ -3172,7 +3481,7 @@ private fun FoodRow(
     val per100gLabel = stringResource(R.string.per_100g)
     val fiberLabel = stringResource(R.string.fiber).lowercase(locale)
     val detailText = buildString {
-        append("${food.detail(locale)} · ${food.nutritionPer100g.calories} $kcalLabel $per100gLabel")
+        append("${food.nutritionPer100g.calories} $kcalLabel $per100gLabel")
         food.nutritionPer100g.fiberGrams?.let { append(" · ${formatAmount(it, locale)} g $fiberLabel") }
     }
     Card(
@@ -3190,7 +3499,23 @@ private fun FoodRow(
                 Spacer(Modifier.width(12.dp))
             }
             Column(Modifier.weight(1f)) {
-                Text(food.name(locale), fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        food.name(locale),
+                        Modifier.weight(1f),
+                        fontWeight = FontWeight.SemiBold,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                    Text(
+                        food.detail(locale),
+                        Modifier.padding(start = 8.dp).widthIn(max = 150.dp),
+                        fontSize = 13.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
                 if (food.provenance.type != FoodSourceType.BUILT_IN) {
                     Text(
                         buildString {
@@ -3208,6 +3533,23 @@ private fun FoodRow(
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
+                val usageLabels = buildList {
+                    if (standaloneUses > 0) {
+                        add(pluralStringResource(R.plurals.logged_as_food, standaloneUses, standaloneUses))
+                    }
+                    if (ingredientUses > 0) {
+                        add(pluralStringResource(R.plurals.used_in_recipe_batches, ingredientUses, ingredientUses))
+                    }
+                }
+                if (usageLabels.isNotEmpty()) {
+                    Text(
+                        usageLabels.joinToString(" · "),
+                        fontSize = 12.sp,
+                        color = MaterialTheme.colorScheme.primary,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
                 recipe?.let {
                     val portionGrams = (it.cookedYieldGrams / it.portionCount.toDouble()).coerceAtLeast(1.0)
                     Text(
@@ -3240,6 +3582,36 @@ private fun FoodRow(
             Icon(Icons.Default.Add, stringResource(R.string.quick_add), tint = MaterialTheme.colorScheme.primary)
         }
     }
+}
+
+private const val CATALOGUE_CATEGORY_ALL = "__all__"
+private const val CATALOGUE_CATEGORY_PERSONAL = "__personal__"
+private const val CATALOGUE_CATEGORY_RECIPES = "__recipes__"
+
+private fun Food.matchesCatalogueCategory(category: String?): Boolean = when (category) {
+    null, CATALOGUE_CATEGORY_ALL -> true
+    CATALOGUE_CATEGORY_PERSONAL -> isPersonal && provenance.type != FoodSourceType.RECIPE
+    CATALOGUE_CATEGORY_RECIPES -> provenance.type == FoodSourceType.RECIPE
+    else -> categoryKey == category
+}
+
+private fun String.labelResource() = when (this) {
+    "fruit" -> R.string.category_fruit
+    "vegetables" -> R.string.category_vegetables
+    "grains" -> R.string.category_grains
+    "bakery" -> R.string.category_bakery
+    "meat" -> R.string.category_meat
+    "fish" -> R.string.category_fish
+    "eggs" -> R.string.category_eggs
+    "legumes" -> R.string.category_legumes
+    "plant-protein" -> R.string.category_plant_protein
+    "dairy" -> R.string.category_dairy
+    "fats" -> R.string.category_fats
+    "pantry" -> R.string.category_pantry
+    "nuts-seeds" -> R.string.category_nuts_seeds
+    "prepared-meals" -> R.string.category_prepared_meals
+    "beverages" -> R.string.category_beverages
+    else -> R.string.category_other
 }
 
 @Composable
@@ -3511,6 +3883,7 @@ private fun QuickAddSheet(
     preparationUsage: List<PreparationUsage>,
     locale: Locale,
     onDismiss: () -> Unit,
+    onCustomize: (() -> Unit)? = null,
     onAdd: (Food, Double, Serving?, String?) -> Unit,
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
@@ -3566,7 +3939,14 @@ private fun QuickAddSheet(
                 .padding(horizontal = 24.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
-            Text(food.name(locale), fontSize = 24.sp, fontWeight = FontWeight.Bold)
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(food.name(locale), Modifier.weight(1f), fontSize = 24.sp, fontWeight = FontWeight.Bold)
+                onCustomize?.let {
+                    IconButton(onClick = it) {
+                        Icon(Icons.Default.ContentCopy, stringResource(R.string.customize_food_action))
+                    }
+                }
+            }
             if (choosingPreparation) {
                 Text(stringResource(R.string.choose_cooking_method), fontWeight = FontWeight.SemiBold)
                 FlowRow(

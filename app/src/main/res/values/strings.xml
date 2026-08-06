@@ -2,6 +2,7 @@
 <resources>
     <string name="app_name">Calorie Quick</string>
     <string name="today">Today</string>
+    <string name="open_day_browser">Open day browser</string>
     <string name="daily_summary">Daily summary</string>
     <string name="remaining">remaining</string>
     <string name="kcal">kcal</string>
@@ -33,10 +34,32 @@
     <string name="open_food_facts_review_notice">Community data from Open Food Facts. Verify the label before saving it on this device.</string>
     <string name="quick_add">Quick add</string>
     <string name="recommended_foods">Recommended</string>
+    <string name="food_catalogue">Food catalogue</string>
+    <string name="all_foods">All foods</string>
+    <string name="personal_foods">Personal</string>
+    <string name="recipes">Recipes</string>
+    <string name="category_fruit">Fruit</string>
+    <string name="category_vegetables">Vegetables</string>
+    <string name="category_grains">Grains</string>
+    <string name="category_bakery">Bakery</string>
+    <string name="category_meat">Meat</string>
+    <string name="category_fish">Fish &amp; seafood</string>
+    <string name="category_eggs">Eggs</string>
+    <string name="category_legumes">Legumes</string>
+    <string name="category_plant_protein">Plant protein</string>
+    <string name="category_dairy">Dairy</string>
+    <string name="category_fats">Fats &amp; oils</string>
+    <string name="category_pantry">Pantry</string>
+    <string name="category_nuts_seeds">Nuts &amp; seeds</string>
+    <string name="category_prepared_meals">Prepared meals</string>
+    <string name="category_beverages">Beverages</string>
+    <string name="category_other">Other</string>
     <string name="no_recommended_foods">Foods you have logged before will appear here. Search the catalogue to add your first one.</string>
     <string name="today_entries">Today’s entries</string>
+    <string name="selected_day_entries">Entries for this day</string>
     <string name="no_entries">Nothing logged yet. Add a frequent food in one tap.</string>
     <string name="no_results">No saved foods match this search.</string>
+    <string name="search_expanded_all_categories">No match in the selected category · showing all catalogue results</string>
     <string name="per_100g">per 100 g</string>
     <string name="grams_short">g</string>
     <plurals name="add_food">
@@ -90,6 +113,13 @@
     <string name="nutrient_partial_entries">Partial total: some entries were logged without this nutrient.</string>
     <string name="fiber_g">Fibre (g)</string>
     <string name="add_personal_food">Add personal food</string>
+    <string name="create_personal_variant">Create personal variant</string>
+    <string name="personal_variant_name">%1$s — my variant</string>
+    <string name="customize_food">Customize %1$s</string>
+    <string name="customize_food_action">Customize food or build recipe</string>
+    <string name="customize_food_explanation">Edit a personal copy of this food, or use it as the first ingredient in a recipe and add milk, sugar, oil, or anything else.</string>
+    <string name="create_recipe_from_food">Build recipe</string>
+    <string name="food_recipe_name">My %1$s</string>
     <string name="add_missing_personal_food">Can’t find it? Add “%1$s” as a personal food</string>
     <string name="add_missing_barcode_food">No product found for %1$s. Add it manually</string>
     <string name="edit_personal_food">Edit personal food</string>
@@ -215,6 +245,10 @@
         <item quantity="one">Used in %1$d cooked batch</item>
         <item quantity="other">Used in %1$d cooked batches</item>
     </plurals>
+    <plurals name="logged_as_food">
+        <item quantity="one">Logged once as food</item>
+        <item quantity="other">Logged %1$d times as food</item>
+    </plurals>
     <string name="body_progress">Body progress</string>
     <string name="body_progress_subtitle">Track weight and optional body-composition estimates.</string>
     <string name="progress_for_name">Progress for %1$s</string>
@@ -324,11 +358,19 @@
     <string name="food_photo_private_hint">Stored only on this device unless you explicitly include this item in a review export.</string>
     <string name="include_in_review_export">Include in review export</string>
     <string name="review_export_opt_in_hint">Opt in only if you are comfortable sharing this item’s nutrition, measures, ingredients, and attached image for catalogue review.</string>
-    <string name="personal_catalogue_export">Personal catalogue export</string>
-    <string name="personal_catalogue_export_explanation">Creates a versioned ZIP containing only foods and recipes you opted in for review. It can be shared manually while no hosted catalogue exists.</string>
-    <string name="export_review_items">Export opted-in items</string>
+    <string name="personal_catalogue_export">Review and feedback export</string>
+    <string name="personal_catalogue_export_explanation">Creates one review ZIP with separate catalogue and support folders. It includes only foods/recipes you opted in, scans you explicitly flagged, and the optional feedback below.</string>
+    <string name="export_review_items">Export review bundle</string>
     <string name="exporting_review_items">Exporting…</string>
     <string name="catalogue_export_success">Exported %1$d records and %2$d images.</string>
     <string name="catalogue_export_empty">Export created, but no items were opted in. Enable “Include in review export” while editing a food or recipe.</string>
     <string name="catalogue_export_error">The export could not be created. Choose another location and try again.</string>
+    <string name="review_bundle_export_success">Exported %1$d catalogue records, %2$d catalogue images, and %3$d flagged scans.</string>
+    <string name="feedback_optional">Feedback (optional)</string>
+    <string name="saved_scan_diagnostics">%1$d flagged scan images saved on this device</string>
+    <string name="delete_saved_diagnostics">Delete flagged scans</string>
+    <string name="delete_saved_diagnostics_confirm">Permanently delete all scan images currently flagged for review?</string>
+    <string name="delete">Delete</string>
+    <string name="flag_failed_scan">Flag image for review export</string>
+    <string name="scan_saved_for_support">Image flagged. It will be included in the next review export.</string>
 </resources>
