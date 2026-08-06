@@ -73,6 +73,7 @@ class ReviewInboxStoreTest(unittest.TestCase):
             self.assertEqual(2, len(review["items"]))
             feedback = next(item for item in review["items"] if item["sourceType"] == "FEEDBACK")
             self.assertEqual("PERFORMANCE", feedback["classification"])
+            self.assertTrue(feedback["assistantAnalysis"])
             self.assertTrue(Path(feedback["attachments"][0]).is_file())
             feedback["reviewerComments"] = "Reproduced on the test phone."
             store.save_review(review)
@@ -97,6 +98,7 @@ class ReviewInboxStoreTest(unittest.TestCase):
 
             self.assertEqual(1, brief["itemCount"])
             self.assertEqual(accepted["id"], brief["items"][0]["id"])
+            self.assertTrue(brief["items"][0]["assistantAnalysis"])
             self.assertTrue(output.is_file())
             self.assertTrue(output.with_suffix(".md").is_file())
 

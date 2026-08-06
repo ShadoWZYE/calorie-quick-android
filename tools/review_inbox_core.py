@@ -82,6 +82,14 @@ def _item(
 ) -> dict[str, Any]:
     suggested_class = classification or suggest_classification(description)
     suggested_severity = severity or suggest_severity(description, suggested_class)
+    assistant_analysis = {
+        "CATALOGUE_DATA": "The catalogue validator found a concrete data-quality issue. Confirm corrections against the package label or an authoritative source before changing shared catalogue data.",
+        "SCAN_DIAGNOSTIC": "The scan was retained because OCR or image decoding did not produce a dependable prefill. Inspect the sanitized attachment for layout, language, glare, curvature, and unit patterns that need regression coverage.",
+        "PERFORMANCE_DIAGNOSTIC": "This operation crossed the local slow/failure threshold. Use its duration and outcome as evidence, then reproduce with finer instrumentation before selecting an architectural fix.",
+    }.get(
+        source_type,
+        f"The item was imported intact and classified as {suggested_class}. The suggestion is not a product decision; confirm reproduction, desired behavior, scope, and acceptance checks before promotion.",
+    )
     return {
         "id": item_id,
         "sourceType": source_type,
@@ -97,6 +105,8 @@ def _item(
         "rationale": "",
         "targetVersion": "",
         "linkedReference": "",
+        "assistantAnalysis": assistant_analysis,
+        "analysisUpdatedAt": _now(),
         "reviewerComments": "",
         "corrections": "",
         "implementationNotes": "",
@@ -117,6 +127,8 @@ class ReviewInboxStore:
         for path in self.bundle_root.glob("*/review.json"):
             try:
                 review = json.loads(path.read_text(encoding="utf-8"))
+                if self._ensure_analysis_fields(review):
+                    self.save_review(review)
                 reviews.append(review)
             except (OSError, json.JSONDecodeError):
                 continue
@@ -133,6 +145,7 @@ class ReviewInboxStore:
         review_dir.mkdir(parents=True, exist_ok=True)
         if review_path.exists():
             existing = json.loads(review_path.read_text(encoding="utf-8"))
+            self._ensure_analysis_fields(existing)
             existing["sourceArchive"] = str(archive_path)
             existing["lastSeenAt"] = _now()
             self.save_review(existing)
@@ -250,6 +263,20 @@ class ReviewInboxStore:
         temporary.write_text(json.dumps(review, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
         temporary.replace(path)
 
+    @staticmethod
+    def _ensure_analysis_fields(review: dict[str, Any]) -> bool:
+        changed = False
+        for item in review.get("items", []):
+            if "assistantAnalysis" not in item:
+                classification = item.get("classification", "FEATURE")
+                item["assistantAnalysis"] = (
+                    f"The item was imported intact and classified as {classification}. "
+                    "Confirm the evidence, scope, and expected behavior before promotion."
+                )
+                item["analysisUpdatedAt"] = _now()
+                changed = True
+        return changed
+
     def add_manual_item(self, review: dict[str, Any]) -> dict[str, Any]:
         existing = {item.get("id") for item in review.get("items", [])}
         index = 1
@@ -343,6 +370,7 @@ class ReviewInboxStore:
                 item.get("description") or "No description supplied.",
             ])
             for heading, key in (
+                ("Codex analysis", "assistantAnalysis"),
                 ("Decision rationale", "rationale"),
                 ("Reviewer comments", "reviewerComments"),
                 ("Corrections", "corrections"),

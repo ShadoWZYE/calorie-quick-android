@@ -26,6 +26,7 @@ This directory is outside the Git repository. It can contain feedback text and s
 4. Automated classification and severity are suggestions only. Review and edit:
    - classification and severity;
    - workflow status and decision;
+   - the read-only Codex analysis, kept distinct from source evidence;
    - decision rationale;
    - target version and linked issue/commit;
    - reviewer comments;
@@ -51,6 +52,6 @@ An item reaches the generated implementation brief only when both conditions are
 1. its decision is `ACCEPT_NEXT` or `ACCEPT_BACKLOG`; and
 2. **Promote to the next generated implementation brief** is checked.
 
-**Export implementation brief** writes matching JSON and Markdown files. They preserve the original evidence, reviewer additions, corrections, target, and acceptance notes. Deferred, undecided, declined, and unselected items are excluded even if parsing suggested a high severity.
+**Export implementation brief** writes matching JSON and Markdown files. They preserve the original evidence, Codex analysis, reviewer additions, corrections, target, and acceptance notes. Deferred, undecided, declined, and unselected items are excluded even if parsing suggested a high severity.
 
 The brief is still a handoff artifact—not an automatic code change or external issue submission.

@@ -14,6 +14,8 @@ Run:
 
 The checked-in catalogue test validates its schema, bilingual names, nutrition bounds, stable IDs, allergens, preparations, aliases, categories, and representative Romanian coverage.
 
+Run `python -m unittest tools/test_catalogue_images.py` when changing built-in thumbnails. It validates every food image is 256×256 and rejects the displaced neighboring-tile pattern found in the original mackerel/mussels/pomegranate/sardines/shrimp batch.
+
 ## Private-alpha smoke test
 
 1. Complete onboarding in English and Romanian; verify linked calorie and macro targets, fibre, measurement units, and username survive relaunch.

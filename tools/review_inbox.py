@@ -146,19 +146,20 @@ class ReviewInboxApp(tk.Tk):
         self.promote_check.grid(row=7, column=0, columnspan=4, sticky="w", pady=8)
 
         self.description_text = self._text_field(8, "Original evidence / manual request", height=5)
-        self.rationale_text = self._text_field(10, "Decision rationale", height=4)
-        self.comments_text = self._text_field(12, "Reviewer comments", height=5)
-        self.corrections_text = self._text_field(14, "Corrections or clarified expected behavior", height=5)
-        self.implementation_text = self._text_field(16, "Implementation notes and acceptance checks", height=6)
+        self.analysis_text = self._text_field(10, "Codex analysis", height=6)
+        self.rationale_text = self._text_field(12, "Decision rationale", height=4)
+        self.comments_text = self._text_field(14, "Reviewer comments", height=5)
+        self.corrections_text = self._text_field(16, "Corrections or clarified expected behavior", height=5)
+        self.implementation_text = self._text_field(18, "Implementation notes and acceptance checks", height=6)
 
         attachment_row = ttk.Frame(self.editor)
-        attachment_row.grid(row=18, column=0, columnspan=4, sticky="ew", pady=(8, 0))
+        attachment_row.grid(row=20, column=0, columnspan=4, sticky="ew", pady=(8, 0))
         self.attachment_label = ttk.Label(attachment_row, text="No attachment")
         self.attachment_label.pack(side=tk.LEFT, fill=tk.X, expand=True)
         self.open_attachment_button = ttk.Button(attachment_row, text="Open attachment", command=self.open_attachment)
         self.open_attachment_button.pack(side=tk.RIGHT)
         ttk.Button(self.editor, text="Save this item", command=self.save_current).grid(
-            row=19, column=0, columnspan=4, sticky="ew", pady=(10, 0),
+            row=21, column=0, columnspan=4, sticky="ew", pady=(10, 0),
         )
         for column in range(4):
             self.editor.columnconfigure(column, weight=1)
@@ -279,6 +280,8 @@ class ReviewInboxApp(tk.Tk):
         )
         self._set_text(self.description_text, item.get("description", ""))
         self.description_text.configure(state=tk.NORMAL if item.get("sourceType") == "MANUAL" else tk.DISABLED)
+        self._set_text(self.analysis_text, item.get("assistantAnalysis", ""))
+        self.analysis_text.configure(state=tk.DISABLED)
         self._set_text(self.rationale_text, item.get("rationale", ""))
         self._set_text(self.comments_text, item.get("reviewerComments", ""))
         self._set_text(self.corrections_text, item.get("corrections", ""))
@@ -297,7 +300,7 @@ class ReviewInboxApp(tk.Tk):
             variable.set("")
         self.promote_value.set(False)
         for widget in (
-            self.description_text, self.rationale_text, self.comments_text,
+            self.description_text, self.analysis_text, self.rationale_text, self.comments_text,
             self.corrections_text, self.implementation_text,
         ):
             widget.configure(state=tk.NORMAL)

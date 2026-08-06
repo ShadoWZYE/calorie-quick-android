@@ -462,6 +462,9 @@
     <string name="release_alpha07_item_sheet">Quick-add sheets no longer compete with vertical scrolling for drag gestures.</string>
     <string name="release_alpha07_item_performance">Open Food Facts lookups now record privacy-safe timing and outcome diagnostics for review.</string>
     <string name="release_alpha07_item_review">Review exports can be triaged in the new private Windows review inbox before anything is promoted for implementation.</string>
+    <string name="release_alpha08_title">Cleaner food images and clearer review evidence</string>
+    <string name="release_alpha08_item_images">Nine malformed catalogue thumbnails were replaced after a full audit of the built-in image set.</string>
+    <string name="release_alpha08_item_review">The Windows review inbox now keeps Codex analysis beside the original evidence and reviewer notes.</string>
     <string name="release_alpha06_title">Safer, traceable review exports</string>
     <string name="release_alpha06_item_bundle">Review exports now include a versioned root manifest, explicit selection details, and integrity hashes for every image.</string>
     <string name="release_alpha06_item_privacy">Exported review images are orientation-corrected, resized, and stripped of camera, location, and editing metadata.</string>

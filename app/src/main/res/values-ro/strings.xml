@@ -467,6 +467,9 @@
     <string name="release_alpha07_item_sheet">Panourile de adăugare rapidă nu mai concurează cu derularea verticală pentru gesturile de glisare.</string>
     <string name="release_alpha07_item_performance">Căutările Open Food Facts înregistrează acum timpi și rezultate de diagnostic fără a salva termenii căutați.</string>
     <string name="release_alpha07_item_review">Exporturile pot fi analizate în noul instrument Windows privat înainte ca un element să fie promovat pentru implementare.</string>
+    <string name="release_alpha08_title">Imagini mai curate și dovezi mai clare la verificare</string>
+    <string name="release_alpha08_item_images">Nouă miniaturi defecte din catalog au fost înlocuite după verificarea completă a setului de imagini încorporat.</string>
+    <string name="release_alpha08_item_review">Instrumentul Windows păstrează acum analiza Codex lângă dovezile originale și notele evaluatorului.</string>
     <string name="release_alpha06_title">Exporturi pentru verificare mai sigure și trasabile</string>
     <string name="release_alpha06_item_bundle">Exporturile includ acum un manifest-rădăcină versionat, selecția explicită și amprente de integritate pentru fiecare imagine.</string>
     <string name="release_alpha06_item_privacy">Imaginile exportate sunt orientate corect, redimensionate și curățate de date despre cameră, locație și editare.</string>
