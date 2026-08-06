@@ -90,6 +90,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLocale
 import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
@@ -2860,6 +2861,7 @@ private fun TodayScreen(
     var showLabelSourceDialog by rememberSaveable { mutableStateOf(false) }
     var query by rememberSaveable { mutableStateOf("") }
     var selectedCatalogueCategory by rememberSaveable { mutableStateOf<String?>(null) }
+    var showFoodFilters by rememberSaveable { mutableStateOf(false) }
     val zoneId = ZoneId.systemDefault()
     val today = LocalDate.now(zoneId)
     var selectedEpochDay by rememberSaveable { mutableStateOf(today.toEpochDay()) }
@@ -2897,6 +2899,9 @@ private fun TodayScreen(
     var showMacroDetails by rememberSaveable { mutableStateOf(false) }
     val profile = requireNotNull(state.profile)
     val frequencyByFoodId = state.unitUsage.mapValues { (_, usages) -> usages.sumOf(UnitUsage::useCount) }
+    val recipesWithLeftovers = state.recipes.values
+        .filter { recipe -> recipe.batches.any { it.remainingGrams > 0 } }
+        .sortedBy { it.name }
     val catalogueCategories = state.foods.mapNotNull(Food::categoryKey).distinct().sorted()
     val isBrowsingCatalogue = selectedCatalogueCategory != null
     val allLocalQueryMatches = if (query.isBlank()) emptyList() else state.foods.filter { it.matches(query) }
@@ -2999,15 +3004,15 @@ private fun TodayScreen(
                 }
             }
             item { SummaryCard(selectedTotals, profile, selectedFiberIncomplete) { showMacroDetails = true } }
-            if (state.recipes.isNotEmpty()) {
-                item { SectionTitle(R.string.meal_prep) }
+            if (recipesWithLeftovers.isNotEmpty()) {
+                item { SectionTitle(R.string.leftovers) }
                 item {
                     LazyRow(
                         contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 20.dp),
                         horizontalArrangement = Arrangement.spacedBy(10.dp),
                     ) {
-                        items(state.recipes.values.sortedBy { it.name }, key = { it.foodId }) { recipe ->
-                            MealPrepCard(recipe, locale) {
+                        items(recipesWithLeftovers, key = { it.foodId }) { recipe ->
+                            LeftoverCard(recipe, locale) {
                                 state.foods.firstOrNull { it.id == recipe.foodId }?.let { selectedFood = it }
                             }
                         }
@@ -3067,48 +3072,95 @@ private fun TodayScreen(
                 )
             }
             item {
-                LazyRow(
-                    contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 20.dp),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                Column(
+                    Modifier.fillMaxWidth().padding(horizontal = 20.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
-                    item {
+                    val selectedFilterLabel = when (selectedCatalogueCategory) {
+                        null -> stringResource(R.string.recommended_foods)
+                        CATALOGUE_CATEGORY_ALL -> stringResource(R.string.all_foods)
+                        CATALOGUE_CATEGORY_PERSONAL -> stringResource(R.string.personal_foods)
+                        CATALOGUE_CATEGORY_RECIPES -> stringResource(R.string.recipes)
+                        else -> stringResource(requireNotNull(selectedCatalogueCategory).labelResource())
+                    }
+                    OutlinedButton(
+                        onClick = { showFoodFilters = !showFoodFilters },
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
+                        selectedCatalogueCategory?.takeUnless(::isSpecialCatalogueFilter)?.let { category ->
+                            CategoryFoodImage(category, Modifier.width(28.dp).height(28.dp).clip(RoundedCornerShape(8.dp)))
+                            Spacer(Modifier.width(8.dp))
+                        }
+                        Text(stringResource(R.string.food_filter_label, selectedFilterLabel), Modifier.weight(1f))
+                        Icon(
+                            if (showFoodFilters) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
+                            stringResource(R.string.choose_food_filter),
+                        )
+                    }
+                    if (showFoodFilters) {
+                        Card(
+                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+                            shape = RoundedCornerShape(18.dp),
+                        ) {
+                            FlowRow(
+                                Modifier.fillMaxWidth().padding(12.dp),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                verticalArrangement = Arrangement.spacedBy(6.dp),
+                            ) {
                         FilterChip(
                             selected = selectedCatalogueCategory == null,
-                            onClick = { selectedCatalogueCategory = null },
+                            onClick = {
+                                selectedCatalogueCategory = null
+                                showFoodFilters = false
+                            },
                             label = { Text(stringResource(R.string.recommended_foods)) },
                         )
-                    }
-                    item {
                         FilterChip(
                             selected = selectedCatalogueCategory == CATALOGUE_CATEGORY_ALL,
-                            onClick = { selectedCatalogueCategory = CATALOGUE_CATEGORY_ALL },
+                            onClick = {
+                                selectedCatalogueCategory = CATALOGUE_CATEGORY_ALL
+                                showFoodFilters = false
+                            },
                             label = { Text(stringResource(R.string.all_foods)) },
                         )
-                    }
-                    if (state.foods.any(Food::isPersonal)) {
-                        item {
+                                if (state.foods.any(Food::isPersonal)) {
                             FilterChip(
                                 selected = selectedCatalogueCategory == CATALOGUE_CATEGORY_PERSONAL,
-                                onClick = { selectedCatalogueCategory = CATALOGUE_CATEGORY_PERSONAL },
+                                        onClick = {
+                                            selectedCatalogueCategory = CATALOGUE_CATEGORY_PERSONAL
+                                            showFoodFilters = false
+                                        },
                                 label = { Text(stringResource(R.string.personal_foods)) },
                             )
                         }
-                    }
-                    if (state.recipes.isNotEmpty()) {
-                        item {
+                                if (state.recipes.isNotEmpty()) {
                             FilterChip(
                                 selected = selectedCatalogueCategory == CATALOGUE_CATEGORY_RECIPES,
-                                onClick = { selectedCatalogueCategory = CATALOGUE_CATEGORY_RECIPES },
+                                        onClick = {
+                                            selectedCatalogueCategory = CATALOGUE_CATEGORY_RECIPES
+                                            showFoodFilters = false
+                                        },
                                 label = { Text(stringResource(R.string.recipes)) },
                             )
                         }
-                    }
-                    items(catalogueCategories, key = { it }) { category ->
+                                catalogueCategories.forEach { category ->
                         FilterChip(
                             selected = selectedCatalogueCategory == category,
-                            onClick = { selectedCatalogueCategory = category },
+                                        onClick = {
+                                            selectedCatalogueCategory = category
+                                            showFoodFilters = false
+                                        },
                             label = { Text(stringResource(category.labelResource())) },
+                                        leadingIcon = {
+                                            CategoryFoodImage(
+                                                category,
+                                                Modifier.width(26.dp).height(26.dp).clip(RoundedCornerShape(8.dp)),
+                                            )
+                                        },
                         )
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -3294,6 +3346,12 @@ private fun TodayScreen(
                 selectedFood = null
                 customizingFood = food
             },
+            onPrepareBatch = state.recipes[food.id]?.let {
+                {
+                    selectedFood = null
+                    onEditFood(food)
+                }
+            },
         ) { loggedFood, amount, serving, batchId ->
             val time = if (selectedDate == today) LocalTime.now() else LocalTime.NOON
             val consumedAt = selectedDate.atTime(time).atZone(zoneId).toInstant().toEpochMilli()
@@ -3418,33 +3476,41 @@ private fun SummaryCard(totals: Nutrition, profile: UserProfile, fiberIncomplete
 }
 
 @Composable
-private fun MealPrepCard(recipe: RecipeTemplate, locale: Locale, onAdd: () -> Unit) {
-    val portionGrams = (recipe.cookedYieldGrams / recipe.portionCount.toDouble()).coerceAtLeast(1.0)
+private fun LeftoverCard(recipe: RecipeTemplate, locale: Locale, onAdd: () -> Unit) {
+    val availableBatches = recipe.batches.filter { it.remainingGrams > 0 }
+    val remainingGrams = availableBatches.sumOf { it.remainingGrams }
+    val remainingPortions = availableBatches.sumOf { it.remainingPortions }
+    val representativeBatch = availableBatches.firstOrNull { it.id == recipe.activeBatchId } ?: availableBatches.first()
     Card(
         onClick = onAdd,
-        enabled = recipe.remainingGrams > 0,
-        modifier = Modifier.width(270.dp),
+        modifier = Modifier.width(290.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer),
         shape = RoundedCornerShape(18.dp),
     ) {
-        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
-            Text(recipe.name, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        Row(Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
+            CategoryFoodImage(
+                "prepared-meals",
+                Modifier.width(62.dp).height(62.dp).clip(RoundedCornerShape(14.dp)),
+            )
+            Column(Modifier.padding(start = 12.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
+            Text(recipe.name, fontWeight = FontWeight.Bold)
             Text(
                 stringResource(
                     R.string.batch_remaining,
-                    recipe.remainingGrams,
-                    formatAmount(recipe.remainingGrams / portionGrams, locale),
+                    remainingGrams,
+                    formatAmount(remainingPortions, locale),
                 ),
-                color = if (recipe.remainingGrams > 0) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error,
+                color = MaterialTheme.colorScheme.primary,
             )
             Text(
                 stringResource(
                     R.string.prepared_on,
-                    DateFormat.getDateInstance(DateFormat.MEDIUM, locale).format(Date(recipe.cookedAtEpochMillis)),
+                    DateFormat.getDateInstance(DateFormat.MEDIUM, locale).format(Date(representativeBatch.cookedAtEpochMillis)),
                 ),
                 fontSize = 12.sp,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
+            }
         }
     }
 }
@@ -3570,6 +3636,7 @@ private fun DuplicateFoodNotice(
 }
 
 @Composable
+@OptIn(ExperimentalLayoutApi::class)
 private fun FoodRow(
     food: Food,
     recipe: RecipeTemplate?,
@@ -3595,32 +3662,34 @@ private fun FoodRow(
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
         shape = RoundedCornerShape(18.dp),
     ) {
-        Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-            food.image?.localPath?.let { path ->
-                FoodImagePreview(
-                    source = path,
-                    modifier = Modifier.width(64.dp).height(64.dp).clip(RoundedCornerShape(14.dp)),
+        Column(Modifier.padding(16.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                FoodVisual(
+                    food,
+                    Modifier.width(72.dp).height(72.dp).clip(RoundedCornerShape(14.dp)),
                 )
-                Spacer(Modifier.width(12.dp))
-            }
-            Column(Modifier.weight(1f)) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(
-                        food.name(locale),
-                        Modifier.weight(1f),
-                        fontWeight = FontWeight.SemiBold,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                    )
+                Column(Modifier.weight(1f).padding(horizontal = 12.dp)) {
+                    Text(food.name(locale), fontWeight = FontWeight.SemiBold)
                     Text(
                         food.detail(locale),
-                        Modifier.padding(start = 8.dp).widthIn(max = 150.dp),
                         fontSize = 13.sp,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        maxLines = 1,
+                        maxLines = 2,
                         overflow = TextOverflow.Ellipsis,
                     )
                 }
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    if (food.isPersonal) {
+                        IconButton(onClick = onEdit) {
+                            Icon(Icons.Default.Edit, stringResource(R.string.edit_personal_food))
+                        }
+                    }
+                    IconButton(onClick = onAdd) {
+                        Icon(Icons.Default.Add, stringResource(R.string.quick_add), tint = MaterialTheme.colorScheme.primary)
+                    }
+                }
+            }
+            Column(Modifier.padding(top = 10.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                 if (food.provenance.type != FoodSourceType.BUILT_IN) {
                     Text(
                         buildString {
@@ -3655,20 +3724,22 @@ private fun FoodRow(
                         overflow = TextOverflow.Ellipsis,
                     )
                 }
-                recipe?.let {
-                    val portionGrams = (it.cookedYieldGrams / it.portionCount.toDouble()).coerceAtLeast(1.0)
+                recipe?.takeIf { it.batches.any { batch -> batch.remainingGrams > 0 } }?.let {
+                    val remainingGrams = it.batches.sumOf { batch -> batch.remainingGrams.coerceAtLeast(0) }
+                    val remainingPortions = it.batches.filter { batch -> batch.remainingGrams > 0 }
+                        .sumOf { batch -> batch.remainingPortions }
                     Text(
                         stringResource(
                             R.string.batch_remaining,
-                            it.remainingGrams,
-                            formatAmount(it.remainingGrams / portionGrams, locale),
+                            remainingGrams,
+                            formatAmount(remainingPortions, locale),
                         ),
                         fontSize = 12.sp,
-                        color = if (it.remainingGrams > 0) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error,
+                        color = MaterialTheme.colorScheme.primary,
                     )
                 }
                 if (warnings.isNotEmpty()) {
-                    Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    FlowRow(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                         warnings.forEach { warning ->
                             Text(
                                 "${stringResource(warning.kind.labelResource())} +${warning.addedGrams.roundToInt()} g · ${warning.comparisonGrams} g",
@@ -3679,12 +3750,6 @@ private fun FoodRow(
                     }
                 }
             }
-            if (food.isPersonal) {
-                IconButton(onClick = onEdit) {
-                    Icon(Icons.Default.Edit, stringResource(R.string.edit_personal_food))
-                }
-            }
-            Icon(Icons.Default.Add, stringResource(R.string.quick_add), tint = MaterialTheme.colorScheme.primary)
         }
     }
 }
@@ -3692,6 +3757,8 @@ private fun FoodRow(
 private const val CATALOGUE_CATEGORY_ALL = "__all__"
 private const val CATALOGUE_CATEGORY_PERSONAL = "__personal__"
 private const val CATALOGUE_CATEGORY_RECIPES = "__recipes__"
+
+private fun isSpecialCatalogueFilter(value: String) = value.startsWith("__")
 
 private fun Food.matchesCatalogueCategory(category: String?): Boolean = when (category) {
     null, CATALOGUE_CATEGORY_ALL -> true
@@ -3717,6 +3784,41 @@ private fun String.labelResource() = when (this) {
     "prepared-meals" -> R.string.category_prepared_meals
     "beverages" -> R.string.category_beverages
     else -> R.string.category_other
+}
+
+private fun String?.categoryImageResource() = when (this) {
+    "fruit" -> R.drawable.food_category_fruit
+    "vegetables" -> R.drawable.food_category_vegetables
+    "grains" -> R.drawable.food_category_grains
+    "bakery" -> R.drawable.food_category_bakery
+    "meat" -> R.drawable.food_category_meat
+    "fish" -> R.drawable.food_category_fish
+    "eggs" -> R.drawable.food_category_eggs
+    "legumes" -> R.drawable.food_category_legumes
+    "plant-protein" -> R.drawable.food_category_plant_protein
+    "dairy" -> R.drawable.food_category_dairy
+    "fats" -> R.drawable.food_category_fats
+    "pantry" -> R.drawable.food_category_pantry
+    "nuts-seeds" -> R.drawable.food_category_nuts_seeds
+    "prepared-meals" -> R.drawable.food_category_prepared_meals
+    "beverages" -> R.drawable.food_category_beverages
+    else -> R.drawable.food_category_other
+}
+
+@Composable
+private fun CategoryFoodImage(categoryKey: String?, modifier: Modifier = Modifier) {
+    Image(
+        painter = painterResource(categoryKey.categoryImageResource()),
+        contentDescription = stringResource(categoryKey?.labelResource() ?: R.string.category_other),
+        contentScale = ContentScale.Crop,
+        modifier = modifier,
+    )
+}
+
+@Composable
+private fun FoodVisual(food: Food, modifier: Modifier = Modifier) {
+    food.image?.localPath?.let { FoodImagePreview(it, modifier) }
+        ?: CategoryFoodImage(food.categoryKey, modifier)
 }
 
 @Composable
@@ -3989,6 +4091,7 @@ private fun QuickAddSheet(
     locale: Locale,
     onDismiss: () -> Unit,
     onCustomize: (() -> Unit)? = null,
+    onPrepareBatch: (() -> Unit)? = null,
     onAdd: (Food, Double, Serving?, String?) -> Unit,
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
@@ -4025,7 +4128,7 @@ private fun QuickAddSheet(
     val selected = choices.firstOrNull { it.key == selectedKey } ?: choices.first()
     val amount = amountText.replace(',', '.').toDoubleOrNull()
     val grams = amount?.let { (it * (selected.serving?.grams ?: 1)).roundToInt() } ?: 0
-    val remainingGrams = selectedBatch?.remainingGrams ?: recipe?.remainingGrams
+    val remainingGrams = selectedBatch?.remainingGrams
     val valid = amount != null && amount > 0.0 && grams in 1..5_000 &&
         (remainingGrams == null || grams <= remainingGrams)
     val nutrition = effectiveFood.nutritionPer100g.forGrams(grams.coerceAtLeast(0))
@@ -4053,6 +4156,10 @@ private fun QuickAddSheet(
                     }
                 }
             }
+            FoodVisual(
+                food,
+                Modifier.fillMaxWidth().height(128.dp).clip(RoundedCornerShape(18.dp)),
+            )
             if (choosingPreparation) {
                 Text(stringResource(R.string.choose_cooking_method), fontWeight = FontWeight.SemiBold)
                 FlowRow(
@@ -4112,20 +4219,28 @@ private fun QuickAddSheet(
                     }
                 }
             }
-            recipe?.let {
-                val shownBatch = selectedBatch ?: it.batches.firstOrNull { batch -> batch.id == it.activeBatchId }
-                val shownRemaining = shownBatch?.remainingGrams ?: it.remainingGrams
-                val portionGrams = shownBatch?.portionGrams?.toDouble()
-                    ?: (it.cookedYieldGrams / it.portionCount.toDouble()).coerceAtLeast(1.0)
+            selectedBatch?.let { shownBatch ->
                 Text(
                     stringResource(
                         R.string.batch_remaining,
-                        shownRemaining,
-                        formatAmount(shownRemaining / portionGrams, locale),
+                        shownBatch.remainingGrams,
+                        formatAmount(shownBatch.remainingPortions, locale),
                     ),
-                    color = if (shownRemaining > 0) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error,
+                    color = MaterialTheme.colorScheme.primary,
                     fontWeight = FontWeight.SemiBold,
                 )
+            }
+            if (recipe != null && selectedBatch == null) {
+                Text(
+                    stringResource(R.string.no_leftovers_recipe_log_hint),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                onPrepareBatch?.let { prepare ->
+                    OutlinedButton(onClick = prepare, modifier = Modifier.fillMaxWidth()) {
+                        Icon(Icons.Default.RestaurantMenu, null)
+                        Text(stringResource(R.string.prepare_batch), Modifier.padding(start = 8.dp))
+                    }
+                }
             }
             if (containsAllergens.isNotEmpty()) {
                 Text(

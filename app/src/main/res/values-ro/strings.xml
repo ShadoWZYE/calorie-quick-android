@@ -38,6 +38,8 @@
     <string name="all_foods">Toate</string>
     <string name="personal_foods">Personale</string>
     <string name="recipes">Rețete</string>
+    <string name="food_filter_label">Alimente: %1$s</string>
+    <string name="choose_food_filter">Alege filtrul de alimente</string>
     <string name="category_fruit">Fructe</string>
     <string name="category_vegetables">Legume și zarzavaturi</string>
     <string name="category_grains">Cereale</string>
@@ -217,6 +219,9 @@
     <string name="display_name_optional">Nume (opțional)</string>
     <string name="display_name_private">Folosit pentru profilul și rapoartele locale; nu este dedus din imaginea importată de la cântar.</string>
     <string name="meal_prep">Mâncare pregătită</string>
+    <string name="leftovers">Resturi disponibile</string>
+    <string name="prepare_batch">Pregătește din nou</string>
+    <string name="no_leftovers_recipe_log_hint">Nu au rămas porții pregătite. Poți înregistra rețeta salvată sau poți pregăti din nou pentru a urmări ce rămâne.</string>
     <string name="batch_remaining">Au rămas %1$d g · ≈ %2$s porții</string>
     <string name="grams_remaining">Au rămas %1$d g</string>
     <string name="not_enough_batch_remaining">Cantitatea depășește preparatul rămas.</string>

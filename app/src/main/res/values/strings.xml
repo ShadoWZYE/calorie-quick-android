@@ -38,6 +38,8 @@
     <string name="all_foods">All foods</string>
     <string name="personal_foods">Personal</string>
     <string name="recipes">Recipes</string>
+    <string name="food_filter_label">Foods: %1$s</string>
+    <string name="choose_food_filter">Choose food filter</string>
     <string name="category_fruit">Fruit</string>
     <string name="category_vegetables">Vegetables</string>
     <string name="category_grains">Grains</string>
@@ -215,6 +217,9 @@
     <string name="display_name_optional">Name (optional)</string>
     <string name="display_name_private">Used for your local profile and reports; never inferred from an imported scale image.</string>
     <string name="meal_prep">Meal prep</string>
+    <string name="leftovers">Leftovers</string>
+    <string name="prepare_batch">Prepare a fresh batch</string>
+    <string name="no_leftovers_recipe_log_hint">No prepared portions remain. You can still log this saved recipe, or prepare a fresh batch to track leftovers.</string>
     <string name="batch_remaining">%1$d g remaining · ≈ %2$s portions</string>
     <string name="grams_remaining">%1$d g left</string>
     <string name="not_enough_batch_remaining">That amount is larger than the remaining batch.</string>

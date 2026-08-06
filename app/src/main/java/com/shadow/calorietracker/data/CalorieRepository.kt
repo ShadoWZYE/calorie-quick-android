@@ -368,9 +368,8 @@ class CalorieRepository(
         val unitKey = serving?.id ?: GRAMS_UNIT_KEY
         val unitLabel = serving?.label?.withoutLeadingOne() ?: LocalizedText("g", "g")
         database.withTransaction {
-            val recipeBatch = if (food.provenance.type == FoodSourceType.RECIPE) {
-                val recipe = database.recipeDao().findRecipe(food.id) ?: return@withTransaction
-                val batch = database.recipeDao().findBatch(recipeBatchId ?: recipe.activeBatchId) ?: return@withTransaction
+            val recipeBatch = if (food.provenance.type == FoodSourceType.RECIPE && recipeBatchId != null) {
+                val batch = database.recipeDao().findBatch(recipeBatchId) ?: return@withTransaction
                 if (batch.recipeFoodId != food.id) return@withTransaction
                 batch
             } else {

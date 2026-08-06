@@ -57,7 +57,13 @@ class RecipeRepositoryTest {
         assertEquals(1, repository.ingredientUsage.first()["rice"])
 
         val historicalTime = 1_786_000_000_000L
-        repository.addEntry(firstFood, 1.0, firstFood.servings.single(), consumedAtEpochMillis = historicalTime)
+        repository.addEntry(
+            firstFood,
+            1.0,
+            firstFood.servings.single(),
+            firstRecipe.activeBatchId,
+            consumedAtEpochMillis = historicalTime,
+        )
         val loggedEntry = repository.allEntries.first().single()
         assertEquals(firstRecipe.activeBatchId, loggedEntry.recipeBatchId)
         assertEquals(100, loggedEntry.recipeBatchGrams)
@@ -79,6 +85,13 @@ class RecipeRepositoryTest {
 
         repository.deleteEntry(reducedEntry)
         assertEquals(400, repository.recipes.first().single().remainingGrams)
+
+        repository.addEntry(firstFood, 1.0, firstFood.servings.single(), consumedAtEpochMillis = historicalTime)
+        val directRecipeEntry = repository.allEntries.first().single()
+        assertEquals(null, directRecipeEntry.recipeBatchId)
+        assertEquals(0, directRecipeEntry.recipeBatchGrams)
+        assertEquals(400, repository.recipes.first().single().remainingGrams)
+        repository.deleteEntry(directRecipeEntry)
 
         repository.saveRecipe(
             RecipeDraft(
