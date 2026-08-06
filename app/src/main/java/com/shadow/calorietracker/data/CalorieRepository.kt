@@ -55,6 +55,11 @@ class CalorieRepository(private val database: AppDatabase) {
         }
     }
     val allEntries: Flow<List<FoodEntry>> = database.diaryDao().observeAll().map { rows -> rows.map { it.toModel() } }
+    val ingredientUsage: Flow<Map<String, Int>> = database.recipeDao().observeIngredients().map { rows ->
+        rows.groupBy(RecipeIngredientEntity::foodId).mapValues { (_, uses) ->
+            uses.distinctBy(RecipeIngredientEntity::batchId).size
+        }
+    }
     val recipes: Flow<List<RecipeTemplate>> = combine(
         database.recipeDao().observeRecipes(),
         database.recipeDao().observeBatches(),
@@ -310,9 +315,15 @@ class CalorieRepository(private val database: AppDatabase) {
         database.foodDao().archivePersonalFood(foodId, System.currentTimeMillis())
     }
 
-    suspend fun addEntry(food: Food, amount: Double, serving: Serving?, recipeBatchId: String? = null) {
+    suspend fun addEntry(
+        food: Food,
+        amount: Double,
+        serving: Serving?,
+        recipeBatchId: String? = null,
+        consumedAtEpochMillis: Long = System.currentTimeMillis(),
+    ) {
         val grams = (amount * (serving?.grams ?: 1)).roundToInt().coerceIn(1, 5_000)
-        val now = System.currentTimeMillis()
+        val interactionAt = System.currentTimeMillis()
         val amountMilliUnits = (amount * 1_000).roundToInt().toLong()
         val unitKey = serving?.id ?: GRAMS_UNIT_KEY
         val unitLabel = serving?.label?.withoutLeadingOne() ?: LocalizedText("g", "g")
@@ -329,7 +340,11 @@ class CalorieRepository(private val database: AppDatabase) {
                 return@withTransaction
             }
             val nutrition = food.nutritionPer100g.forGrams(grams)
-            val recent = database.diaryDao().findRecent(food.id, now - ENTRY_MERGE_WINDOW_MILLIS)
+            val recent = database.diaryDao().findNear(
+                food.id,
+                consumedAtEpochMillis - ENTRY_MERGE_WINDOW_MILLIS,
+                consumedAtEpochMillis + ENTRY_MERGE_WINDOW_MILLIS,
+            )
             if (recent == null || recent.recipeBatchId != recipeBatch?.id) {
                 database.diaryDao().insert(
                     DiaryEntryEntity(
@@ -342,7 +357,7 @@ class CalorieRepository(private val database: AppDatabase) {
                         unitKey = unitKey,
                         unitLabelEn = unitLabel.en,
                         unitLabelRo = unitLabel.ro,
-                        consumedAtEpochMillis = now,
+                        consumedAtEpochMillis = consumedAtEpochMillis,
                         calories = nutrition.calories,
                         proteinMilligrams = (nutrition.proteinGrams * 1_000).roundToInt(),
                         carbsMilligrams = (nutrition.carbsGrams * 1_000).roundToInt(),
@@ -378,13 +393,13 @@ class CalorieRepository(private val database: AppDatabase) {
                 )
             }
             val usageId = "${food.id}|$unitKey"
-            if (database.servingUsageDao().increment(usageId, now, amountMilliUnits) == 0) {
+            if (database.servingUsageDao().increment(usageId, interactionAt, amountMilliUnits) == 0) {
                 database.servingUsageDao().insert(
-                    ServingUsageEntity(usageId, food.id, unitKey, 1, now, amountMilliUnits),
+                    ServingUsageEntity(usageId, food.id, unitKey, 1, interactionAt, amountMilliUnits),
                 )
             }
             val quantityUsageId = "$usageId|$amountMilliUnits"
-            if (database.quantityUsageDao().increment(quantityUsageId, now) == 0) {
+            if (database.quantityUsageDao().increment(quantityUsageId, interactionAt) == 0) {
                 database.quantityUsageDao().insert(
                     QuantityUsageEntity(
                         quantityUsageId,
@@ -392,10 +407,42 @@ class CalorieRepository(private val database: AppDatabase) {
                         unitKey,
                         amountMilliUnits,
                         1,
-                        now,
+                        interactionAt,
                     ),
                 )
             }
+        }
+    }
+
+    suspend fun updateEntry(entry: FoodEntry, enteredAmount: Double, consumedAtEpochMillis: Long): Boolean {
+        if (enteredAmount <= 0.0) return false
+        val gramsPerUnit = entry.grams / entry.enteredAmount.coerceAtLeast(0.001)
+        val newGrams = (enteredAmount * gramsPerUnit).roundToInt().coerceIn(1, 5_000)
+        val scale = newGrams / entry.grams.toDouble().coerceAtLeast(1.0)
+        return database.withTransaction {
+            entry.recipeBatchId?.let { batchId ->
+                val difference = newGrams - entry.recipeBatchGrams
+                when {
+                    difference > 0 && database.recipeDao().consumeBatch(batchId, difference) == 0 -> return@withTransaction false
+                    difference < 0 -> database.recipeDao().restoreBatch(batchId, -difference)
+                }
+            }
+            database.diaryDao().update(
+                entry.copy(
+                    grams = newGrams,
+                    enteredAmount = enteredAmount,
+                    consumedAtEpochMillis = consumedAtEpochMillis,
+                    nutrition = Nutrition(
+                        calories = (entry.nutrition.calories * scale).roundToInt(),
+                        proteinGrams = entry.nutrition.proteinGrams * scale,
+                        carbsGrams = entry.nutrition.carbsGrams * scale,
+                        fatGrams = entry.nutrition.fatGrams * scale,
+                        fiberGrams = entry.nutrition.fiberGrams?.times(scale),
+                    ),
+                    recipeBatchGrams = if (entry.recipeBatchId == null) 0 else newGrams,
+                ).toEntity(),
+            )
+            true
         }
     }
 

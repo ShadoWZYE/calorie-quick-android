@@ -118,10 +118,10 @@ interface DiaryDao {
 
     @Query(
         "SELECT * FROM diary_entries " +
-            "WHERE foodId = :foodId AND consumedAtEpochMillis >= :cutoff " +
+        "WHERE foodId = :foodId AND consumedAtEpochMillis >= :start AND consumedAtEpochMillis < :end " +
             "ORDER BY consumedAtEpochMillis DESC LIMIT 1",
     )
-    suspend fun findRecent(foodId: String, cutoff: Long): DiaryEntryEntity?
+    suspend fun findNear(foodId: String, start: Long, end: Long): DiaryEntryEntity?
 
     @Update
     suspend fun update(entry: DiaryEntryEntity)

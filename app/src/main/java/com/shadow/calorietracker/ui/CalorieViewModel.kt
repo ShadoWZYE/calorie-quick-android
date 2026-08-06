@@ -45,6 +45,7 @@ data class AppUiState(
     val unitUsage: Map<String, List<UnitUsage>> = emptyMap(),
     val quantityUsage: Map<String, List<QuantityUsage>> = emptyMap(),
     val recipes: Map<String, RecipeTemplate> = emptyMap(),
+    val ingredientUsage: Map<String, Int> = emptyMap(),
 ) {
     val totals: Nutrition = entries.fold(Nutrition.Zero) { total, entry -> total + entry.nutrition }
     val fiberIncomplete: Boolean = entries.any { it.nutrition.fiberGrams == null }
@@ -60,6 +61,7 @@ private data class UsageAndRecipeState(
     val unitUsage: List<UnitUsage>,
     val quantityUsage: List<QuantityUsage>,
     val recipes: List<RecipeTemplate>,
+    val ingredientUsage: Map<String, Int>,
 )
 
 enum class FoodLookupStatus { IDLE, SEARCHING, SUCCESS, ERROR, RATE_LIMITED }
@@ -91,7 +93,13 @@ class CalorieViewModel(application: Application) : AndroidViewModel(application)
 
     val uiState = combine(
         combine(repository.profile, repository.foods, repository.allEntries, ::CatalogueState),
-        combine(repository.unitUsage, repository.quantityUsage, repository.recipes, ::UsageAndRecipeState),
+        combine(
+            repository.unitUsage,
+            repository.quantityUsage,
+            repository.recipes,
+            repository.ingredientUsage,
+            ::UsageAndRecipeState,
+        ),
     ) { catalogue, usage ->
         val zoneId = ZoneId.systemDefault()
         val today = LocalDate.now(zoneId)
@@ -108,6 +116,7 @@ class CalorieViewModel(application: Application) : AndroidViewModel(application)
             unitUsage = usage.unitUsage.groupBy(UnitUsage::foodId),
             quantityUsage = usage.quantityUsage.groupBy(QuantityUsage::foodId),
             recipes = usage.recipes.associateBy(RecipeTemplate::foodId),
+            ingredientUsage = usage.ingredientUsage,
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), AppUiState())
 
@@ -119,8 +128,18 @@ class CalorieViewModel(application: Application) : AndroidViewModel(application)
         viewModelScope.launch { repository.saveProfile(profile) }
     }
 
-    fun addEntry(food: Food, amount: Double, serving: Serving?, recipeBatchId: String? = null) {
-        viewModelScope.launch { repository.addEntry(food, amount, serving, recipeBatchId) }
+    fun addEntry(
+        food: Food,
+        amount: Double,
+        serving: Serving?,
+        recipeBatchId: String? = null,
+        consumedAtEpochMillis: Long = System.currentTimeMillis(),
+    ) {
+        viewModelScope.launch { repository.addEntry(food, amount, serving, recipeBatchId, consumedAtEpochMillis) }
+    }
+
+    fun updateEntry(entry: FoodEntry, enteredAmount: Double, consumedAtEpochMillis: Long) {
+        viewModelScope.launch { repository.updateEntry(entry, enteredAmount, consumedAtEpochMillis) }
     }
 
     fun deleteEntry(entry: FoodEntry) {

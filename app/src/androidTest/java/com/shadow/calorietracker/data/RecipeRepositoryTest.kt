@@ -54,14 +54,30 @@ class RecipeRepositoryTest {
         assertEquals(65, firstFood.nutritionPer100g.calories)
         assertEquals(100, firstFood.servings.single().grams)
         assertEquals(400, firstRecipe.remainingGrams)
+        assertEquals(1, repository.ingredientUsage.first()["rice"])
 
-        repository.addEntry(firstFood, 1.0, firstFood.servings.single())
+        val historicalTime = 1_786_000_000_000L
+        repository.addEntry(firstFood, 1.0, firstFood.servings.single(), consumedAtEpochMillis = historicalTime)
         val loggedEntry = repository.allEntries.first().single()
         assertEquals(firstRecipe.activeBatchId, loggedEntry.recipeBatchId)
         assertEquals(100, loggedEntry.recipeBatchGrams)
+        assertEquals(historicalTime, loggedEntry.consumedAtEpochMillis)
         assertEquals(300, repository.recipes.first().single().remainingGrams)
 
-        repository.deleteEntry(loggedEntry)
+        val movedTime = historicalTime + 86_400_000L
+        assertEquals(true, repository.updateEntry(loggedEntry, 2.0, movedTime))
+        val enlargedEntry = repository.allEntries.first().single()
+        assertEquals(200, enlargedEntry.grams)
+        assertEquals(130, enlargedEntry.nutrition.calories)
+        assertEquals(movedTime, enlargedEntry.consumedAtEpochMillis)
+        assertEquals(200, repository.recipes.first().single().remainingGrams)
+
+        assertEquals(true, repository.updateEntry(enlargedEntry, 0.5, historicalTime))
+        val reducedEntry = repository.allEntries.first().single()
+        assertEquals(50, reducedEntry.grams)
+        assertEquals(350, repository.recipes.first().single().remainingGrams)
+
+        repository.deleteEntry(reducedEntry)
         assertEquals(400, repository.recipes.first().single().remainingGrams)
 
         repository.saveRecipe(
@@ -81,6 +97,7 @@ class RecipeRepositoryTest {
         assertEquals(450, latestRecipe.cookedYieldGrams)
         assertEquals(450, latestRecipe.remainingGrams)
         assertEquals(2, latestRecipe.batches.size)
+        assertEquals(2, repository.ingredientUsage.first()["rice"])
         assertEquals(150, latestFood.servings.single().grams)
         assertEquals(87, latestFood.nutritionPer100g.calories)
 

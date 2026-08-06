@@ -207,4 +207,13 @@
     <string name="next_day">Ziua următoare</string>
     <string name="day_macro_summary">Proteine %1$.1f g · carbohidrați %2$.1f g · grăsimi %3$.1f g · fibre %4$.1f g</string>
     <string name="no_entries_for_day">Nu există alimente înregistrate în această zi.</string>
+    <string name="add_food_to_day">Adaugă aliment în această zi</string>
+    <string name="edit_diary_entry">Editează înregistrarea</string>
+    <string name="entry_edit_snapshot_hint">Modificarea cantității ajustează proporțional valorile nutriționale salvate la înregistrarea inițială.</string>
+    <string name="frequent_ingredients">Ingrediente folosite frecvent</string>
+    <plurals name="used_in_recipe_batches">
+        <item quantity="one">Folosit într-un preparat gătit</item>
+        <item quantity="few">Folosit în %1$d preparate gătite</item>
+        <item quantity="other">Folosit în %1$d de preparate gătite</item>
+    </plurals>
 </resources>

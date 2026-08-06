@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
@@ -127,6 +128,7 @@ import java.util.Locale
 import java.util.Date
 import java.time.Instant
 import java.time.LocalDate
+import java.time.LocalTime
 import java.time.YearMonth
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
@@ -176,6 +178,8 @@ fun CalorieQuickApp(viewModel: CalorieViewModel = viewModel()) {
             state = state,
             onBack = { screenName = AppScreen.TODAY.name },
             onDelete = viewModel::deleteEntry,
+            onAdd = viewModel::addEntry,
+            onUpdate = viewModel::updateEntry,
         )
         screenName == AppScreen.FOOD_EDITOR.name -> PersonalFoodEditorScreen(
             initial = editingFood,
@@ -202,6 +206,7 @@ fun CalorieQuickApp(viewModel: CalorieViewModel = viewModel()) {
         screenName == AppScreen.RECIPE_EDITOR.name -> RecipeEditorScreen(
             initial = editingRecipe,
             foods = state.foods,
+            ingredientUsage = state.ingredientUsage,
             onBack = { screenName = AppScreen.TODAY.name },
             onSave = {
                 viewModel.saveRecipe(it)
@@ -216,8 +221,11 @@ fun CalorieQuickApp(viewModel: CalorieViewModel = viewModel()) {
             state = state,
             onOpenSettings = { screenName = AppScreen.SETTINGS.name },
             onOpenHistory = { screenName = AppScreen.HISTORY.name },
-            onAdd = viewModel::addEntry,
+            onAdd = { food, amount, serving, batchId ->
+                viewModel.addEntry(food, amount, serving, batchId)
+            },
             onDelete = viewModel::deleteEntry,
+            onUpdate = viewModel::updateEntry,
             onCreateFood = {
                 editingFood = null
                 nutritionLabelPrefill = null
@@ -743,6 +751,7 @@ private fun PersonalFoodEditorScreen(
 private fun RecipeEditorScreen(
     initial: RecipeTemplate?,
     foods: List<Food>,
+    ingredientUsage: Map<String, Int>,
     onBack: () -> Unit,
     onSave: (RecipeDraft) -> Unit,
     onArchive: (String) -> Unit,
@@ -784,13 +793,17 @@ private fun RecipeEditorScreen(
     } else {
         null
     }
+    val ingredientCandidates = foods.asSequence()
+        .filter { it.provenance.type != FoodSourceType.RECIPE }
+        .filter { food -> ingredients.none { it.foodId == food.id } }
     val searchResults = if (ingredientQuery.isBlank()) {
-        emptyList()
+        ingredientCandidates.filter { ingredientUsage[it.id].orZero() > 0 }
+            .sortedByDescending { ingredientUsage[it.id].orZero() }
+            .take(6)
+            .toList()
     } else {
-        foods.asSequence()
-            .filter { it.provenance.type != FoodSourceType.RECIPE }
-            .filter { food -> ingredients.none { it.foodId == food.id } }
-            .filter { it.matches(ingredientQuery) }
+        ingredientCandidates.filter { it.matches(ingredientQuery) }
+            .sortedWith(compareByDescending<Food> { ingredientUsage[it.id].orZero() }.thenBy { it.names.en })
             .take(6)
             .toList()
     }
@@ -857,6 +870,15 @@ private fun RecipeEditorScreen(
                 singleLine = true,
             )
         }
+        if (ingredientQuery.isBlank() && searchResults.isNotEmpty()) {
+            item {
+                Text(
+                    stringResource(R.string.frequent_ingredients),
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
         items(searchResults, key = { "recipe-search-${it.id}" }) { food ->
             Card(
                 onClick = {
@@ -881,6 +903,13 @@ private fun RecipeEditorScreen(
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             fontSize = 13.sp,
                         )
+                        ingredientUsage[food.id]?.takeIf { it > 0 }?.let { uses ->
+                            Text(
+                                pluralStringResource(R.plurals.used_in_recipe_batches, uses, uses),
+                                color = MaterialTheme.colorScheme.primary,
+                                fontSize = 12.sp,
+                            )
+                        }
                     }
                     Icon(Icons.Default.Add, stringResource(R.string.add_ingredient))
                 }
@@ -1415,6 +1444,8 @@ private fun HistoryScreen(
     state: AppUiState,
     onBack: () -> Unit,
     onDelete: (FoodEntry) -> Unit,
+    onAdd: (Food, Double, Serving?, String?, Long) -> Unit,
+    onUpdate: (FoodEntry, Double, Long) -> Unit,
 ) {
     val context = LocalContext.current
     val locale = LocalLocale.current.platformLocale
@@ -1422,6 +1453,10 @@ private fun HistoryScreen(
     val today = LocalDate.now(zoneId)
     var selectedEpochDay by rememberSaveable { mutableStateOf(today.toEpochDay()) }
     var rangeName by rememberSaveable { mutableStateOf(HistoryRange.DAYS.name) }
+    var showFoodPicker by rememberSaveable { mutableStateOf(false) }
+    var foodPickerQuery by rememberSaveable { mutableStateOf("") }
+    var selectedAddFood by remember { mutableStateOf<Food?>(null) }
+    var editingEntry by remember { mutableStateOf<FoodEntry?>(null) }
     val selectedDate = LocalDate.ofEpochDay(selectedEpochDay.coerceAtMost(today.toEpochDay()))
     val range = HistoryRange.valueOf(rangeName)
     val profile = requireNotNull(state.profile)
@@ -1583,6 +1618,18 @@ private fun HistoryScreen(
             }
         }
         item {
+            OutlinedButton(
+                onClick = {
+                    foodPickerQuery = ""
+                    showFoodPicker = true
+                },
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp),
+            ) {
+                Icon(Icons.Default.Add, null)
+                Text(stringResource(R.string.add_food_to_day), Modifier.padding(start = 8.dp))
+            }
+        }
+        item {
             Card(Modifier.fillMaxWidth().padding(horizontal = 20.dp)) {
                 Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     Text(
@@ -1608,9 +1655,58 @@ private fun HistoryScreen(
         if (selectedEntries.isEmpty()) {
             item { EmptyText(R.string.no_entries_for_day) }
         } else {
-            items(selectedEntries, key = { it.id }) { entry -> EntryRow(entry, locale) { onDelete(entry) } }
+            items(selectedEntries, key = { it.id }) { entry ->
+                EntryRow(entry, locale, onRemove = { onDelete(entry) }, onEdit = { editingEntry = entry })
+            }
         }
         item { Spacer(Modifier.height(24.dp)) }
+    }
+
+    if (showFoodPicker) {
+        HistoryFoodPickerSheet(
+            foods = state.foods,
+            usage = state.unitUsage,
+            query = foodPickerQuery,
+            locale = locale,
+            onQueryChange = { foodPickerQuery = it },
+            onDismiss = { showFoodPicker = false },
+            onSelect = {
+                selectedAddFood = it
+                showFoodPicker = false
+            },
+        )
+    }
+    selectedAddFood?.let { food ->
+        QuickAddSheet(
+            food = food,
+            recipe = state.recipes[food.id],
+            usage = state.unitUsage[food.id].orEmpty(),
+            quantityUsage = state.quantityUsage[food.id].orEmpty(),
+            locale = locale,
+            onDismiss = { selectedAddFood = null },
+        ) { loggedFood, amount, serving, batchId ->
+            val time = if (selectedDate == today) LocalTime.now() else LocalTime.NOON
+            val consumedAt = selectedDate.atTime(time).atZone(zoneId).toInstant().toEpochMilli()
+            onAdd(loggedFood, amount, serving, batchId, consumedAt)
+            selectedAddFood = null
+        }
+    }
+    editingEntry?.let { entry ->
+        val batchRemaining = entry.recipeBatchId?.let { batchId ->
+            state.recipes.values.asSequence().flatMap { it.batches.asSequence() }
+                .firstOrNull { it.id == batchId }?.remainingGrams
+        }
+        EntryEditorSheet(
+            entry = entry,
+            locale = locale,
+            zoneId = zoneId,
+            maximumRecipeGrams = batchRemaining?.plus(entry.recipeBatchGrams),
+            onDismiss = { editingEntry = null },
+            onSave = { amount, consumedAt ->
+                onUpdate(entry, amount, consumedAt)
+                editingEntry = null
+            },
+        )
     }
 }
 
@@ -1624,6 +1720,7 @@ private fun TodayScreen(
     onOpenHistory: () -> Unit,
     onAdd: (Food, Double, Serving?, String?) -> Unit,
     onDelete: (FoodEntry) -> Unit,
+    onUpdate: (FoodEntry, Double, Long) -> Unit,
     onCreateFood: (Pair<String, String?>) -> Unit,
     onCreateRecipe: () -> Unit,
     onEditFood: (Food) -> Unit,
@@ -1662,6 +1759,7 @@ private fun TodayScreen(
         GmsBarcodeScanning.getClient(context, options)
     }
     var selectedFood by remember { mutableStateOf<Food?>(null) }
+    var editingEntry by remember { mutableStateOf<FoodEntry?>(null) }
     var showMacroDetails by rememberSaveable { mutableStateOf(false) }
     val profile = requireNotNull(state.profile)
     val frequencyByFoodId = state.unitUsage.mapValues { (_, usages) -> usages.sumOf(UnitUsage::useCount) }
@@ -1904,7 +2002,9 @@ private fun TodayScreen(
             }
             item { SectionTitle(R.string.today_entries) }
             if (state.entries.isEmpty()) item { EmptyText(R.string.no_entries) }
-            else items(state.entries, key = { it.id }) { EntryRow(it, locale) { onDelete(it) } }
+            else items(state.entries, key = { it.id }) {
+                EntryRow(it, locale, onRemove = { onDelete(it) }, onEdit = { editingEntry = it })
+            }
             item { Spacer(Modifier.height(24.dp)) }
         }
     }
@@ -1922,6 +2022,24 @@ private fun TodayScreen(
             selectedFood = null
             query = ""
         }
+    }
+    editingEntry?.let { entry ->
+        val zoneId = ZoneId.systemDefault()
+        val batchRemaining = entry.recipeBatchId?.let { batchId ->
+            state.recipes.values.asSequence().flatMap { it.batches.asSequence() }
+                .firstOrNull { it.id == batchId }?.remainingGrams
+        }
+        EntryEditorSheet(
+            entry = entry,
+            locale = locale,
+            zoneId = zoneId,
+            maximumRecipeGrams = batchRemaining?.plus(entry.recipeBatchGrams),
+            onDismiss = { editingEntry = null },
+            onSave = { amount, consumedAt ->
+                onUpdate(entry, amount, consumedAt)
+                editingEntry = null
+            },
+        )
     }
     if (showMacroDetails) {
         MacroDetailsSheet(state.totals, profile, state.fiberIncomplete) { showMacroDetails = false }
@@ -2277,8 +2395,156 @@ private fun FoodSourceType.labelResource() = when (this) {
     FoodSourceType.RECIPE -> R.string.source_recipe
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun EntryRow(entry: FoodEntry, locale: Locale, onRemove: () -> Unit) {
+private fun HistoryFoodPickerSheet(
+    foods: List<Food>,
+    usage: Map<String, List<UnitUsage>>,
+    query: String,
+    locale: Locale,
+    onQueryChange: (String) -> Unit,
+    onDismiss: () -> Unit,
+    onSelect: (Food) -> Unit,
+) {
+    val results = foods.asSequence()
+        .filter { query.isBlank() || it.matches(query) }
+        .sortedWith(
+            compareByDescending<Food> { food -> usage[food.id].orEmpty().sumOf(UnitUsage::useCount) }
+                .thenBy { it.name(locale) },
+        )
+        .take(30)
+        .toList()
+    ModalBottomSheet(onDismissRequest = onDismiss) {
+        Column(
+            Modifier.fillMaxWidth().navigationBarsPadding().padding(horizontal = 20.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            Text(stringResource(R.string.add_food_to_day), fontSize = 24.sp, fontWeight = FontWeight.Bold)
+            OutlinedTextField(
+                value = query,
+                onValueChange = onQueryChange,
+                modifier = Modifier.fillMaxWidth(),
+                label = { Text(stringResource(R.string.search_hint)) },
+                leadingIcon = { Icon(Icons.Default.Search, null) },
+                singleLine = true,
+            )
+            LazyColumn(
+                modifier = Modifier.fillMaxWidth().heightIn(max = 520.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                if (results.isEmpty()) item { EmptyText(R.string.no_results) }
+                items(results, key = { it.id }) { food ->
+                    Card(onClick = { onSelect(food) }) {
+                        Row(Modifier.fillMaxWidth().padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Column(Modifier.weight(1f)) {
+                                Text(food.name(locale), fontWeight = FontWeight.SemiBold)
+                                Text(
+                                    "${food.nutritionPer100g.calories} ${stringResource(R.string.kcal)} · ${stringResource(R.string.per_100g)}",
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    fontSize = 13.sp,
+                                )
+                            }
+                            Icon(Icons.Default.Add, stringResource(R.string.quick_add))
+                        }
+                    }
+                }
+                item { Spacer(Modifier.height(8.dp)) }
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun EntryEditorSheet(
+    entry: FoodEntry,
+    locale: Locale,
+    zoneId: ZoneId,
+    maximumRecipeGrams: Int?,
+    onDismiss: () -> Unit,
+    onSave: (Double, Long) -> Unit,
+) {
+    val context = LocalContext.current
+    val initialDateTime = Instant.ofEpochMilli(entry.consumedAtEpochMillis).atZone(zoneId)
+    var amountText by remember(entry.id) { mutableStateOf(formatEditableAmount(entry.enteredAmount)) }
+    var dateEpochDay by remember(entry.id) { mutableStateOf(initialDateTime.toLocalDate().toEpochDay()) }
+    var hour by remember(entry.id) { mutableStateOf(initialDateTime.hour) }
+    var minute by remember(entry.id) { mutableStateOf(initialDateTime.minute) }
+    val date = LocalDate.ofEpochDay(dateEpochDay)
+    val amount = amountText.replace(',', '.').toDoubleOrNull()
+    val gramsPerUnit = entry.grams / entry.enteredAmount.coerceAtLeast(0.001)
+    val grams = amount?.let { (it * gramsPerUnit).roundToInt() } ?: 0
+    val candidateTimestamp = date.atTime(hour, minute).atZone(zoneId).toInstant().toEpochMilli()
+    val valid = amount != null && amount > 0.0 && grams in 1..5_000 &&
+        (maximumRecipeGrams == null || grams <= maximumRecipeGrams) && candidateTimestamp <= System.currentTimeMillis()
+    ModalBottomSheet(onDismissRequest = onDismiss) {
+        Column(
+            Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).navigationBarsPadding().padding(horizontal = 24.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp),
+        ) {
+            Text(stringResource(R.string.edit_diary_entry), fontSize = 24.sp, fontWeight = FontWeight.Bold)
+            Text(entry.foodName.forLocale(locale), color = MaterialTheme.colorScheme.onSurfaceVariant)
+            OutlinedTextField(
+                value = amountText,
+                onValueChange = { candidate ->
+                    val filtered = candidate.filter { it.isDigit() || it == '.' || it == ',' }
+                    if (filtered.count { it == '.' || it == ',' } <= 1) amountText = filtered
+                },
+                modifier = Modifier.fillMaxWidth(),
+                label = { Text(stringResource(R.string.amount)) },
+                suffix = { Text(entry.unitLabel.forLocale(locale)) },
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                singleLine = true,
+            )
+            Text("≈ $grams ${stringResource(R.string.grams_short)}", color = MaterialTheme.colorScheme.onSurfaceVariant)
+            if (maximumRecipeGrams != null && grams > maximumRecipeGrams) {
+                Text(stringResource(R.string.not_enough_batch_remaining), color = MaterialTheme.colorScheme.error)
+            }
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                OutlinedButton(
+                    onClick = {
+                        android.app.DatePickerDialog(
+                            context,
+                            { _, year, month, day -> dateEpochDay = LocalDate.of(year, month + 1, day).toEpochDay() },
+                            date.year,
+                            date.monthValue - 1,
+                            date.dayOfMonth,
+                        ).apply { datePicker.maxDate = System.currentTimeMillis() }.show()
+                    },
+                    modifier = Modifier.weight(1f),
+                ) {
+                    Icon(Icons.Default.CalendarMonth, null)
+                    Text(date.format(DateTimeFormatter.ofPattern("d MMM yyyy", locale)), Modifier.padding(start = 6.dp))
+                }
+                OutlinedButton(
+                    onClick = {
+                        android.app.TimePickerDialog(context, { _, h, m -> hour = h; minute = m }, hour, minute, true).show()
+                    },
+                    modifier = Modifier.weight(1f),
+                ) {
+                    Text(String.format(locale, "%02d:%02d", hour, minute))
+                }
+            }
+            Text(stringResource(R.string.entry_edit_snapshot_hint), color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp)
+            Button(
+                enabled = valid,
+                onClick = {
+                    onSave(requireNotNull(amount), candidateTimestamp)
+                },
+                modifier = Modifier.fillMaxWidth(),
+            ) { Text(stringResource(R.string.save_changes)) }
+            Spacer(Modifier.height(8.dp))
+        }
+    }
+}
+
+@Composable
+private fun EntryRow(
+    entry: FoodEntry,
+    locale: Locale,
+    onRemove: () -> Unit,
+    onEdit: (() -> Unit)? = null,
+) {
     Row(
         Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 4.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -2302,6 +2568,9 @@ private fun EntryRow(entry: FoodEntry, locale: Locale, onRemove: () -> Unit) {
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
+        }
+        onEdit?.let {
+            IconButton(onClick = it) { Icon(Icons.Default.Edit, stringResource(R.string.edit_diary_entry)) }
         }
         IconButton(onClick = onRemove) { Icon(Icons.Default.Delete, stringResource(R.string.remove_entry)) }
     }
@@ -2514,3 +2783,5 @@ private fun formatEditableAmount(value: Double): String =
 
 private fun formatAmount(value: Double, locale: Locale): String =
     NumberFormat.getNumberInstance(locale).apply { maximumFractionDigits = 2 }.format(value)
+
+private fun Int?.orZero(): Int = this ?: 0

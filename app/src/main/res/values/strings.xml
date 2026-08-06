@@ -205,4 +205,12 @@
     <string name="next_day">Next day</string>
     <string name="day_macro_summary">Protein %1$.1f g · carbs %2$.1f g · fat %3$.1f g · fiber %4$.1f g</string>
     <string name="no_entries_for_day">No foods logged on this day.</string>
+    <string name="add_food_to_day">Add food to this day</string>
+    <string name="edit_diary_entry">Edit diary entry</string>
+    <string name="entry_edit_snapshot_hint">Quantity changes scale the nutrition captured when this food was originally logged.</string>
+    <string name="frequent_ingredients">Frequently used ingredients</string>
+    <plurals name="used_in_recipe_batches">
+        <item quantity="one">Used in %1$d cooked batch</item>
+        <item quantity="other">Used in %1$d cooked batches</item>
+    </plurals>
 </resources>
