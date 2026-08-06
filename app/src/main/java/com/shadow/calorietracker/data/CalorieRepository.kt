@@ -4,6 +4,8 @@ import androidx.room.withTransaction
 import com.shadow.calorietracker.model.ActivityLevel
 import com.shadow.calorietracker.model.Allergen
 import com.shadow.calorietracker.model.AllergenDeclaration
+import com.shadow.calorietracker.model.BodyMeasurement
+import com.shadow.calorietracker.model.BodyMeasurementSource
 import com.shadow.calorietracker.model.Food
 import com.shadow.calorietracker.model.FoodEntry
 import com.shadow.calorietracker.model.FoodProvenance
@@ -59,6 +61,9 @@ class CalorieRepository(private val database: AppDatabase) {
         rows.groupBy(RecipeIngredientEntity::foodId).mapValues { (_, uses) ->
             uses.distinctBy(RecipeIngredientEntity::batchId).size
         }
+    }
+    val bodyMeasurements: Flow<List<BodyMeasurement>> = database.bodyMeasurementDao().observeAll().map { rows ->
+        rows.map(BodyMeasurementEntity::toModel)
     }
     val recipes: Flow<List<RecipeTemplate>> = combine(
         database.recipeDao().observeRecipes(),
@@ -135,6 +140,14 @@ class CalorieRepository(private val database: AppDatabase) {
 
     suspend fun saveProfile(profile: UserProfile) {
         database.profileDao().upsert(profile.toEntity())
+    }
+
+    suspend fun saveBodyMeasurement(measurement: BodyMeasurement) {
+        database.bodyMeasurementDao().upsert(measurement.toEntity())
+    }
+
+    suspend fun deleteBodyMeasurement(measurement: BodyMeasurement) {
+        measurement.id?.let { database.bodyMeasurementDao().delete(measurement.toEntity()) }
     }
 
     suspend fun savePersonalFood(draft: PersonalFoodDraft): String {
@@ -555,6 +568,7 @@ private fun UserProfileEntity.toModel() = UserProfile(
     fatGoalGrams = fatGoalGrams,
     fiberGoalGrams = fiberGoalGrams,
     targetMode = TargetMode.valueOf(targetMode),
+    displayName = displayName,
 )
 
 private fun UserProfile.toEntity() = UserProfileEntity(
@@ -571,6 +585,53 @@ private fun UserProfile.toEntity() = UserProfileEntity(
     carbsGoalGrams = carbsGoalGrams,
     fatGoalGrams = fatGoalGrams,
     fiberGoalGrams = fiberGoalGrams,
+    displayName = displayName.trim(),
+)
+
+private fun BodyMeasurementEntity.toModel() = BodyMeasurement(
+    id = id,
+    measuredAtEpochMillis = measuredAtEpochMillis,
+    weightKg = weightGrams / 1_000.0,
+    bmi = bmiMilliUnits?.div(1_000.0),
+    bodyFatPercent = bodyFatMilliPercent?.div(1_000.0),
+    fatMassKg = fatMassGrams?.div(1_000.0),
+    fatFreeMassKg = fatFreeMassGrams?.div(1_000.0),
+    muscleMassKg = muscleMassGrams?.div(1_000.0),
+    musclePercent = muscleMilliPercent?.div(1_000.0),
+    skeletalMusclePercent = skeletalMuscleMilliPercent?.div(1_000.0),
+    boneMassKg = boneMassGrams?.div(1_000.0),
+    proteinMassKg = proteinMassGrams?.div(1_000.0),
+    proteinPercent = proteinMilliPercent?.div(1_000.0),
+    waterMassKg = waterMassGrams?.div(1_000.0),
+    bodyWaterPercent = bodyWaterMilliPercent?.div(1_000.0),
+    subcutaneousFatPercent = subcutaneousFatMilliPercent?.div(1_000.0),
+    visceralFat = visceralFatMilliUnits?.div(1_000.0),
+    bmrCalories = bmrCalories,
+    bodyAge = bodyAge,
+    source = runCatching { BodyMeasurementSource.valueOf(source) }.getOrDefault(BodyMeasurementSource.MANUAL),
+)
+
+private fun BodyMeasurement.toEntity() = BodyMeasurementEntity(
+    id = id ?: "body-${UUID.randomUUID()}",
+    measuredAtEpochMillis = measuredAtEpochMillis,
+    weightGrams = (weightKg * 1_000).roundToInt(),
+    bmiMilliUnits = bmi?.let { (it * 1_000).roundToInt() },
+    bodyFatMilliPercent = bodyFatPercent?.let { (it * 1_000).roundToInt() },
+    fatMassGrams = fatMassKg?.let { (it * 1_000).roundToInt() },
+    fatFreeMassGrams = fatFreeMassKg?.let { (it * 1_000).roundToInt() },
+    muscleMassGrams = muscleMassKg?.let { (it * 1_000).roundToInt() },
+    muscleMilliPercent = musclePercent?.let { (it * 1_000).roundToInt() },
+    skeletalMuscleMilliPercent = skeletalMusclePercent?.let { (it * 1_000).roundToInt() },
+    boneMassGrams = boneMassKg?.let { (it * 1_000).roundToInt() },
+    proteinMassGrams = proteinMassKg?.let { (it * 1_000).roundToInt() },
+    proteinMilliPercent = proteinPercent?.let { (it * 1_000).roundToInt() },
+    waterMassGrams = waterMassKg?.let { (it * 1_000).roundToInt() },
+    bodyWaterMilliPercent = bodyWaterPercent?.let { (it * 1_000).roundToInt() },
+    subcutaneousFatMilliPercent = subcutaneousFatPercent?.let { (it * 1_000).roundToInt() },
+    visceralFatMilliUnits = visceralFat?.let { (it * 1_000).roundToInt() },
+    bmrCalories = bmrCalories,
+    bodyAge = bodyAge,
+    source = source.name,
 )
 
 private fun combineMilligrams(first: Int?, second: Int?): Int? = when {

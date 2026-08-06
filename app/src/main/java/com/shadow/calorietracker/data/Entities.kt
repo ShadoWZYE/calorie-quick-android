@@ -184,4 +184,29 @@ data class UserProfileEntity(
     val carbsGoalGrams: Int,
     val fatGoalGrams: Int,
     val fiberGoalGrams: Int = 25,
+    val displayName: String = "",
+)
+
+@Entity(tableName = "body_measurements", indices = [Index("measuredAtEpochMillis")])
+data class BodyMeasurementEntity(
+    @PrimaryKey val id: String,
+    val measuredAtEpochMillis: Long,
+    val weightGrams: Int,
+    val bmiMilliUnits: Int?,
+    val bodyFatMilliPercent: Int?,
+    val fatMassGrams: Int?,
+    val fatFreeMassGrams: Int?,
+    val muscleMassGrams: Int?,
+    val muscleMilliPercent: Int?,
+    val skeletalMuscleMilliPercent: Int?,
+    val boneMassGrams: Int?,
+    val proteinMassGrams: Int?,
+    val proteinMilliPercent: Int?,
+    val waterMassGrams: Int?,
+    val bodyWaterMilliPercent: Int?,
+    val subcutaneousFatMilliPercent: Int?,
+    val visceralFatMilliUnits: Int?,
+    val bmrCalories: Int?,
+    val bodyAge: Int?,
+    val source: String,
 )

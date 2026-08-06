@@ -140,6 +140,18 @@ interface ProfileDao {
 }
 
 @Dao
+interface BodyMeasurementDao {
+    @Query("SELECT * FROM body_measurements ORDER BY measuredAtEpochMillis DESC")
+    fun observeAll(): Flow<List<BodyMeasurementEntity>>
+
+    @Upsert
+    suspend fun upsert(measurement: BodyMeasurementEntity)
+
+    @Delete
+    suspend fun delete(measurement: BodyMeasurementEntity)
+}
+
+@Dao
 interface ServingUsageDao {
     @Query("SELECT * FROM serving_usage")
     fun observeAll(): Flow<List<ServingUsageEntity>>

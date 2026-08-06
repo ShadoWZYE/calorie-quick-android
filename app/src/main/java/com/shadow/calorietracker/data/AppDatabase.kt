@@ -22,8 +22,9 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         RecipeBatchEntity::class,
         RecipeIngredientEntity::class,
         RecipeIngredientAllergenEntity::class,
+        BodyMeasurementEntity::class,
     ],
-    version = 9,
+    version = 10,
     exportSchema = true,
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -33,6 +34,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun servingUsageDao(): ServingUsageDao
     abstract fun quantityUsageDao(): QuantityUsageDao
     abstract fun recipeDao(): RecipeDao
+    abstract fun bodyMeasurementDao(): BodyMeasurementDao
 
     companion object {
         @Volatile private var instance: AppDatabase? = null
@@ -51,6 +53,7 @@ abstract class AppDatabase : RoomDatabase() {
                 MIGRATION_6_7,
                 MIGRATION_7_8,
                 MIGRATION_8_9,
+                MIGRATION_9_10,
             ).build().also { instance = it }
         }
 
@@ -219,6 +222,26 @@ abstract class AppDatabase : RoomDatabase() {
                 )
                 db.execSQL("ALTER TABLE diary_entries ADD COLUMN recipeBatchId TEXT")
                 db.execSQL("ALTER TABLE diary_entries ADD COLUMN recipeBatchGrams INTEGER NOT NULL DEFAULT 0")
+            }
+        }
+
+        private val MIGRATION_9_10 = object : Migration(9, 10) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE user_profile ADD COLUMN displayName TEXT NOT NULL DEFAULT ''")
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS body_measurements (" +
+                        "id TEXT NOT NULL, measuredAtEpochMillis INTEGER NOT NULL, weightGrams INTEGER NOT NULL, " +
+                        "bmiMilliUnits INTEGER, bodyFatMilliPercent INTEGER, fatMassGrams INTEGER, " +
+                        "fatFreeMassGrams INTEGER, muscleMassGrams INTEGER, muscleMilliPercent INTEGER, " +
+                        "skeletalMuscleMilliPercent INTEGER, boneMassGrams INTEGER, proteinMassGrams INTEGER, " +
+                        "proteinMilliPercent INTEGER, waterMassGrams INTEGER, bodyWaterMilliPercent INTEGER, " +
+                        "subcutaneousFatMilliPercent INTEGER, visceralFatMilliUnits INTEGER, bmrCalories INTEGER, " +
+                        "bodyAge INTEGER, source TEXT NOT NULL, PRIMARY KEY(id))",
+                )
+                db.execSQL(
+                    "CREATE INDEX IF NOT EXISTS index_body_measurements_measuredAtEpochMillis " +
+                        "ON body_measurements(measuredAtEpochMillis)",
+                )
             }
         }
     }

@@ -11,7 +11,10 @@ import com.shadow.calorietracker.data.OpenFoodFactsClient
 import com.shadow.calorietracker.data.OpenFoodFactsException
 import com.shadow.calorietracker.data.NutritionLabelOcr
 import com.shadow.calorietracker.data.NutritionLabelPrefill
+import com.shadow.calorietracker.data.BodyScaleOcr
+import com.shadow.calorietracker.data.BodyScalePrefill
 import com.shadow.calorietracker.model.Food
+import com.shadow.calorietracker.model.BodyMeasurement
 import com.shadow.calorietracker.model.FoodEntry
 import com.shadow.calorietracker.model.DailyNutritionSummary
 import com.shadow.calorietracker.model.HistoryReportCalculator
@@ -46,6 +49,7 @@ data class AppUiState(
     val quantityUsage: Map<String, List<QuantityUsage>> = emptyMap(),
     val recipes: Map<String, RecipeTemplate> = emptyMap(),
     val ingredientUsage: Map<String, Int> = emptyMap(),
+    val bodyMeasurements: List<BodyMeasurement> = emptyList(),
 ) {
     val totals: Nutrition = entries.fold(Nutrition.Zero) { total, entry -> total + entry.nutrition }
     val fiberIncomplete: Boolean = entries.any { it.nutrition.fiberGrams == null }
@@ -55,6 +59,7 @@ private data class CatalogueState(
     val profile: UserProfile?,
     val foods: List<Food>,
     val allEntries: List<FoodEntry>,
+    val bodyMeasurements: List<BodyMeasurement>,
 )
 
 private data class UsageAndRecipeState(
@@ -80,6 +85,13 @@ data class NutritionLabelScanState(
     val prefill: NutritionLabelPrefill? = null,
 )
 
+enum class BodyScaleScanStatus { IDLE, PROCESSING, SUCCESS, ERROR }
+
+data class BodyScaleScanState(
+    val status: BodyScaleScanStatus = BodyScaleScanStatus.IDLE,
+    val prefill: BodyScalePrefill? = null,
+)
+
 class CalorieViewModel(application: Application) : AndroidViewModel(application) {
     private val repository = CalorieRepository(AppDatabase.get(application))
     private val openFoodFacts = OpenFoodFactsClient()
@@ -90,9 +102,13 @@ class CalorieViewModel(application: Application) : AndroidViewModel(application)
     private val _nutritionLabelScanState = MutableStateFlow(NutritionLabelScanState())
     val nutritionLabelScanState: StateFlow<NutritionLabelScanState> = _nutritionLabelScanState.asStateFlow()
     private var nutritionLabelScanJob: Job? = null
+    private val bodyScaleOcr = BodyScaleOcr(application)
+    private val _bodyScaleScanState = MutableStateFlow(BodyScaleScanState())
+    val bodyScaleScanState: StateFlow<BodyScaleScanState> = _bodyScaleScanState.asStateFlow()
+    private var bodyScaleScanJob: Job? = null
 
     val uiState = combine(
-        combine(repository.profile, repository.foods, repository.allEntries, ::CatalogueState),
+        combine(repository.profile, repository.foods, repository.allEntries, repository.bodyMeasurements, ::CatalogueState),
         combine(
             repository.unitUsage,
             repository.quantityUsage,
@@ -117,6 +133,7 @@ class CalorieViewModel(application: Application) : AndroidViewModel(application)
             quantityUsage = usage.quantityUsage.groupBy(QuantityUsage::foodId),
             recipes = usage.recipes.associateBy(RecipeTemplate::foodId),
             ingredientUsage = usage.ingredientUsage,
+            bodyMeasurements = catalogue.bodyMeasurements,
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), AppUiState())
 
@@ -144,6 +161,32 @@ class CalorieViewModel(application: Application) : AndroidViewModel(application)
 
     fun deleteEntry(entry: FoodEntry) {
         viewModelScope.launch { repository.deleteEntry(entry) }
+    }
+
+    fun saveBodyMeasurement(measurement: BodyMeasurement) {
+        viewModelScope.launch { repository.saveBodyMeasurement(measurement) }
+    }
+
+    fun deleteBodyMeasurement(measurement: BodyMeasurement) {
+        viewModelScope.launch { repository.deleteBodyMeasurement(measurement) }
+    }
+
+    fun scanBodyScaleReport(uri: Uri) {
+        bodyScaleScanJob?.cancel()
+        _bodyScaleScanState.value = BodyScaleScanState(BodyScaleScanStatus.PROCESSING)
+        bodyScaleScanJob = viewModelScope.launch {
+            _bodyScaleScanState.value = try {
+                BodyScaleScanState(BodyScaleScanStatus.SUCCESS, bodyScaleOcr.scan(uri))
+            } catch (error: Exception) {
+                Log.w("BodyScaleOcr", "Scale report scan failed", error)
+                BodyScaleScanState(BodyScaleScanStatus.ERROR)
+            }
+        }
+    }
+
+    fun clearBodyScaleScan() {
+        bodyScaleScanJob?.cancel()
+        _bodyScaleScanState.value = BodyScaleScanState()
     }
 
     fun savePersonalFood(draft: PersonalFoodDraft) {
@@ -236,6 +279,7 @@ class CalorieViewModel(application: Application) : AndroidViewModel(application)
 
     override fun onCleared() {
         nutritionLabelOcr.close()
+        bodyScaleOcr.close()
         super.onCleared()
     }
 }

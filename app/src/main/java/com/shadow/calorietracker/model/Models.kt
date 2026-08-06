@@ -320,6 +320,32 @@ data class UserProfile(
     val fatGoalGrams: Int,
     val fiberGoalGrams: Int = 25,
     val targetMode: TargetMode = TargetMode.ESTIMATED,
+    val displayName: String = "",
+)
+
+enum class BodyMeasurementSource { MANUAL, OCR }
+
+data class BodyMeasurement(
+    val id: String? = null,
+    val measuredAtEpochMillis: Long,
+    val weightKg: Double,
+    val bmi: Double? = null,
+    val bodyFatPercent: Double? = null,
+    val fatMassKg: Double? = null,
+    val fatFreeMassKg: Double? = null,
+    val muscleMassKg: Double? = null,
+    val musclePercent: Double? = null,
+    val skeletalMusclePercent: Double? = null,
+    val boneMassKg: Double? = null,
+    val proteinMassKg: Double? = null,
+    val proteinPercent: Double? = null,
+    val waterMassKg: Double? = null,
+    val bodyWaterPercent: Double? = null,
+    val subcutaneousFatPercent: Double? = null,
+    val visceralFat: Double? = null,
+    val bmrCalories: Int? = null,
+    val bodyAge: Int? = null,
+    val source: BodyMeasurementSource = BodyMeasurementSource.MANUAL,
 )
 
 object EnergyEstimator {
