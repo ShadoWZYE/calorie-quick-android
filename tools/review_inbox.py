@@ -18,6 +18,18 @@ from review_inbox_core import (
     ReviewInboxStore,
 )
 
+DECISION_HELP = {
+    "UNDECIDED": "No product decision yet. Add comments or corrections, then choose what should happen.",
+    "ACCEPT_NEXT": "Approved for the next focused implementation batch.",
+    "ACCEPT_BACKLOG": "Approved, but not scheduled for the next batch.",
+    "NEEDS_REPRODUCTION": "Keep the finding open until it can be reproduced reliably.",
+    "NEEDS_PRODUCT_DECISION": "The request is valid, but its behavior or scope still needs your choice.",
+    "DEFERRED": "Useful, but intentionally waiting on prerequisites or higher priorities.",
+    "DECLINED": "Not planned. Record the reason so it is not reconsidered without new evidence.",
+    "DUPLICATE": "Already represented by another finding; link it in the reference field.",
+    "RESOLVED": "Already fixed and verified.",
+}
+
 
 class ReviewInboxApp(tk.Tk):
     def __init__(self):
@@ -37,11 +49,24 @@ class ReviewInboxApp(tk.Tk):
     def _build_ui(self):
         toolbar = ttk.Frame(self, padding=8)
         toolbar.pack(fill=tk.X)
-        ttk.Button(toolbar, text="Import review ZIP…", command=self.import_bundle).pack(side=tk.LEFT, padx=3)
-        ttk.Button(toolbar, text="Save review", command=self.save_current).pack(side=tk.LEFT, padx=3)
-        ttk.Button(toolbar, text="Add manual item", command=self.add_manual_item).pack(side=tk.LEFT, padx=3)
-        ttk.Button(toolbar, text="Export implementation brief…", command=self.export_brief).pack(side=tk.LEFT, padx=3)
+        ttk.Button(toolbar, text="1 · Import review ZIP…", command=self.import_bundle).pack(side=tk.LEFT, padx=3)
+        ttk.Button(toolbar, text="Save changes", command=self.save_current).pack(side=tk.LEFT, padx=3)
+        ttk.Button(toolbar, text="Add a review item", command=self.add_manual_item).pack(side=tk.LEFT, padx=3)
+        ttk.Button(toolbar, text="6 · Create implementation brief…", command=self.export_brief).pack(side=tk.LEFT, padx=3)
+        ttk.Button(toolbar, text="How this works", command=self.show_help).pack(side=tk.RIGHT, padx=3)
         ttk.Button(toolbar, text="Open private inbox folder", command=self.open_inbox_folder).pack(side=tk.RIGHT, padx=3)
+
+        guide = ttk.Frame(self, padding=(12, 3, 12, 9))
+        guide.pack(fill=tk.X)
+        ttk.Label(
+            guide,
+            text=(
+                "Workflow: 1 Import a ZIP  →  2 choose a bundle  →  3 select a finding  →  "
+                "4 read the evidence and Codex analysis  →  5 choose a decision  →  "
+                "6 promote accepted items into a brief"
+            ),
+            foreground="#444444",
+        ).pack(anchor="w")
 
         self.status_text = tk.StringVar(value="Ready")
         ttk.Label(self, textvariable=self.status_text, padding=(10, 3)).pack(side=tk.BOTTOM, fill=tk.X)
@@ -49,7 +74,7 @@ class ReviewInboxApp(tk.Tk):
         panes = ttk.Panedwindow(self, orient=tk.HORIZONTAL)
         panes.pack(fill=tk.BOTH, expand=True, padx=8, pady=(0, 8))
 
-        bundle_frame = ttk.LabelFrame(panes, text="Imported bundles", padding=6)
+        bundle_frame = ttk.LabelFrame(panes, text="2 · Bundles", padding=6)
         panes.add(bundle_frame, weight=1)
         self.bundle_list = tk.Listbox(bundle_frame, exportselection=False, width=27)
         bundle_scroll = ttk.Scrollbar(bundle_frame, orient=tk.VERTICAL, command=self.bundle_list.yview)
@@ -58,7 +83,7 @@ class ReviewInboxApp(tk.Tk):
         bundle_scroll.pack(side=tk.RIGHT, fill=tk.Y)
         self.bundle_list.bind("<<ListboxSelect>>", self.select_bundle)
 
-        item_frame = ttk.LabelFrame(panes, text="Review items", padding=6)
+        item_frame = ttk.LabelFrame(panes, text="3 · Findings", padding=6)
         panes.add(item_frame, weight=3)
         filter_row = ttk.Frame(item_frame)
         filter_row.pack(fill=tk.X, pady=(0, 5))
@@ -73,8 +98,10 @@ class ReviewInboxApp(tk.Tk):
         )
         filter_box.pack(side=tk.LEFT, padx=5)
         filter_box.bind("<<ComboboxSelected>>", lambda _event: self.refresh_items())
+        tree_container = ttk.Frame(item_frame)
+        tree_container.pack(fill=tk.BOTH, expand=True)
         columns = ("source", "classification", "severity", "decision")
-        self.item_tree = ttk.Treeview(item_frame, columns=columns, show="tree headings", selectmode="browse")
+        self.item_tree = ttk.Treeview(tree_container, columns=columns, show="tree headings", selectmode="browse")
         self.item_tree.heading("#0", text="Title")
         self.item_tree.heading("source", text="Source")
         self.item_tree.heading("classification", text="Class")
@@ -85,23 +112,36 @@ class ReviewInboxApp(tk.Tk):
         self.item_tree.column("classification", width=95, minwidth=75)
         self.item_tree.column("severity", width=80, minwidth=65)
         self.item_tree.column("decision", width=150, minwidth=100)
-        item_scroll = ttk.Scrollbar(item_frame, orient=tk.VERTICAL, command=self.item_tree.yview)
-        self.item_tree.configure(yscrollcommand=item_scroll.set)
-        self.item_tree.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
-        item_scroll.pack(side=tk.RIGHT, fill=tk.Y)
+        item_scroll = ttk.Scrollbar(tree_container, orient=tk.VERTICAL, command=self.item_tree.yview)
+        item_horizontal_scroll = ttk.Scrollbar(tree_container, orient=tk.HORIZONTAL, command=self.item_tree.xview)
+        self.item_tree.configure(yscrollcommand=item_scroll.set, xscrollcommand=item_horizontal_scroll.set)
+        self.item_tree.grid(row=0, column=0, sticky="nsew")
+        item_scroll.grid(row=0, column=1, sticky="ns")
+        item_horizontal_scroll.grid(row=1, column=0, sticky="ew")
+        tree_container.rowconfigure(0, weight=1)
+        tree_container.columnconfigure(0, weight=1)
         self.item_tree.bind("<<TreeviewSelect>>", self.select_item)
 
-        editor_outer = ttk.LabelFrame(panes, text="Triage and reviewer additions", padding=6)
-        panes.add(editor_outer, weight=4)
-        editor_canvas = tk.Canvas(editor_outer, highlightthickness=0)
-        editor_scroll = ttk.Scrollbar(editor_outer, orient=tk.VERTICAL, command=editor_canvas.yview)
-        self.editor = ttk.Frame(editor_canvas, padding=(5, 2, 10, 10))
-        editor_window = editor_canvas.create_window((0, 0), window=self.editor, anchor="nw")
-        editor_canvas.configure(yscrollcommand=editor_scroll.set)
-        editor_canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        self.editor_outer = ttk.LabelFrame(panes, text="4–5 · Evidence, analysis, and your decision", padding=6)
+        panes.add(self.editor_outer, weight=4)
+        self.editor_canvas = tk.Canvas(self.editor_outer, highlightthickness=0, takefocus=True)
+        editor_scroll = ttk.Scrollbar(self.editor_outer, orient=tk.VERTICAL, command=self.editor_canvas.yview)
+        self.editor = ttk.Frame(self.editor_canvas, padding=(5, 2, 10, 10))
+        editor_window = self.editor_canvas.create_window((0, 0), window=self.editor, anchor="nw")
+        self.editor_canvas.configure(yscrollcommand=editor_scroll.set)
+        self.editor_canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
         editor_scroll.pack(side=tk.RIGHT, fill=tk.Y)
-        self.editor.bind("<Configure>", lambda _event: editor_canvas.configure(scrollregion=editor_canvas.bbox("all")))
-        editor_canvas.bind("<Configure>", lambda event: editor_canvas.itemconfigure(editor_window, width=event.width))
+        self.editor.bind(
+            "<Configure>",
+            lambda _event: self.editor_canvas.configure(scrollregion=self.editor_canvas.bbox("all")),
+        )
+        self.editor_canvas.bind(
+            "<Configure>",
+            lambda event: self.editor_canvas.itemconfigure(editor_window, width=event.width),
+        )
+        self.bind_all("<MouseWheel>", self._scroll_editor, add="+")
+        self.bind_all("<Button-4>", self._scroll_editor, add="+")
+        self.bind_all("<Button-5>", self._scroll_editor, add="+")
         self._build_editor()
 
     def _build_editor(self):
@@ -114,52 +154,68 @@ class ReviewInboxApp(tk.Tk):
         self.reference_value = tk.StringVar()
         self.promote_value = tk.BooleanVar()
         self.suggestion_value = tk.StringVar()
+        self.decision_help_value = tk.StringVar()
+        self.decision_value.trace_add("write", lambda *_args: self._update_decision_help())
 
-        ttk.Label(self.editor, text="Title").grid(row=0, column=0, sticky="w")
-        ttk.Entry(self.editor, textvariable=self.title_value).grid(row=1, column=0, columnspan=4, sticky="ew", pady=(0, 7))
+        navigation = ttk.Frame(self.editor)
+        navigation.grid(row=0, column=0, columnspan=4, sticky="ew", pady=(0, 8))
+        self.position_value = tk.StringVar(value="No finding selected")
+        ttk.Button(navigation, text="← Previous", command=lambda: self.navigate_item(-1)).pack(side=tk.LEFT)
+        ttk.Button(navigation, text="Next →", command=lambda: self.navigate_item(1)).pack(side=tk.LEFT, padx=5)
+        ttk.Label(navigation, textvariable=self.position_value, foreground="#555555").pack(side=tk.RIGHT)
+
+        ttk.Label(self.editor, text="Finding").grid(row=1, column=0, sticky="w")
+        ttk.Entry(self.editor, textvariable=self.title_value).grid(row=2, column=0, columnspan=4, sticky="ew", pady=(0, 7))
         ttk.Label(self.editor, textvariable=self.suggestion_value, foreground="#555555").grid(
-            row=2, column=0, columnspan=4, sticky="w", pady=(0, 7),
+            row=3, column=0, columnspan=4, sticky="w", pady=(0, 7),
         )
 
         fields = [
-            ("Classification", self.classification_value, CLASSIFICATIONS),
-            ("Severity", self.severity_value, SEVERITIES),
-            ("Status", self.status_value, STATUSES),
-            ("Decision", self.decision_value, DECISIONS),
+            ("Classification", self.classification_value, CLASSIFICATIONS, 4, 0),
+            ("Severity", self.severity_value, SEVERITIES, 4, 2),
+            ("Review progress", self.status_value, STATUSES, 6, 0),
+            ("What happens next", self.decision_value, DECISIONS, 6, 2),
         ]
-        for column, (label, variable, values) in enumerate(fields):
-            ttk.Label(self.editor, text=label).grid(row=3, column=column, sticky="w", padx=(0, 5))
+        for label, variable, values, row, column in fields:
+            ttk.Label(self.editor, text=label).grid(row=row, column=column, columnspan=2, sticky="w", padx=(0, 5))
             ttk.Combobox(self.editor, textvariable=variable, values=values, state="readonly").grid(
-                row=4, column=column, sticky="ew", padx=(0, 5), pady=(0, 7),
+                row=row + 1, column=column, columnspan=2, sticky="ew", padx=(0, 5), pady=(0, 7),
             )
 
-        ttk.Label(self.editor, text="Target version").grid(row=5, column=0, sticky="w")
-        ttk.Entry(self.editor, textvariable=self.target_value).grid(row=6, column=0, columnspan=2, sticky="ew", padx=(0, 5))
-        ttk.Label(self.editor, text="Issue / commit / reference").grid(row=5, column=2, sticky="w")
-        ttk.Entry(self.editor, textvariable=self.reference_value).grid(row=6, column=2, columnspan=2, sticky="ew")
+        ttk.Label(
+            self.editor,
+            textvariable=self.decision_help_value,
+            foreground="#444444",
+            wraplength=560,
+        ).grid(row=8, column=0, columnspan=4, sticky="w", pady=(0, 9))
+
+        ttk.Label(self.editor, text="Target version (optional)").grid(row=9, column=0, sticky="w")
+        ttk.Entry(self.editor, textvariable=self.target_value).grid(row=10, column=0, columnspan=2, sticky="ew", padx=(0, 5))
+        ttk.Label(self.editor, text="Issue / commit / reference (optional)").grid(row=9, column=2, sticky="w")
+        ttk.Entry(self.editor, textvariable=self.reference_value).grid(row=10, column=2, columnspan=2, sticky="ew")
 
         self.promote_check = ttk.Checkbutton(
             self.editor,
-            text="Promote to the next generated implementation brief",
+            text="Include this accepted item in the next implementation brief",
             variable=self.promote_value,
         )
-        self.promote_check.grid(row=7, column=0, columnspan=4, sticky="w", pady=8)
+        self.promote_check.grid(row=11, column=0, columnspan=4, sticky="w", pady=8)
 
-        self.description_text = self._text_field(8, "Original evidence / manual request", height=5)
-        self.analysis_text = self._text_field(10, "Codex analysis", height=6)
-        self.rationale_text = self._text_field(12, "Decision rationale", height=4)
-        self.comments_text = self._text_field(14, "Reviewer comments", height=5)
-        self.corrections_text = self._text_field(16, "Corrections or clarified expected behavior", height=5)
-        self.implementation_text = self._text_field(18, "Implementation notes and acceptance checks", height=6)
+        self.description_text = self._text_field(12, "Original evidence (read this first)", height=5)
+        self.analysis_text = self._text_field(14, "Codex analysis (diagnosis, not a product decision)", height=6)
+        self.rationale_text = self._text_field(16, "Why you chose this decision", height=4)
+        self.comments_text = self._text_field(18, "Your extra comments", height=5)
+        self.corrections_text = self._text_field(20, "Corrections or clarified expected behavior", height=5)
+        self.implementation_text = self._text_field(22, "Implementation notes and acceptance checks", height=6)
 
         attachment_row = ttk.Frame(self.editor)
-        attachment_row.grid(row=20, column=0, columnspan=4, sticky="ew", pady=(8, 0))
+        attachment_row.grid(row=24, column=0, columnspan=4, sticky="ew", pady=(8, 0))
         self.attachment_label = ttk.Label(attachment_row, text="No attachment")
         self.attachment_label.pack(side=tk.LEFT, fill=tk.X, expand=True)
         self.open_attachment_button = ttk.Button(attachment_row, text="Open attachment", command=self.open_attachment)
         self.open_attachment_button.pack(side=tk.RIGHT)
         ttk.Button(self.editor, text="Save this item", command=self.save_current).grid(
-            row=21, column=0, columnspan=4, sticky="ew", pady=(10, 0),
+            row=25, column=0, columnspan=4, sticky="ew", pady=(10, 0),
         )
         for column in range(4):
             self.editor.columnconfigure(column, weight=1)
@@ -170,6 +226,49 @@ class ReviewInboxApp(tk.Tk):
         text.grid(row=row + 1, column=0, columnspan=4, sticky="nsew")
         return text
 
+    def _update_decision_help(self):
+        self.decision_help_value.set(DECISION_HELP.get(self.decision_value.get(), "Choose what should happen next."))
+
+    def _scroll_editor(self, event):
+        widget = getattr(event, "widget", None) or self.winfo_containing(event.x_root, event.y_root)
+        while widget is not None and widget is not self.editor_outer:
+            widget = widget.master
+        if widget is None:
+            return None
+        if getattr(event, "num", None) == 4:
+            direction = -1
+        elif getattr(event, "num", None) == 5:
+            direction = 1
+        else:
+            direction = -1 if event.delta > 0 else 1
+        self.editor_canvas.yview_scroll(direction * 3, "units")
+        return "break"
+
+    def navigate_item(self, offset: int):
+        item_ids = list(self.item_tree.get_children())
+        if not item_ids:
+            return
+        current_id = self.item.get("id") if self.item else item_ids[0]
+        current_index = item_ids.index(current_id) if current_id in item_ids else 0
+        target = item_ids[(current_index + offset) % len(item_ids)]
+        self.save_editor()
+        self.item_tree.selection_set(target)
+        self.item_tree.focus(target)
+        self.item_tree.see(target)
+        self._load_item(target)
+        self.editor_canvas.yview_moveto(0)
+
+    def show_help(self):
+        messagebox.showinfo(
+            "How to review feedback",
+            "1. Import a review ZIP from a phone.\n\n"
+            "2. Select its bundle, then select one finding.\n\n"
+            "3. Read Original evidence and Codex analysis. The analysis is advice, not an automatic decision.\n\n"
+            "4. Choose a Decision. Add corrections or comments where needed.\n\n"
+            "5. For ACCEPT_NEXT or ACCEPT_BACKLOG, tick Include only if the item should appear in the exported brief.\n\n"
+            "6. Save changes, then create an implementation brief when your review is ready.",
+        )
+
     def reload_reviews(self, select_hash: str | None = None):
         self.reviews = self.store.list_reviews()
         self.bundle_list.delete(0, tk.END)
@@ -177,7 +276,7 @@ class ReviewInboxApp(tk.Tk):
         for index, review in enumerate(self.reviews):
             build = review.get("build") or {}
             version = build.get("versionName") or "unknown build"
-            label = f"{version} · {review.get('bundleHash', '')[:10]}\n{len(review.get('items', []))} items"
+            label = f"{version} · {len(review.get('items', []))} findings · {review.get('bundleHash', '')[:8]}"
             self.bundle_list.insert(tk.END, label)
             if review.get("bundleHash") == select_hash:
                 selection = index
@@ -264,6 +363,9 @@ class ReviewInboxApp(tk.Tk):
         self.item = next((item for item in (self.review or {}).get("items", []) if item.get("id") == item_id), None)
         if not self.item:
             return
+        visible_ids = list(self.item_tree.get_children())
+        position = visible_ids.index(item_id) + 1 if item_id in visible_ids else 0
+        self.position_value.set(f"Finding {position} of {len(visible_ids)}")
         self._loading = True
         item = self.item
         self.title_value.set(item.get("title", ""))
@@ -299,6 +401,7 @@ class ReviewInboxApp(tk.Tk):
         ):
             variable.set("")
         self.promote_value.set(False)
+        self.position_value.set("No finding selected")
         for widget in (
             self.description_text, self.analysis_text, self.rationale_text, self.comments_text,
             self.corrections_text, self.implementation_text,

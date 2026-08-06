@@ -34,6 +34,8 @@ This directory is outside the Git repository. It can contain feedback text and s
    - implementation notes and acceptance checks.
 5. Use **Add manual item** for conclusions that do not map cleanly to one imported record.
 
+The right-hand review panel scrolls independently with the mouse wheel anywhere under the pointer. Use **Previous** and **Next** at its top to work through the currently filtered findings without returning to the list each time. The numbered header summarizes the intended flow, and **How this works** provides the same guidance inside the tool.
+
 ## Decisions
 
 - `ACCEPT_NEXT`: suitable for the next focused implementation batch.
