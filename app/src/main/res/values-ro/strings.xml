@@ -33,6 +33,7 @@
     <string name="open_food_facts_review_notice">Date comunitare din Open Food Facts. Verifică eticheta înainte de salvarea pe acest dispozitiv.</string>
     <string name="quick_add">Adăugare rapidă</string>
     <string name="recommended_foods">Recomandate</string>
+    <string name="no_recommended_foods">Alimentele înregistrate anterior vor apărea aici. Caută în catalog pentru a-l adăuga pe primul.</string>
     <string name="today_entries">Înregistrările de astăzi</string>
     <string name="no_entries">Nimic înregistrat. Adaugă un aliment frecvent dintr-o atingere.</string>
     <string name="no_results">Niciun aliment salvat nu corespunde căutării.</string>

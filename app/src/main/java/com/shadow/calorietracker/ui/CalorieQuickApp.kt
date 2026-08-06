@@ -2648,7 +2648,7 @@ private fun TodayScreen(
     val profile = requireNotNull(state.profile)
     val frequencyByFoodId = state.unitUsage.mapValues { (_, usages) -> usages.sumOf(UnitUsage::useCount) }
     val displayedFoods = if (query.isBlank()) {
-        FoodRecommender.rank(state.foods, state.totals, profile, frequencyByFoodId)
+        FoodRecommender.rankPreviouslyUsed(state.foods, state.totals, profile, frequencyByFoodId)
     } else {
         state.foods.filter { it.matches(query) }
     }
@@ -2835,7 +2835,13 @@ private fun TodayScreen(
                 }
             }
             item { SectionTitle(if (query.isBlank()) R.string.recommended_foods else R.string.quick_add) }
-            if (displayedFoods.isEmpty()) item { EmptyText(R.string.no_results) }
+            if (displayedFoods.isEmpty()) {
+                item {
+                    EmptyText(
+                        if (query.isBlank()) R.string.no_recommended_foods else R.string.no_results,
+                    )
+                }
+            }
             else items(displayedFoods, key = { it.id }) {
                 FoodRow(it, state.recipes[it.id], locale, state.totals, profile, { selectedFood = it }) { onEditFood(it) }
             }

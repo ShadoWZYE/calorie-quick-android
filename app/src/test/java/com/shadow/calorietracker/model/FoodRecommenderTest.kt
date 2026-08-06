@@ -89,6 +89,34 @@ class FoodRecommenderTest {
         assertEquals(setOf("chicken", "oats"), ranked.take(2).map(Food::id).toSet())
     }
 
+    @Test
+    fun recommendationsOnlyContainFoodsWithUserUsage() {
+        val apple = food("apple", Nutrition(52, .3, 13.8, .2))
+        val builtInUnused = food("catalogue-only", Nutrition(100, 10.0, 10.0, 2.0))
+        val personalUnused = food("personal-unused", Nutrition(80, 8.0, 8.0, 2.0)).copy(isPersonal = true)
+
+        val ranked = FoodRecommender.rankPreviouslyUsed(
+            listOf(builtInUnused, personalUnused, apple),
+            Nutrition.Zero,
+            profile,
+            mapOf("apple" to 2, "catalogue-only" to 0),
+        )
+
+        assertEquals(listOf("apple"), ranked.map(Food::id))
+    }
+
+    @Test
+    fun recommendationsAreEmptyBeforeAnyFoodHasBeenUsed() {
+        val ranked = FoodRecommender.rankPreviouslyUsed(
+            listOf(food("catalogue-only", Nutrition(100, 10.0, 10.0, 2.0))),
+            Nutrition.Zero,
+            profile,
+            emptyMap(),
+        )
+
+        assertEquals(emptyList<Food>(), ranked)
+    }
+
     private fun food(id: String, nutrition: Nutrition) = Food(
         id = id,
         names = LocalizedText(id, id),

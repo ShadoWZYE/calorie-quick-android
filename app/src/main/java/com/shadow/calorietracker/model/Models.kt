@@ -472,6 +472,18 @@ object EnergyEstimator {
 }
 
 object FoodRecommender {
+    fun rankPreviouslyUsed(
+        foods: List<Food>,
+        totals: Nutrition,
+        profile: UserProfile,
+        frequencyByFoodId: Map<String, Int>,
+    ): List<Food> = rank(
+        foods = foods.filter { (frequencyByFoodId[it.id] ?: 0) > 0 },
+        totals = totals,
+        profile = profile,
+        frequencyByFoodId = frequencyByFoodId,
+    )
+
     fun rank(
         foods: List<Food>,
         totals: Nutrition,

@@ -33,6 +33,7 @@
     <string name="open_food_facts_review_notice">Community data from Open Food Facts. Verify the label before saving it on this device.</string>
     <string name="quick_add">Quick add</string>
     <string name="recommended_foods">Recommended</string>
+    <string name="no_recommended_foods">Foods you have logged before will appear here. Search the catalogue to add your first one.</string>
     <string name="today_entries">Today’s entries</string>
     <string name="no_entries">Nothing logged yet. Add a frequent food in one tap.</string>
     <string name="no_results">No saved foods match this search.</string>
