@@ -68,6 +68,10 @@ interface FoodDao {
     @Query("SELECT * FROM foods WHERE isPersonal = 1 AND archived = 0 AND reviewStatus = 'READY_FOR_REVIEW'")
     suspend fun listReviewableFoods(): List<FoodWithServings>
 
+    @Transaction
+    @Query("SELECT * FROM foods WHERE id IN (:foodIds) AND isPersonal = 1 AND archived = 0")
+    suspend fun listPersonalFoodsByIds(foodIds: List<String>): List<FoodWithServings>
+
     @Query("UPDATE foods SET reviewStatus = 'EXPORTED' WHERE id IN (:foodIds)")
     suspend fun markExported(foodIds: List<String>)
 
@@ -115,6 +119,9 @@ interface RecipeDao {
 
     @Query("SELECT * FROM recipes WHERE reviewStatus = 'READY_FOR_REVIEW'")
     suspend fun listReviewableRecipes(): List<RecipeEntity>
+
+    @Query("SELECT * FROM recipes WHERE foodId IN (:foodIds)")
+    suspend fun listRecipesByIds(foodIds: List<String>): List<RecipeEntity>
 
     @Query("SELECT * FROM recipe_batches")
     suspend fun listAllBatches(): List<RecipeBatchEntity>

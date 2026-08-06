@@ -13,9 +13,60 @@ import org.json.JSONObject
 
 data class SupportExportResult(val diagnosticCount: Int, val hasFeedback: Boolean)
 
+data class FeedbackMessage(
+    val id: String,
+    val text: String,
+    val createdAtEpochMillis: Long,
+)
+
 class SupportDiagnosticStore(private val context: Context) {
     private val stagingDirectory = File(context.cacheDir, "diagnostic-staging")
     private val flaggedDirectory = File(context.filesDir, "flagged-scan-diagnostics")
+    private val feedbackPreferences = context.getSharedPreferences("support-feedback", Context.MODE_PRIVATE)
+
+    fun feedbackMessages(): List<FeedbackMessage> = runCatching {
+        val stored = JSONArray(feedbackPreferences.getString("messages", "[]"))
+        buildList {
+            repeat(stored.length()) { index ->
+                val item = stored.getJSONObject(index)
+                add(
+                    FeedbackMessage(
+                        id = item.getString("id"),
+                        text = item.getString("text"),
+                        createdAtEpochMillis = item.getLong("createdAtEpochMillis"),
+                    ),
+                )
+            }
+        }
+    }.getOrDefault(emptyList())
+
+    fun addFeedback(text: String): List<FeedbackMessage> {
+        val normalized = text.trim().take(2_000)
+        if (normalized.isEmpty()) return feedbackMessages()
+        return (feedbackMessages() + FeedbackMessage(
+            id = UUID.randomUUID().toString(),
+            text = normalized,
+            createdAtEpochMillis = System.currentTimeMillis(),
+        )).also(::saveFeedbackMessages)
+    }
+
+    fun deleteFeedback(id: String): List<FeedbackMessage> = feedbackMessages()
+        .filterNot { it.id == id }
+        .also(::saveFeedbackMessages)
+
+    private fun saveFeedbackMessages(messages: List<FeedbackMessage>) {
+        val json = JSONArray().apply {
+            messages.forEach { message ->
+                put(
+                    JSONObject()
+                        .put("id", message.id)
+                        .put("text", message.text)
+                        .put("createdAtEpochMillis", message.createdAtEpochMillis),
+                )
+            }
+        }
+        feedbackPreferences.edit().putString("messages", json.toString()).apply()
+    }
 
     fun stage(source: Uri, kind: String): File {
         stagingDirectory.mkdirs()
@@ -59,8 +110,13 @@ class SupportDiagnosticStore(private val context: Context) {
         flaggedDirectory.listFiles()?.forEach(File::delete)
     }
 
-    fun appendTo(zip: ZipOutputStream, feedback: String): SupportExportResult {
-        val reports = flaggedDirectory.listFiles { file -> file.extension == "json" }
+    fun appendTo(
+        zip: ZipOutputStream,
+        feedback: String = "",
+        includeDiagnostics: Boolean = true,
+        includeFeedback: Boolean = true,
+    ): SupportExportResult {
+        val reports = if (includeDiagnostics) flaggedDirectory.listFiles { file -> file.extension == "json" }
             .orEmpty()
             .sortedBy(File::getName)
             .mapNotNull { metadataFile ->
@@ -68,11 +124,18 @@ class SupportDiagnosticStore(private val context: Context) {
                     val image = File(flaggedDirectory, metadata.optString("image"))
                     if (image.isFile) metadata to image else null
                 }
-            }
+            } else emptyList()
         val trimmedFeedback = feedback.trim()
+        val feedbackThread = if (includeFeedback) feedbackMessages().let { messages ->
+            if (trimmedFeedback.isEmpty()) messages else messages + FeedbackMessage(
+                id = UUID.randomUUID().toString(),
+                text = trimmedFeedback,
+                createdAtEpochMillis = System.currentTimeMillis(),
+            )
+        } else emptyList()
         val manifest = JSONObject()
             .put("schema", "calorie-quick-support-bundle")
-            .put("schemaVersion", 1)
+            .put("schemaVersion", 2)
             .put("generatedAtEpochMillis", System.currentTimeMillis())
             .put("appVersion", BuildConfig.VERSION_NAME)
             .put("appVersionCode", BuildConfig.VERSION_CODE)
@@ -80,6 +143,16 @@ class SupportDiagnosticStore(private val context: Context) {
             .put("deviceManufacturer", Build.MANUFACTURER)
             .put("deviceModel", Build.MODEL)
             .put("feedback", trimmedFeedback.takeIf(String::isNotEmpty) ?: JSONObject.NULL)
+            .put("feedbackThread", JSONArray().apply {
+                feedbackThread.forEach { message ->
+                    put(
+                        JSONObject()
+                            .put("id", message.id)
+                            .put("text", message.text)
+                            .put("createdAtEpochMillis", message.createdAtEpochMillis),
+                    )
+                }
+            })
             .put("diagnostics", JSONArray().apply {
                 reports.forEachIndexed { index, (metadata, image) ->
                     put(JSONObject(metadata.toString()).put("bundlePath", "images/$index-${image.name}"))
@@ -93,7 +166,7 @@ class SupportDiagnosticStore(private val context: Context) {
             image.inputStream().use { it.copyTo(zip) }
             zip.closeEntry()
         }
-        return SupportExportResult(reports.size, trimmedFeedback.isNotEmpty())
+        return SupportExportResult(reports.size, feedbackThread.isNotEmpty())
     }
 }
 

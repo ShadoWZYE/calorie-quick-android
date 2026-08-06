@@ -25,6 +25,7 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.progressSemantics
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
@@ -36,6 +37,7 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.AddAPhoto
 import androidx.compose.material.icons.filled.Close
@@ -54,11 +56,13 @@ import androidx.compose.material.icons.filled.DocumentScanner
 import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.RestaurantMenu
+import androidx.compose.material.icons.filled.ChatBubbleOutline
 import androidx.compose.material3.Button
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.DropdownMenu
@@ -83,9 +87,11 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.graphics.drawscope.clipRect
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLocale
@@ -144,6 +150,7 @@ import com.shadow.calorietracker.data.NutritionLabelPrefill
 import com.shadow.calorietracker.data.NutritionLabelWarning
 import com.shadow.calorietracker.data.BodyScalePrefill
 import com.shadow.calorietracker.data.BodyScaleWarning
+import com.shadow.calorietracker.data.FeedbackMessage
 import com.google.mlkit.vision.barcode.common.Barcode
 import com.google.mlkit.vision.codescanner.GmsBarcodeScannerOptions
 import com.google.mlkit.vision.codescanner.GmsBarcodeScanning
@@ -161,8 +168,16 @@ import java.time.format.DateTimeFormatter
 import kotlin.math.max
 import kotlin.math.abs
 import kotlin.math.roundToInt
+import kotlinx.coroutines.delay
 
-private enum class AppScreen { TODAY, HISTORY, PROGRESS, SETTINGS, FOOD_EDITOR, RECIPE_EDITOR }
+private enum class AppScreen { TODAY, HISTORY, PROGRESS, SETTINGS, FEEDBACK, FOOD_EDITOR, RECIPE_EDITOR }
+
+private data class ExportSelection(
+    val foodIds: Set<String>,
+    val recipeIds: Set<String>,
+    val includeDiagnostics: Boolean,
+    val includeFeedback: Boolean,
+)
 
 @Composable
 fun CalorieQuickApp(viewModel: CalorieViewModel = viewModel()) {
@@ -172,6 +187,7 @@ fun CalorieQuickApp(viewModel: CalorieViewModel = viewModel()) {
     val bodyScaleScanState by viewModel.bodyScaleScanState.collectAsStateWithLifecycle()
     val catalogueExportState by viewModel.catalogueExportState.collectAsStateWithLifecycle()
     val supportExportState by viewModel.supportExportState.collectAsStateWithLifecycle()
+    val feedbackMessages by viewModel.feedbackMessages.collectAsStateWithLifecycle()
     val profile = state.profile
     var screenName by rememberSaveable { mutableStateOf(AppScreen.TODAY.name) }
     var editingFood by remember { mutableStateOf<Food?>(null) }
@@ -199,15 +215,29 @@ fun CalorieQuickApp(viewModel: CalorieViewModel = viewModel()) {
         profile == null || !profile.onboardingComplete -> OnboardingScreen(viewModel::saveProfile)
         screenName == AppScreen.SETTINGS.name -> SettingsScreen(
             profile = profile,
+            foods = state.foods,
+            recipes = state.recipes.values.toList(),
+            feedbackCount = feedbackMessages.size,
             exportState = catalogueExportState,
             supportExportState = supportExportState,
             onBack = { screenName = AppScreen.TODAY.name },
-            onSave = {
-                viewModel.saveProfile(it)
-                screenName = AppScreen.TODAY.name
+            onSave = viewModel::saveProfile,
+            onExport = { uri, selection ->
+                viewModel.exportReviewCatalogue(
+                    uri,
+                    selectedFoodIds = selection.foodIds,
+                    selectedRecipeIds = selection.recipeIds,
+                    includeDiagnostics = selection.includeDiagnostics,
+                    includeFeedback = selection.includeFeedback,
+                )
             },
-            onExport = viewModel::exportReviewCatalogue,
             onClearSavedDiagnostics = viewModel::clearSavedDiagnostics,
+        )
+        screenName == AppScreen.FEEDBACK.name -> FeedbackScreen(
+            messages = feedbackMessages,
+            onBack = { screenName = AppScreen.TODAY.name },
+            onSend = viewModel::addFeedbackMessage,
+            onDelete = viewModel::deleteFeedbackMessage,
         )
         screenName == AppScreen.HISTORY.name -> HistoryScreen(
             state = state,
@@ -279,6 +309,7 @@ fun CalorieQuickApp(viewModel: CalorieViewModel = viewModel()) {
             onOpenSettings = { screenName = AppScreen.SETTINGS.name },
             onOpenHistory = { screenName = AppScreen.HISTORY.name },
             onOpenProgress = { screenName = AppScreen.PROGRESS.name },
+            onOpenFeedback = { screenName = AppScreen.FEEDBACK.name },
             onAdd = { food, amount, serving, batchId, consumedAt ->
                 viewModel.addEntry(food, amount, serving, batchId, consumedAt)
             },
@@ -368,33 +399,195 @@ private fun OnboardingScreen(onSave: (UserProfile) -> Unit) {
 @Composable
 private fun SettingsScreen(
     profile: UserProfile,
+    foods: List<Food>,
+    recipes: List<RecipeTemplate>,
+    feedbackCount: Int,
     exportState: CatalogueExportState,
     supportExportState: SupportExportState,
     onBack: () -> Unit,
     onSave: (UserProfile) -> Unit,
-    onExport: (Uri, String) -> Unit,
+    onExport: (Uri, ExportSelection) -> Unit,
     onClearSavedDiagnostics: () -> Unit,
 ) {
-    var pendingFeedback by remember { mutableStateOf("") }
+    var showExportReview by rememberSaveable { mutableStateOf(false) }
+    var pendingSelection by remember { mutableStateOf<ExportSelection?>(null) }
     val exportLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.CreateDocument("application/zip"),
-    ) { uri -> uri?.let { onExport(it, pendingFeedback) } }
+    ) { uri ->
+        val selection = pendingSelection
+        if (uri != null && selection != null) onExport(uri, selection)
+        pendingSelection = null
+    }
     ProfileForm(
         title = stringResource(R.string.settings),
         subtitle = stringResource(R.string.settings_subtitle),
         initial = profile,
         actionLabel = stringResource(R.string.save_changes),
         showLanguageIntro = false,
+        autoSave = true,
         onBack = onBack,
         onSave = onSave,
         exportState = exportState,
         supportExportState = supportExportState,
-        onExport = { feedback ->
-            pendingFeedback = feedback
-            exportLauncher.launch("calorie-quick-review-${LocalDate.now()}.zip")
+        onExport = {
+            showExportReview = true
         },
         onClearSavedDiagnostics = onClearSavedDiagnostics,
     )
+    if (showExportReview) {
+        ExportReviewDialog(
+            foods = foods.filter { it.isPersonal && it.provenance.type != FoodSourceType.RECIPE },
+            recipes = recipes,
+            recipeFoods = foods.associateBy(Food::id),
+            diagnosticCount = supportExportState.savedDiagnosticCount,
+            feedbackCount = feedbackCount,
+            onDismiss = { showExportReview = false },
+            onContinue = { selection ->
+                pendingSelection = selection
+                showExportReview = false
+                exportLauncher.launch("calorie-quick-review-${LocalDate.now()}.zip")
+            },
+        )
+    }
+}
+
+@Composable
+private fun ExportReviewDialog(
+    foods: List<Food>,
+    recipes: List<RecipeTemplate>,
+    recipeFoods: Map<String, Food>,
+    diagnosticCount: Int,
+    feedbackCount: Int,
+    onDismiss: () -> Unit,
+    onContinue: (ExportSelection) -> Unit,
+) {
+    val locale = LocalLocale.current.platformLocale
+    var selectedFoodIds by remember(foods) {
+        mutableStateOf(foods.filter { it.reviewStatus == ReviewStatus.READY_FOR_REVIEW }.map(Food::id).toSet())
+    }
+    var selectedRecipeIds by remember(recipes) {
+        mutableStateOf(recipes.filter { it.reviewStatus == ReviewStatus.READY_FOR_REVIEW }.map(RecipeTemplate::foodId).toSet())
+    }
+    var includeDiagnostics by remember(diagnosticCount) { mutableStateOf(diagnosticCount > 0) }
+    var includeFeedback by remember(feedbackCount) { mutableStateOf(feedbackCount > 0) }
+    val anythingSelected = selectedFoodIds.isNotEmpty() || selectedRecipeIds.isNotEmpty() ||
+        includeDiagnostics && diagnosticCount > 0 || includeFeedback && feedbackCount > 0
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.review_export_contents)) },
+        text = {
+            LazyColumn(
+                modifier = Modifier.fillMaxWidth().heightIn(max = 520.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                item {
+                    Text(
+                        stringResource(R.string.review_export_contents_hint),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                if (foods.isNotEmpty()) {
+                    item { Text(stringResource(R.string.personal_foods), fontWeight = FontWeight.Bold) }
+                    items(foods.sortedBy { it.name(locale) }, key = { "export-food-${it.id}" }) { food ->
+                        ExportReviewRow(
+                            title = food.name(locale),
+                            subtitle = stringResource(
+                                if (food.image?.localPath != null) R.string.includes_attached_image else R.string.nutrition_and_measures,
+                            ),
+                            selected = food.id in selectedFoodIds,
+                            image = { FoodVisual(food, Modifier.width(48.dp).height(48.dp).clip(RoundedCornerShape(10.dp))) },
+                            onToggle = { selected ->
+                                selectedFoodIds = if (selected) selectedFoodIds + food.id else selectedFoodIds - food.id
+                            },
+                        )
+                    }
+                }
+                if (recipes.isNotEmpty()) {
+                    item { Text(stringResource(R.string.recipes), fontWeight = FontWeight.Bold) }
+                    items(recipes.sortedBy(RecipeTemplate::name), key = { "export-recipe-${it.foodId}" }) { recipe ->
+                        ExportReviewRow(
+                            title = recipe.name,
+                            subtitle = pluralStringResource(
+                                R.plurals.recipe_ingredient_count,
+                                recipe.ingredients.size,
+                                recipe.ingredients.size,
+                            ),
+                            selected = recipe.foodId in selectedRecipeIds,
+                            image = recipeFoods[recipe.foodId]?.let { food ->
+                                { FoodVisual(food, Modifier.width(48.dp).height(48.dp).clip(RoundedCornerShape(10.dp))) }
+                            },
+                            onToggle = { selected ->
+                                selectedRecipeIds = if (selected) selectedRecipeIds + recipe.foodId else selectedRecipeIds - recipe.foodId
+                            },
+                        )
+                    }
+                }
+                item { Text(stringResource(R.string.support_data), fontWeight = FontWeight.Bold) }
+                item {
+                    ExportReviewRow(
+                        title = stringResource(R.string.flagged_scan_images),
+                        subtitle = stringResource(R.string.item_count, diagnosticCount),
+                        selected = includeDiagnostics && diagnosticCount > 0,
+                        enabled = diagnosticCount > 0,
+                        onToggle = { includeDiagnostics = it },
+                    )
+                }
+                item {
+                    ExportReviewRow(
+                        title = stringResource(R.string.feedback_thread),
+                        subtitle = stringResource(R.string.message_count, feedbackCount),
+                        selected = includeFeedback && feedbackCount > 0,
+                        enabled = feedbackCount > 0,
+                        onToggle = { includeFeedback = it },
+                    )
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(
+                enabled = anythingSelected,
+                onClick = {
+                    onContinue(
+                        ExportSelection(
+                            selectedFoodIds,
+                            selectedRecipeIds,
+                            includeDiagnostics && diagnosticCount > 0,
+                            includeFeedback && feedbackCount > 0,
+                        ),
+                    )
+                },
+            ) { Text(stringResource(R.string.continue_to_save)) }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) } },
+    )
+}
+
+@Composable
+private fun ExportReviewRow(
+    title: String,
+    subtitle: String,
+    selected: Boolean,
+    enabled: Boolean = true,
+    image: (@Composable () -> Unit)? = null,
+    onToggle: (Boolean) -> Unit,
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(12.dp))
+            .clickable(enabled = enabled) { onToggle(!selected) }
+            .padding(vertical = 6.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
+        Checkbox(checked = selected, onCheckedChange = onToggle, enabled = enabled)
+        image?.invoke()
+        Column(Modifier.weight(1f)) {
+            Text(title, fontWeight = FontWeight.SemiBold)
+            Text(subtitle, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp)
+        }
+    }
 }
 
 @OptIn(ExperimentalLayoutApi::class)
@@ -1114,9 +1307,17 @@ private fun RecipeEditorScreen(
                 },
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer),
             ) {
-                Row(Modifier.fillMaxWidth().padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
+                Row(
+                    Modifier.fillMaxWidth().padding(12.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                ) {
+                    FoodVisual(
+                        food,
+                        Modifier.width(62.dp).height(62.dp).clip(RoundedCornerShape(12.dp)),
+                    )
                     Column(Modifier.weight(1f)) {
-                        Text(food.name(locale), fontWeight = FontWeight.SemiBold)
+                        Text(food.name(locale), fontWeight = FontWeight.SemiBold, maxLines = 3)
                         Text(
                             "${food.nutritionPer100g.calories} ${stringResource(R.string.kcal)} · ${stringResource(R.string.per_100g)}",
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -1130,7 +1331,7 @@ private fun RecipeEditorScreen(
                             )
                         }
                     }
-                    Icon(Icons.Default.Add, stringResource(R.string.add_ingredient))
+                    Icon(Icons.Default.Add, stringResource(R.string.add_ingredient), tint = MaterialTheme.colorScheme.primary)
                 }
             }
         }
@@ -1300,6 +1501,7 @@ private fun RecipeEditorScreen(
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun RecipeIngredientRow(
     ingredient: RecipeIngredientDraft,
@@ -1326,54 +1528,82 @@ private fun RecipeIngredientRow(
     val selected = choices.firstOrNull { it.key == selectedKey } ?: choices.last()
 
     Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
-        Row(
-            Modifier.fillMaxWidth().padding(start = 14.dp, top = 8.dp, bottom = 8.dp, end = 4.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        Column(
+            Modifier.fillMaxWidth().padding(12.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
-            Column(Modifier.weight(1f)) {
-                Text(ingredient.foodName.forLocale(locale), fontWeight = FontWeight.SemiBold)
-                Text(
-                    "${ingredient.nutritionPer100g.forGrams(ingredient.grams).calories} ${stringResource(R.string.kcal)} · " +
-                        "${ingredient.grams} $gramsLabel",
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    fontSize = 12.sp,
-                )
-            }
-            OutlinedTextField(
-                value = amountText,
-                onValueChange = { candidate ->
-                    val filtered = candidate.filter { it.isDigit() || it == '.' || it == ',' }
-                    if (filtered.count { it == '.' || it == ',' } <= 1) {
-                        amountText = filtered
-                        val amount = filtered.localizedDoubleOrNull()
-                        onGramsChange(amount?.let { (it * (selected.serving?.grams ?: 1)).roundToInt() } ?: 0)
-                    }
-                },
-                label = { Text(stringResource(R.string.amount)) },
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                modifier = Modifier.width(92.dp),
-                singleLine = true,
-            )
-            Box {
-                OutlinedButton(onClick = { unitMenuOpen = true }) { Text(selected.label) }
-                DropdownMenu(expanded = unitMenuOpen, onDismissRequest = { unitMenuOpen = false }) {
-                    choices.forEach { choice ->
-                        DropdownMenuItem(
-                            text = { Text(choice.label) },
-                            onClick = {
-                                selectedKey = choice.key
-                                amountText = formatEditableAmount(
-                                    ingredient.grams / (choice.serving?.grams ?: 1).toDouble(),
-                                )
-                                unitMenuOpen = false
-                            },
-                        )
-                    }
+            Row(
+                Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                food?.let {
+                    FoodVisual(
+                        it,
+                        Modifier.width(60.dp).height(60.dp).clip(RoundedCornerShape(12.dp)),
+                    )
+                }
+                Column(Modifier.weight(1f)) {
+                    Text(ingredient.foodName.forLocale(locale), fontWeight = FontWeight.SemiBold, maxLines = 3)
+                    Text(
+                        "${ingredient.nutritionPer100g.calories} ${stringResource(R.string.kcal)} · ${stringResource(R.string.per_100g)}",
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        fontSize = 12.sp,
+                    )
                 }
             }
-            IconButton(onClick = onRemove) {
-                Icon(Icons.Default.Delete, stringResource(R.string.remove_ingredient))
+            Text(
+                stringResource(
+                    R.string.recipe_ingredient_amount_summary,
+                    ingredient.nutritionPer100g.forGrams(ingredient.grams).calories,
+                    ingredient.grams,
+                ),
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                fontSize = 12.sp,
+            )
+            FlowRow(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                OutlinedTextField(
+                    value = amountText,
+                    onValueChange = { candidate ->
+                        val filtered = candidate.filter { it.isDigit() || it == '.' || it == ',' }
+                        if (filtered.count { it == '.' || it == ',' } <= 1) {
+                            amountText = filtered
+                            val amount = filtered.localizedDoubleOrNull()
+                            onGramsChange(amount?.let { (it * (selected.serving?.grams ?: 1)).roundToInt() } ?: 0)
+                        }
+                    },
+                    label = { Text(stringResource(R.string.amount)) },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                    modifier = Modifier.width(110.dp),
+                    singleLine = true,
+                )
+                Box {
+                    OutlinedButton(
+                        onClick = { unitMenuOpen = true },
+                        modifier = Modifier.heightIn(min = 56.dp).widthIn(min = 120.dp),
+                    ) { Text(selected.label, maxLines = 2) }
+                    DropdownMenu(expanded = unitMenuOpen, onDismissRequest = { unitMenuOpen = false }) {
+                        choices.forEach { choice ->
+                            DropdownMenuItem(
+                                text = { Text(choice.label) },
+                                onClick = {
+                                    selectedKey = choice.key
+                                    amountText = formatEditableAmount(
+                                        ingredient.grams / (choice.serving?.grams ?: 1).toDouble(),
+                                    )
+                                    unitMenuOpen = false
+                                },
+                            )
+                        }
+                    }
+                }
+                IconButton(onClick = onRemove, modifier = Modifier.heightIn(min = 56.dp)) {
+                    Icon(Icons.Default.Delete, stringResource(R.string.remove_ingredient))
+                }
             }
         }
     }
@@ -1408,10 +1638,11 @@ private fun ProfileForm(
     initial: UserProfile?,
     actionLabel: String,
     showLanguageIntro: Boolean,
+    autoSave: Boolean = false,
     onSave: (UserProfile) -> Unit,
     onBack: (() -> Unit)? = null,
     exportState: CatalogueExportState? = null,
-    onExport: ((String) -> Unit)? = null,
+    onExport: (() -> Unit)? = null,
     supportExportState: SupportExportState? = null,
     onClearSavedDiagnostics: (() -> Unit)? = null,
 ) {
@@ -1445,7 +1676,6 @@ private fun ProfileForm(
     var carbsTarget by rememberSaveable { mutableStateOf(defaultTargets.carbsGoalGrams.toString()) }
     var fatTarget by rememberSaveable { mutableStateOf(defaultTargets.fatGoalGrams.toString()) }
     var fiberTarget by rememberSaveable { mutableStateOf(defaultTargets.fiberGoalGrams.toString()) }
-    var supportFeedback by rememberSaveable { mutableStateOf("") }
     var confirmClearDiagnostics by rememberSaveable { mutableStateOf(false) }
 
     val ageValue = age.toIntOrNull()
@@ -1481,6 +1711,44 @@ private fun ProfileForm(
         val parsedFat = newFat.toIntOrNull()
         if (parsedProtein != null && parsedCarbs != null && parsedFat != null) {
             calorieTarget = EnergyEstimator.caloriesForMacros(parsedProtein, parsedCarbs, parsedFat).toString()
+        }
+    }
+    val profileDraft = if (valid) {
+        val targets = if (targetMode == TargetMode.ESTIMATED) {
+            requireNotNull(estimatedTargets)
+        } else {
+            com.shadow.calorietracker.model.DailyTargets(
+                requireNotNull(customCalories),
+                requireNotNull(customProtein),
+                requireNotNull(customCarbs),
+                requireNotNull(customFat),
+                requireNotNull(customFiber),
+            )
+        }
+        UserProfile(
+            onboardingComplete = true,
+            age = validatedAge,
+            heightCm = validatedHeight,
+            weightKg = validatedWeight,
+            formulaSex = sex,
+            activityLevel = activity,
+            goalType = goal,
+            calorieGoal = targets.calories,
+            proteinGoalGrams = targets.proteinGrams,
+            carbsGoalGrams = targets.carbsGrams,
+            fatGoalGrams = targets.fatGrams,
+            fiberGoalGrams = targets.fiberGrams,
+            targetMode = targetMode,
+            displayName = displayName.trim(),
+            lastGoalReviewAtEpochMillis = initial?.lastGoalReviewAtEpochMillis,
+            bodyLengthUnit = bodyLengthUnit,
+        )
+    } else null
+
+    LaunchedEffect(autoSave, profileDraft) {
+        if (autoSave && profileDraft != null && profileDraft != initial) {
+            delay(450)
+            onSave(profileDraft)
         }
     }
 
@@ -1667,19 +1935,17 @@ private fun ProfileForm(
                 )
             }
             item {
-                OutlinedTextField(
-                    value = supportFeedback,
-                    onValueChange = { if (it.length <= 2_000) supportFeedback = it },
-                    modifier = Modifier.fillMaxWidth().heightIn(min = 120.dp),
-                    label = { Text(stringResource(R.string.feedback_optional)) },
-                    supportingText = {
-                        Text(
-                            stringResource(
-                                R.string.saved_scan_diagnostics,
-                                supportExportState?.savedDiagnosticCount ?: 0,
-                            ),
-                        )
-                    },
+                Text(
+                    stringResource(R.string.feedback_thread_export_hint),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Text(
+                    stringResource(
+                        R.string.saved_scan_diagnostics,
+                        supportExportState?.savedDiagnosticCount ?: 0,
+                    ),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    fontSize = 13.sp,
                 )
             }
             if ((supportExportState?.savedDiagnosticCount ?: 0) > 0 && onClearSavedDiagnostics != null) {
@@ -1691,7 +1957,7 @@ private fun ProfileForm(
             }
             item {
                 OutlinedButton(
-                    onClick = { onExport(supportFeedback) },
+                    onClick = onExport,
                     enabled = exportState.status != CatalogueExportStatus.EXPORTING,
                     modifier = Modifier.fillMaxWidth(),
                 ) {
@@ -1731,44 +1997,21 @@ private fun ProfileForm(
                 else -> Unit
             }
         }
-        item {
+        if (!autoSave) item {
             Button(
                 enabled = valid,
                 onClick = {
-                    val targets = if (targetMode == TargetMode.ESTIMATED) {
-                        requireNotNull(estimatedTargets)
-                    } else {
-                        com.shadow.calorietracker.model.DailyTargets(
-                            requireNotNull(customCalories),
-                            requireNotNull(customProtein),
-                            requireNotNull(customCarbs),
-                            requireNotNull(customFat),
-                            requireNotNull(customFiber),
-                        )
-                    }
-                    onSave(
-                        UserProfile(
-                            onboardingComplete = true,
-                            age = validatedAge,
-                            heightCm = validatedHeight,
-                            weightKg = validatedWeight,
-                            formulaSex = sex,
-                            activityLevel = activity,
-                            goalType = goal,
-                            calorieGoal = targets.calories,
-                            proteinGoalGrams = targets.proteinGrams,
-                            carbsGoalGrams = targets.carbsGrams,
-                            fatGoalGrams = targets.fatGrams,
-                            fiberGoalGrams = targets.fiberGrams,
-                            targetMode = targetMode,
-                            displayName = displayName.trim(),
-                            lastGoalReviewAtEpochMillis = initial?.lastGoalReviewAtEpochMillis,
-                            bodyLengthUnit = bodyLengthUnit,
-                        ),
-                    )
+                    profileDraft?.let(onSave)
                 },
                 modifier = Modifier.fillMaxWidth(),
             ) { Text(actionLabel) }
+        }
+        if (autoSave) item {
+            Text(
+                stringResource(if (valid) R.string.settings_auto_saved else R.string.settings_waiting_for_valid_values),
+                modifier = Modifier.fillMaxWidth(),
+                color = if (valid) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error,
+            )
         }
         item { Spacer(Modifier.height(24.dp)) }
     }
@@ -2832,6 +3075,106 @@ private fun HistoryScreen(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
+private fun FeedbackScreen(
+    messages: List<FeedbackMessage>,
+    onBack: () -> Unit,
+    onSend: (String) -> Unit,
+    onDelete: (String) -> Unit,
+) {
+    var draft by rememberSaveable { mutableStateOf("") }
+    Scaffold(
+        modifier = Modifier.fillMaxSize(),
+        bottomBar = {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .navigationBarsPadding()
+                    .padding(horizontal = 16.dp, vertical = 10.dp),
+                verticalAlignment = Alignment.Bottom,
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                OutlinedTextField(
+                    value = draft,
+                    onValueChange = { if (it.length <= 2_000) draft = it },
+                    modifier = Modifier.weight(1f),
+                    label = { Text(stringResource(R.string.feedback_message)) },
+                    minLines = 1,
+                    maxLines = 5,
+                )
+                IconButton(
+                    enabled = draft.isNotBlank(),
+                    onClick = {
+                        onSend(draft)
+                        draft = ""
+                    },
+                ) {
+                    Icon(Icons.AutoMirrored.Filled.Send, stringResource(R.string.send_feedback))
+                }
+            }
+        },
+    ) { contentPadding ->
+        LazyColumn(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(contentPadding)
+                .statusBarsPadding()
+                .padding(horizontal = 20.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            item {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    IconButton(onClick = onBack) {
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, stringResource(R.string.back))
+                    }
+                    Column {
+                        Text(stringResource(R.string.feedback), fontSize = 28.sp, fontWeight = FontWeight.Bold)
+                        Text(
+                            stringResource(R.string.feedback_private_explanation),
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
+            }
+            if (messages.isEmpty()) {
+                item {
+                    Text(
+                        stringResource(R.string.no_feedback_messages),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
+            items(messages, key = FeedbackMessage::id) { message ->
+                Card(
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer),
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Column(Modifier.padding(start = 16.dp, top = 12.dp, end = 6.dp, bottom = 6.dp)) {
+                        Text(message.text, modifier = Modifier.padding(end = 10.dp))
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                        ) {
+                            Text(
+                                DateFormat.getDateTimeInstance(DateFormat.MEDIUM, DateFormat.SHORT)
+                                    .format(Date(message.createdAtEpochMillis)),
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                fontSize = 12.sp,
+                            )
+                            IconButton(onClick = { onDelete(message.id) }) {
+                                Icon(Icons.Default.Delete, stringResource(R.string.delete_feedback_message))
+                            }
+                        }
+                    }
+                }
+            }
+            item { Spacer(Modifier.height(8.dp)) }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
 private fun TodayScreen(
     state: AppUiState,
     lookupState: FoodLookupState,
@@ -2839,6 +3182,7 @@ private fun TodayScreen(
     onOpenSettings: () -> Unit,
     onOpenHistory: () -> Unit,
     onOpenProgress: () -> Unit,
+    onOpenFeedback: () -> Unit,
     onAdd: (Food, Double, Serving?, String?, Long) -> Unit,
     onDelete: (FoodEntry) -> Unit,
     onUpdate: (FoodEntry, Double, Long) -> Unit,
@@ -2997,6 +3341,9 @@ private fun TodayScreen(
                     }
                     IconButton(onClick = onOpenProgress) {
                         Icon(Icons.Default.MonitorWeight, stringResource(R.string.body_progress))
+                    }
+                    IconButton(onClick = onOpenFeedback) {
+                        Icon(Icons.Default.ChatBubbleOutline, stringResource(R.string.feedback))
                     }
                     IconButton(onClick = onOpenSettings) {
                         Icon(Icons.Default.Settings, stringResource(R.string.settings))
@@ -3453,8 +3800,8 @@ private fun SummaryCard(totals: Nutrition, profile: UserProfile, fiberIncomplete
                     Text(stringResource(R.string.remaining), fontSize = 12.sp)
                 }
             }
-            LinearProgressIndicator(
-                progress = { (totals.calories.toFloat() / profile.calorieGoal).coerceIn(0f, 1f) },
+            SeamlessProgressBar(
+                progress = (totals.calories.toFloat() / profile.calorieGoal).coerceIn(0f, 1f),
                 modifier = Modifier.fillMaxWidth().height(9.dp),
             )
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
@@ -3471,6 +3818,23 @@ private fun SummaryCard(totals: Nutrition, profile: UserProfile, fiberIncomplete
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 fontSize = 12.sp,
             )
+        }
+    }
+}
+
+@Composable
+private fun SeamlessProgressBar(progress: Float, modifier: Modifier = Modifier) {
+    val consumedColor = MaterialTheme.colorScheme.primary
+    val remainingColor = MaterialTheme.colorScheme.secondaryContainer
+    Canvas(modifier.progressSemantics(progress)) {
+        val radius = size.height / 2f
+        val cornerRadius = CornerRadius(radius, radius)
+        drawRoundRect(color = remainingColor, cornerRadius = cornerRadius)
+        val consumedWidth = size.width * progress.coerceIn(0f, 1f)
+        if (consumedWidth > 0f) {
+            clipRect(right = consumedWidth) {
+                drawRoundRect(color = consumedColor, cornerRadius = cornerRadius)
+            }
         }
     }
 }
@@ -3817,8 +4181,25 @@ private fun CategoryFoodImage(categoryKey: String?, modifier: Modifier = Modifie
 
 @Composable
 private fun FoodVisual(food: Food, modifier: Modifier = Modifier) {
-    food.image?.localPath?.let { FoodImagePreview(it, modifier) }
-        ?: CategoryFoodImage(food.categoryKey, modifier)
+    val context = LocalContext.current
+    val locale = LocalLocale.current.platformLocale
+    val bundledResource = remember(food.id) {
+        context.resources.getIdentifier(
+            "food_item_${food.id.replace('-', '_')}",
+            "drawable",
+            context.packageName,
+        )
+    }
+    when {
+        food.image?.localPath != null -> FoodImagePreview(requireNotNull(food.image.localPath), modifier)
+        bundledResource != 0 -> Image(
+            painter = painterResource(bundledResource),
+            contentDescription = food.name(locale),
+            contentScale = ContentScale.Crop,
+            modifier = modifier,
+        )
+        else -> CategoryFoodImage(food.categoryKey, modifier)
+    }
 }
 
 @Composable

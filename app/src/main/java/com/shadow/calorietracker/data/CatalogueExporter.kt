@@ -20,9 +20,20 @@ class CatalogueExporter(
     private val database: AppDatabase,
     private val supportDiagnostics: SupportDiagnosticStore,
 ) {
-    suspend fun exportTo(destination: Uri, feedback: String = ""): CatalogueExportResult {
-        val foods = database.foodDao().listReviewableFoods()
-        val recipes = database.recipeDao().listReviewableRecipes()
+    suspend fun exportTo(
+        destination: Uri,
+        selectedFoodIds: Set<String>? = null,
+        selectedRecipeIds: Set<String>? = null,
+        includeDiagnostics: Boolean = true,
+        includeFeedback: Boolean = true,
+        feedback: String = "",
+    ): CatalogueExportResult {
+        val foods = selectedFoodIds?.let { ids ->
+            if (ids.isEmpty()) emptyList() else database.foodDao().listPersonalFoodsByIds(ids.toList())
+        } ?: database.foodDao().listReviewableFoods()
+        val recipes = selectedRecipeIds?.let { ids ->
+            if (ids.isEmpty()) emptyList() else database.recipeDao().listRecipesByIds(ids.toList())
+        } ?: database.recipeDao().listReviewableRecipes()
         val batches = database.recipeDao().listAllBatches().groupBy(RecipeBatchEntity::recipeFoodId)
         val ingredients = database.recipeDao().listAllIngredients().groupBy(RecipeIngredientEntity::batchId)
         val ingredientAllergens = database.recipeDao().listAllIngredientAllergens()
@@ -150,7 +161,12 @@ class CatalogueExporter(
                     file.inputStream().use { it.copyTo(zip) }
                     zip.closeEntry()
                 }
-                supportResult = supportDiagnostics.appendTo(zip, feedback)
+                supportResult = supportDiagnostics.appendTo(
+                    zip,
+                    feedback = feedback,
+                    includeDiagnostics = includeDiagnostics,
+                    includeFeedback = includeFeedback,
+                )
             }
         }
         val foodIds = foods.map { it.food.id }

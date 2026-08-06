@@ -17,6 +17,7 @@ import com.shadow.calorietracker.data.NutritionLabelPrefill
 import com.shadow.calorietracker.data.BodyScaleOcr
 import com.shadow.calorietracker.data.BodyScalePrefill
 import com.shadow.calorietracker.data.SupportDiagnosticStore
+import com.shadow.calorietracker.data.FeedbackMessage
 import com.shadow.calorietracker.data.BuiltInCatalogueImporter
 import com.shadow.calorietracker.model.Food
 import com.shadow.calorietracker.model.BodyMeasurement
@@ -127,6 +128,8 @@ class CalorieViewModel(application: Application) : AndroidViewModel(application)
         SupportExportState(savedDiagnosticCount = supportDiagnostics.count()),
     )
     val supportExportState: StateFlow<SupportExportState> = _supportExportState.asStateFlow()
+    private val _feedbackMessages = MutableStateFlow(supportDiagnostics.feedbackMessages())
+    val feedbackMessages: StateFlow<List<FeedbackMessage>> = _feedbackMessages.asStateFlow()
     private val _foodLookupState = MutableStateFlow(FoodLookupState())
     val foodLookupState: StateFlow<FoodLookupState> = _foodLookupState.asStateFlow()
     private var lookupJob: Job? = null
@@ -261,11 +264,26 @@ class CalorieViewModel(application: Application) : AndroidViewModel(application)
         viewModelScope.launch { repository.archivePersonalFood(foodId) }
     }
 
-    fun exportReviewCatalogue(uri: Uri, feedback: String = "") {
+    fun exportReviewCatalogue(
+        uri: Uri,
+        selectedFoodIds: Set<String>? = null,
+        selectedRecipeIds: Set<String>? = null,
+        includeDiagnostics: Boolean = true,
+        includeFeedback: Boolean = true,
+    ) {
         _catalogueExportState.value = CatalogueExportState(CatalogueExportStatus.EXPORTING)
         viewModelScope.launch {
             _catalogueExportState.value = try {
-                CatalogueExportState(CatalogueExportStatus.SUCCESS, catalogueExporter.exportTo(uri, feedback))
+                CatalogueExportState(
+                    CatalogueExportStatus.SUCCESS,
+                    catalogueExporter.exportTo(
+                        uri,
+                        selectedFoodIds = selectedFoodIds,
+                        selectedRecipeIds = selectedRecipeIds,
+                        includeDiagnostics = includeDiagnostics,
+                        includeFeedback = includeFeedback,
+                    ),
+                )
             } catch (error: Exception) {
                 Log.w("CatalogueExport", "Catalogue export failed", error)
                 CatalogueExportState(CatalogueExportStatus.ERROR)
@@ -275,6 +293,14 @@ class CalorieViewModel(application: Application) : AndroidViewModel(application)
 
     fun clearCatalogueExportStatus() {
         _catalogueExportState.value = CatalogueExportState()
+    }
+
+    fun addFeedbackMessage(text: String) {
+        _feedbackMessages.value = supportDiagnostics.addFeedback(text)
+    }
+
+    fun deleteFeedbackMessage(id: String) {
+        _feedbackMessages.value = supportDiagnostics.deleteFeedback(id)
     }
 
     fun clearFoodLookup() {
