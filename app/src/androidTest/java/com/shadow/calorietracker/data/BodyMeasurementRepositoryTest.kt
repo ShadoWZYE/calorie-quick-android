@@ -6,6 +6,7 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.shadow.calorietracker.model.ActivityLevel
 import com.shadow.calorietracker.model.BodyMeasurement
 import com.shadow.calorietracker.model.BodyMeasurementSource
+import com.shadow.calorietracker.model.BodyLengthUnit
 import com.shadow.calorietracker.model.FormulaSex
 import com.shadow.calorietracker.model.GoalType
 import com.shadow.calorietracker.model.TargetMode
@@ -87,6 +88,7 @@ class BodyMeasurementRepositoryTest {
                 targetMode = TargetMode.CUSTOM,
                 displayName = "Local profile",
                 lastGoalReviewAtEpochMillis = 1_786_000_000_000L,
+                bodyLengthUnit = BodyLengthUnit.INCHES,
             ),
         )
 
@@ -94,5 +96,6 @@ class BodyMeasurementRepositoryTest {
         assertEquals("Local profile", profile.displayName)
         assertEquals(2_000, profile.calorieGoal)
         assertEquals(1_786_000_000_000L, profile.lastGoalReviewAtEpochMillis)
+        assertEquals(BodyLengthUnit.INCHES, profile.bodyLengthUnit)
     }
 }

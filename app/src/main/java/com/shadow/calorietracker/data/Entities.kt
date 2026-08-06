@@ -186,6 +186,7 @@ data class UserProfileEntity(
     val fiberGoalGrams: Int = 25,
     val displayName: String = "",
     val lastGoalReviewAtEpochMillis: Long? = null,
+    val bodyLengthUnit: String = "CENTIMETERS",
 )
 
 @Entity(tableName = "body_measurements", indices = [Index("measuredAtEpochMillis")])

@@ -296,6 +296,16 @@ enum class GoalType(val calorieAdjustment: Int) {
 }
 enum class TargetMode { ESTIMATED, CUSTOM }
 
+enum class BodyLengthUnit(val centimetersPerUnit: Double, val symbol: String) {
+    MILLIMETERS(0.1, "mm"),
+    CENTIMETERS(1.0, "cm"),
+    INCHES(2.54, "in"),
+    ;
+
+    fun fromCentimeters(value: Double): Double = value / centimetersPerUnit
+    fun toCentimeters(value: Double): Double = value * centimetersPerUnit
+}
+
 data class DailyTargets(
     val calories: Int,
     val proteinGrams: Int,
@@ -322,6 +332,7 @@ data class UserProfile(
     val targetMode: TargetMode = TargetMode.ESTIMATED,
     val displayName: String = "",
     val lastGoalReviewAtEpochMillis: Long? = null,
+    val bodyLengthUnit: BodyLengthUnit = BodyLengthUnit.CENTIMETERS,
 )
 
 enum class BodyMeasurementSource { MANUAL, OCR }

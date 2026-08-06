@@ -24,7 +24,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         RecipeIngredientAllergenEntity::class,
         BodyMeasurementEntity::class,
     ],
-    version = 11,
+    version = 12,
     exportSchema = true,
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -55,6 +55,7 @@ abstract class AppDatabase : RoomDatabase() {
                 MIGRATION_8_9,
                 MIGRATION_9_10,
                 MIGRATION_10_11,
+                MIGRATION_11_12,
             ).build().also { instance = it }
         }
 
@@ -260,6 +261,14 @@ abstract class AppDatabase : RoomDatabase() {
                 ).forEach { column ->
                     db.execSQL("ALTER TABLE body_measurements ADD COLUMN $column INTEGER")
                 }
+            }
+        }
+
+        private val MIGRATION_11_12 = object : Migration(11, 12) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "ALTER TABLE user_profile ADD COLUMN bodyLengthUnit TEXT NOT NULL DEFAULT 'CENTIMETERS'",
+                )
             }
         }
     }

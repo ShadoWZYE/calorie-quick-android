@@ -99,6 +99,7 @@ import com.shadow.calorietracker.model.AdaptiveGoalReview
 import com.shadow.calorietracker.model.AdaptiveGoalReviewer
 import com.shadow.calorietracker.model.BodyMeasurement
 import com.shadow.calorietracker.model.BodyMeasurementSource
+import com.shadow.calorietracker.model.BodyLengthUnit
 import com.shadow.calorietracker.model.Allergen
 import com.shadow.calorietracker.model.AllergenDeclaration
 import com.shadow.calorietracker.model.CommonMeasure
@@ -1147,6 +1148,9 @@ private fun ProfileForm(
     var activityName by rememberSaveable { mutableStateOf((initial?.activityLevel ?: ActivityLevel.LIGHT).name) }
     var goalName by rememberSaveable { mutableStateOf((initial?.goalType ?: GoalType.MAINTAIN).name) }
     var targetModeName by rememberSaveable { mutableStateOf((initial?.targetMode ?: TargetMode.ESTIMATED).name) }
+    var bodyLengthUnitName by rememberSaveable {
+        mutableStateOf((initial?.bodyLengthUnit ?: BodyLengthUnit.CENTIMETERS).name)
+    }
     val defaultTargets = initial ?: UserProfile(
         onboardingComplete = false,
         age = 30,
@@ -1179,6 +1183,7 @@ private fun ProfileForm(
     val activity = ActivityLevel.valueOf(activityName)
     val goal = GoalType.valueOf(goalName)
     val targetMode = TargetMode.valueOf(targetModeName)
+    val bodyLengthUnit = BodyLengthUnit.valueOf(bodyLengthUnitName)
     val estimatedTargets = if (measurementsValid) {
         EnergyEstimator.dailyTargets(validatedAge, validatedHeight, validatedWeight, sex, activity, goal)
     } else null
@@ -1252,6 +1257,21 @@ private fun ProfileForm(
                 label = { stringResource(if (it == FormulaSex.FEMALE) R.string.female else R.string.male) },
                 onSelect = { sexName = it.name },
             )
+        }
+        item { SectionTitle(R.string.tape_measurement_unit, horizontalPadding = 0.dp) }
+        item {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(
+                    stringResource(R.string.tape_measurement_unit_hint),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                ChoiceRow(
+                    values = BodyLengthUnit.entries,
+                    selected = bodyLengthUnit,
+                    label = { it.symbol },
+                    onSelect = { bodyLengthUnitName = it.name },
+                )
+            }
         }
         item { SectionTitle(R.string.activity, horizontalPadding = 0.dp) }
         item {
@@ -1378,21 +1398,22 @@ private fun ProfileForm(
                     }
                     onSave(
                         UserProfile(
-                            true,
-                            validatedAge,
-                            validatedHeight,
-                            validatedWeight,
-                            sex,
-                            activity,
-                            goal,
-                            targets.calories,
-                            targets.proteinGrams,
-                            targets.carbsGrams,
-                            targets.fatGrams,
-                            targets.fiberGrams,
-                            targetMode,
-                            displayName.trim(),
-                            initial?.lastGoalReviewAtEpochMillis,
+                            onboardingComplete = true,
+                            age = validatedAge,
+                            heightCm = validatedHeight,
+                            weightKg = validatedWeight,
+                            formulaSex = sex,
+                            activityLevel = activity,
+                            goalType = goal,
+                            calorieGoal = targets.calories,
+                            proteinGoalGrams = targets.proteinGrams,
+                            carbsGoalGrams = targets.carbsGrams,
+                            fatGoalGrams = targets.fatGrams,
+                            fiberGoalGrams = targets.fiberGrams,
+                            targetMode = targetMode,
+                            displayName = displayName.trim(),
+                            lastGoalReviewAtEpochMillis = initial?.lastGoalReviewAtEpochMillis,
+                            bodyLengthUnit = bodyLengthUnit,
                         ),
                     )
                 },
@@ -1435,6 +1456,27 @@ private fun NumericField(
             onChange(if (decimal) filtered.withSingleDecimalSeparator() else filtered)
         },
         label = { Text(stringResource(label)) },
+        keyboardOptions = KeyboardOptions(keyboardType = if (decimal) KeyboardType.Decimal else KeyboardType.Number),
+        singleLine = true,
+        modifier = modifier,
+    )
+}
+
+@Composable
+private fun NumericField(
+    value: String,
+    onChange: (String) -> Unit,
+    label: String,
+    modifier: Modifier,
+    decimal: Boolean = false,
+) {
+    OutlinedTextField(
+        value = value,
+        onValueChange = { text ->
+            val filtered = text.filter { it.isDigit() || decimal && (it == '.' || it == ',') }
+            onChange(if (decimal) filtered.withSingleDecimalSeparator() else filtered)
+        },
+        label = { Text(label) },
         keyboardOptions = KeyboardOptions(keyboardType = if (decimal) KeyboardType.Decimal else KeyboardType.Number),
         singleLine = true,
         modifier = modifier,
@@ -1663,6 +1705,7 @@ private fun BodyProgressScreen(
                 BodyMeasurementRow(
                     measurement = measurement,
                     locale = locale,
+                    bodyLengthUnit = profile.bodyLengthUnit,
                     onEdit = {
                         editorWarnings = emptySet()
                         editorInitial = measurement
@@ -1687,6 +1730,7 @@ private fun BodyProgressScreen(
             initial = initial,
             warnings = editorWarnings,
             locale = locale,
+            bodyLengthUnit = profile.bodyLengthUnit,
             onDismiss = { editorInitial = null },
             onSave = {
                 onSave(it)
@@ -1811,6 +1855,7 @@ private fun WeightTrendCard(measurements: List<BodyMeasurement>, locale: Locale)
 private fun BodyMeasurementRow(
     measurement: BodyMeasurement,
     locale: Locale,
+    bodyLengthUnit: BodyLengthUnit,
     onEdit: () -> Unit,
     onDelete: () -> Unit,
 ) {
@@ -1829,7 +1874,12 @@ private fun BodyMeasurementRow(
             val details = buildList {
                 measurement.bodyFatPercent?.let { add("${stringResource(R.string.body_fat)} ${formatAmount(it, locale)}%") }
                 measurement.muscleMassKg?.let { add("${stringResource(R.string.muscle_mass)} ${formatAmount(it, locale)} kg") }
-                measurement.waistCm?.let { add("${stringResource(R.string.waist_cm)} ${formatAmount(it, locale)}") }
+                measurement.waistCm?.let {
+                    add(
+                        "${stringResource(R.string.waist)} " +
+                            "${formatAmount(bodyLengthUnit.fromCentimeters(it), locale)} ${bodyLengthUnit.symbol}",
+                    )
+                }
             }
             if (details.isNotEmpty()) Text(details.joinToString(" · "), fontSize = 12.sp)
         }
@@ -1848,6 +1898,7 @@ private fun BodyMeasurementEditorSheet(
     initial: BodyMeasurement,
     warnings: Set<BodyScaleWarning>,
     locale: Locale,
+    bodyLengthUnit: BodyLengthUnit,
     onDismiss: () -> Unit,
     onSave: (BodyMeasurement) -> Unit,
 ) {
@@ -1881,13 +1932,27 @@ private fun BodyMeasurementEditorSheet(
     var visceralFat by remember(initial.id, initial.measuredAtEpochMillis) { mutableStateOf(initial.visceralFat.editableValue()) }
     var bmr by remember(initial.id, initial.measuredAtEpochMillis) { mutableStateOf(initial.bmrCalories?.toString().orEmpty()) }
     var bodyAge by remember(initial.id, initial.measuredAtEpochMillis) { mutableStateOf(initial.bodyAge?.toString().orEmpty()) }
-    var neck by remember(initial.id, initial.measuredAtEpochMillis) { mutableStateOf(initial.neckCm.editableValue()) }
-    var chest by remember(initial.id, initial.measuredAtEpochMillis) { mutableStateOf(initial.chestCm.editableValue()) }
-    var waist by remember(initial.id, initial.measuredAtEpochMillis) { mutableStateOf(initial.waistCm.editableValue()) }
-    var hips by remember(initial.id, initial.measuredAtEpochMillis) { mutableStateOf(initial.hipsCm.editableValue()) }
-    var upperArm by remember(initial.id, initial.measuredAtEpochMillis) { mutableStateOf(initial.upperArmCm.editableValue()) }
-    var thigh by remember(initial.id, initial.measuredAtEpochMillis) { mutableStateOf(initial.thighCm.editableValue()) }
-    var calf by remember(initial.id, initial.measuredAtEpochMillis) { mutableStateOf(initial.calfCm.editableValue()) }
+    var neck by remember(initial.id, initial.measuredAtEpochMillis, bodyLengthUnit) {
+        mutableStateOf(initial.neckCm?.let(bodyLengthUnit::fromCentimeters).editableValue())
+    }
+    var chest by remember(initial.id, initial.measuredAtEpochMillis, bodyLengthUnit) {
+        mutableStateOf(initial.chestCm?.let(bodyLengthUnit::fromCentimeters).editableValue())
+    }
+    var waist by remember(initial.id, initial.measuredAtEpochMillis, bodyLengthUnit) {
+        mutableStateOf(initial.waistCm?.let(bodyLengthUnit::fromCentimeters).editableValue())
+    }
+    var hips by remember(initial.id, initial.measuredAtEpochMillis, bodyLengthUnit) {
+        mutableStateOf(initial.hipsCm?.let(bodyLengthUnit::fromCentimeters).editableValue())
+    }
+    var upperArm by remember(initial.id, initial.measuredAtEpochMillis, bodyLengthUnit) {
+        mutableStateOf(initial.upperArmCm?.let(bodyLengthUnit::fromCentimeters).editableValue())
+    }
+    var thigh by remember(initial.id, initial.measuredAtEpochMillis, bodyLengthUnit) {
+        mutableStateOf(initial.thighCm?.let(bodyLengthUnit::fromCentimeters).editableValue())
+    }
+    var calf by remember(initial.id, initial.measuredAtEpochMillis, bodyLengthUnit) {
+        mutableStateOf(initial.calfCm?.let(bodyLengthUnit::fromCentimeters).editableValue())
+    }
     var showTape by rememberSaveable(initial.id) {
         mutableStateOf(listOf(initial.neckCm, initial.chestCm, initial.waistCm, initial.hipsCm, initial.upperArmCm, initial.thighCm, initial.calfCm).any { it != null })
     }
@@ -1911,7 +1976,9 @@ private fun BodyMeasurementEditorSheet(
         listOf(musclePercent, skeletalMuscle, proteinPercent, bodyWater, subcutaneousFat).all {
             optionalValid(it, 0.0..100.0)
         } && optionalValid(visceralFat, 0.0..100.0) &&
-        listOf(neck, chest, waist, hips, upperArm, thigh, calf).all { optionalValid(it, 5.0..300.0) } &&
+        listOf(neck, chest, waist, hips, upperArm, thigh, calf).all { value ->
+            value.isBlank() || value.localizedDoubleOrNull()?.let(bodyLengthUnit::toCentimeters)?.let { it in 5.0..300.0 } == true
+        } &&
         (bmr.isBlank() || bmr.toIntOrNull() in 500..5_000) && (bodyAge.isBlank() || bodyAge.toIntOrNull() in 1..120)
 
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheetState) {
@@ -1972,13 +2039,14 @@ private fun BodyMeasurementEditorSheet(
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     fontSize = 13.sp,
                 )
-                ExplainedNumericField(neck, { neck = it }, R.string.neck_cm, R.string.neck_measure_instruction)
-                ExplainedNumericField(chest, { chest = it }, R.string.chest_cm, R.string.chest_measure_instruction)
-                ExplainedNumericField(waist, { waist = it }, R.string.waist_cm, R.string.waist_measure_instruction)
-                ExplainedNumericField(hips, { hips = it }, R.string.hips_cm, R.string.hips_measure_instruction)
-                ExplainedNumericField(upperArm, { upperArm = it }, R.string.upper_arm_cm, R.string.upper_arm_measure_instruction)
-                ExplainedNumericField(thigh, { thigh = it }, R.string.thigh_cm, R.string.thigh_measure_instruction)
-                ExplainedNumericField(calf, { calf = it }, R.string.calf_cm, R.string.calf_measure_instruction)
+                val unitLabel = bodyLengthUnit.symbol
+                ExplainedNumericField(neck, { neck = it }, stringResource(R.string.body_measurement_label, stringResource(R.string.neck), unitLabel), R.string.neck_measure_instruction)
+                ExplainedNumericField(chest, { chest = it }, stringResource(R.string.body_measurement_label, stringResource(R.string.chest), unitLabel), R.string.chest_measure_instruction)
+                ExplainedNumericField(waist, { waist = it }, stringResource(R.string.body_measurement_label, stringResource(R.string.waist), unitLabel), R.string.waist_measure_instruction)
+                ExplainedNumericField(hips, { hips = it }, stringResource(R.string.body_measurement_label, stringResource(R.string.hips), unitLabel), R.string.hips_measure_instruction)
+                ExplainedNumericField(upperArm, { upperArm = it }, stringResource(R.string.body_measurement_label, stringResource(R.string.upper_arm), unitLabel), R.string.upper_arm_measure_instruction)
+                ExplainedNumericField(thigh, { thigh = it }, stringResource(R.string.body_measurement_label, stringResource(R.string.thigh), unitLabel), R.string.thigh_measure_instruction)
+                ExplainedNumericField(calf, { calf = it }, stringResource(R.string.body_measurement_label, stringResource(R.string.calf), unitLabel), R.string.calf_measure_instruction)
             }
             OptionalMeasurementSection(
                 title = stringResource(R.string.advanced_composition),
@@ -2028,13 +2096,13 @@ private fun BodyMeasurementEditorSheet(
                             visceralFat = visceralFat.localizedDoubleOrNull(),
                             bmrCalories = bmr.toIntOrNull(),
                             bodyAge = bodyAge.toIntOrNull(),
-                            neckCm = neck.localizedDoubleOrNull(),
-                            chestCm = chest.localizedDoubleOrNull(),
-                            waistCm = waist.localizedDoubleOrNull(),
-                            hipsCm = hips.localizedDoubleOrNull(),
-                            upperArmCm = upperArm.localizedDoubleOrNull(),
-                            thighCm = thigh.localizedDoubleOrNull(),
-                            calfCm = calf.localizedDoubleOrNull(),
+                            neckCm = neck.localizedDoubleOrNull()?.let(bodyLengthUnit::toCentimeters),
+                            chestCm = chest.localizedDoubleOrNull()?.let(bodyLengthUnit::toCentimeters),
+                            waistCm = waist.localizedDoubleOrNull()?.let(bodyLengthUnit::toCentimeters),
+                            hipsCm = hips.localizedDoubleOrNull()?.let(bodyLengthUnit::toCentimeters),
+                            upperArmCm = upperArm.localizedDoubleOrNull()?.let(bodyLengthUnit::toCentimeters),
+                            thighCm = thigh.localizedDoubleOrNull()?.let(bodyLengthUnit::toCentimeters),
+                            calfCm = calf.localizedDoubleOrNull()?.let(bodyLengthUnit::toCentimeters),
                             source = initial.source,
                         ),
                     )
@@ -2081,6 +2149,24 @@ private fun ExplainedNumericField(
     value: String,
     onValueChange: (String) -> Unit,
     label: Int,
+    explanation: Int,
+    decimal: Boolean = true,
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
+        NumericField(value, onValueChange, label, Modifier.fillMaxWidth(), decimal = decimal)
+        Text(
+            stringResource(explanation),
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            fontSize = 12.sp,
+        )
+    }
+}
+
+@Composable
+private fun ExplainedNumericField(
+    value: String,
+    onValueChange: (String) -> Unit,
+    label: String,
     explanation: Int,
     decimal: Boolean = true,
 ) {

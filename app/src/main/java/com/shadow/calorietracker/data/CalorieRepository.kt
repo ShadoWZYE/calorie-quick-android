@@ -6,6 +6,7 @@ import com.shadow.calorietracker.model.Allergen
 import com.shadow.calorietracker.model.AllergenDeclaration
 import com.shadow.calorietracker.model.BodyMeasurement
 import com.shadow.calorietracker.model.BodyMeasurementSource
+import com.shadow.calorietracker.model.BodyLengthUnit
 import com.shadow.calorietracker.model.Food
 import com.shadow.calorietracker.model.FoodEntry
 import com.shadow.calorietracker.model.FoodProvenance
@@ -570,6 +571,7 @@ private fun UserProfileEntity.toModel() = UserProfile(
     targetMode = TargetMode.valueOf(targetMode),
     displayName = displayName,
     lastGoalReviewAtEpochMillis = lastGoalReviewAtEpochMillis,
+    bodyLengthUnit = runCatching { BodyLengthUnit.valueOf(bodyLengthUnit) }.getOrDefault(BodyLengthUnit.CENTIMETERS),
 )
 
 private fun UserProfile.toEntity() = UserProfileEntity(
@@ -588,6 +590,7 @@ private fun UserProfile.toEntity() = UserProfileEntity(
     fiberGoalGrams = fiberGoalGrams,
     displayName = displayName.trim(),
     lastGoalReviewAtEpochMillis = lastGoalReviewAtEpochMillis,
+    bodyLengthUnit = bodyLengthUnit.name,
 )
 
 private fun BodyMeasurementEntity.toModel() = BodyMeasurement(
