@@ -414,6 +414,7 @@ class CalorieViewModel(application: Application) : AndroidViewModel(application)
             var resultCount = 0
             try {
                 val results = openFoodFacts.search(normalized, locale)
+                repository.upsertDiscoveredFoods(results)
                 resultCount = results.size
                 _foodLookupState.value = FoodLookupState(normalized, FoodLookupStatus.SUCCESS, results)
             } catch (_: OpenFoodFactsException.RateLimited) {
@@ -458,6 +459,7 @@ class CalorieViewModel(application: Application) : AndroidViewModel(application)
             var resultCount = 0
             try {
                 val results = listOfNotNull(openFoodFacts.productByBarcode(normalized, locale))
+                repository.upsertDiscoveredFoods(results)
                 resultCount = results.size
                 _foodLookupState.value = FoodLookupState(
                     normalized,

@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import json
 import os
+import hashlib
+import shutil
 import zipfile
 from copy import deepcopy
 from datetime import datetime, timezone
@@ -44,6 +46,15 @@ def _now() -> str:
 def _title(text: str, fallback: str) -> str:
     normalized = " ".join(text.split())
     return normalized[:88] + ("…" if len(normalized) > 88 else "") if normalized else fallback
+
+
+def read_bundle_json(archive_path: Path, member: str) -> dict[str, Any] | None:
+    try:
+        with zipfile.ZipFile(archive_path) as archive:
+            value = json.loads(archive.read(member))
+            return value if isinstance(value, dict) else None
+    except (OSError, KeyError, zipfile.BadZipFile, UnicodeDecodeError, json.JSONDecodeError):
+        return None
 
 
 def suggest_classification(text: str) -> str:
@@ -120,6 +131,7 @@ class ReviewInboxStore:
     def __init__(self, root: Path | None = None, implementation_status_path: Path | None = None):
         self.root = (root or default_inbox_root()).resolve()
         self.bundle_root = self.root / "bundles"
+        self.shared_catalogue_path = self.root / "shared-food-catalogue.json"
         self.implementation_status_path = implementation_status_path or Path(__file__).with_name(
             "review_implementation_status.json",
         )
@@ -148,11 +160,22 @@ class ReviewInboxStore:
         review_dir = self.bundle_root / digest
         review_path = review_dir / "review.json"
         review_dir.mkdir(parents=True, exist_ok=True)
+        retained_archive = review_dir / "source.zip"
+        if archive_path != retained_archive.resolve():
+            shutil.copy2(archive_path, retained_archive)
+        shared_count = self._merge_shared_catalogue(
+            catalogue=read_bundle_json(archive_path, "catalogue/catalogue.json") or {},
+            collected=report.get("openFoodFactsProducts", []),
+            bundle_hash=digest,
+            retained_archive=retained_archive,
+        )
         if review_path.exists():
             existing = json.loads(review_path.read_text(encoding="utf-8"))
             self._ensure_analysis_fields(existing)
             self._reconcile_implementation_status(existing)
-            existing["sourceArchive"] = str(archive_path)
+            existing["sourceArchive"] = str(retained_archive)
+            existing["sourceArchiveOriginal"] = str(archive_path)
+            existing.setdefault("summary", {})["sharedCatalogueCount"] = shared_count
             existing["lastSeenAt"] = _now()
             self.save_review(existing)
             return existing, False
@@ -176,49 +199,6 @@ class ReviewInboxStore:
                     title=_title(text, "Feedback"),
                     description=text,
                     attachments=[attachment] if attachment else [],
-                ),
-            )
-
-        food_by_id = {
-            str(food.get("id")): food
-            for food in catalogue.get("foods", [])
-            if isinstance(food, dict) and food.get("id")
-        }
-        for finding in report.get("foodFindings", []):
-            food_id = str(finding.get("id", "unknown"))
-            food = food_by_id.get(food_id, {})
-            image = food.get("image") if isinstance(food.get("image"), dict) else {}
-            attachment = extracted.get(image.get("bundlePath"))
-            description = "; ".join(finding.get("issues", []))
-            items.append(
-                _item(
-                    item_id=f"data:{food_id}",
-                    source_type="CATALOGUE_DATA",
-                    title=f"Review data: {finding.get('name') or food_id}",
-                    description=description,
-                    attachments=[attachment] if attachment else [],
-                    classification="DATA",
-                    severity="MEDIUM",
-                ),
-            )
-
-        for candidate in report.get("openFoodFactsCandidates", []):
-            code = str(candidate.get("code") or "unknown")
-            details = [f"barcode={code}"]
-            if candidate.get("brand"):
-                details.append(f"brand={candidate['brand']}")
-            if candidate.get("issues"):
-                details.append("; ".join(candidate["issues"]))
-            if candidate.get("rawPath"):
-                details.append(f"raw response: {candidate['rawPath']}")
-            items.append(
-                _item(
-                    item_id=f"off-cache:{code}",
-                    source_type="OPEN_FOOD_FACTS_CACHE",
-                    title=f"Normalize cached product: {candidate.get('name') or code}",
-                    description=" | ".join(details),
-                    classification="DATA",
-                    severity="LOW",
                 ),
             )
 
@@ -267,7 +247,8 @@ class ReviewInboxStore:
             "schema": INBOX_SCHEMA,
             "schemaVersion": INBOX_SCHEMA_VERSION,
             "bundleHash": digest,
-            "sourceArchive": str(archive_path),
+            "sourceArchive": str(retained_archive),
+            "sourceArchiveOriginal": str(archive_path),
             "importedAt": _now(),
             "lastSeenAt": _now(),
             "bundleFormat": report.get("format"),
@@ -276,9 +257,97 @@ class ReviewInboxStore:
             "validationWarnings": report.get("warnings", []),
             "items": items,
         }
+        review["summary"]["sharedCatalogueCount"] = shared_count
         self._reconcile_implementation_status(review)
         self.save_review(review)
         return review, True
+
+    def shared_catalogue_count(self) -> int:
+        try:
+            catalogue = json.loads(self.shared_catalogue_path.read_text(encoding="utf-8"))
+            return len(catalogue.get("foods", {}))
+        except (OSError, json.JSONDecodeError):
+            return 0
+
+    def _merge_shared_catalogue(
+        self,
+        catalogue: dict[str, Any],
+        collected: list[dict[str, Any]],
+        bundle_hash: str,
+        retained_archive: Path,
+    ) -> int:
+        try:
+            shared = json.loads(self.shared_catalogue_path.read_text(encoding="utf-8"))
+            if shared.get("schema") != "calorie-quick-local-shared-food-catalogue":
+                raise ValueError("unsupported shared catalogue")
+        except (OSError, json.JSONDecodeError, ValueError):
+            shared = {
+                "schema": "calorie-quick-local-shared-food-catalogue",
+                "schemaVersion": 1,
+                "foods": {},
+            }
+        records = shared.setdefault("foods", {})
+        observed_at = _now()
+
+        def identity(barcode: str, name: str, brand: str) -> str:
+            if barcode:
+                return f"barcode:{barcode}"
+            normalized = "|".join((name, brand)).lower().strip()
+            return "identity:" + hashlib.sha256(normalized.encode("utf-8")).hexdigest()
+
+        def source(path: str, source_type: str) -> dict[str, Any]:
+            return {
+                "bundleHash": bundle_hash,
+                "archive": str(retained_archive),
+                "path": path,
+                "sourceType": source_type,
+                "observedAt": observed_at,
+            }
+
+        for food in catalogue.get("foods", []):
+            if not isinstance(food, dict) or not food.get("selectedForThisExport", True):
+                continue
+            names = food.get("name") if isinstance(food.get("name"), dict) else {}
+            name = str(names.get("en") or names.get("ro") or food.get("id") or "")
+            barcode = str(food.get("barcode") or "")
+            key = identity(barcode, name, str(food.get("brand") or ""))
+            record = records.setdefault(key, {
+                "id": key, "firstSeenAt": observed_at, "sources": [],
+            })
+            record.update(
+                barcode=barcode or None,
+                displayName=name,
+                normalizedFood=deepcopy(food),
+                lastSeenAt=observed_at,
+            )
+            evidence = source("catalogue/catalogue.json", str(food.get("sourceType") or "SHARED"))
+            if not any(item.get("bundleHash") == bundle_hash and item.get("path") == evidence["path"] for item in record["sources"]):
+                record["sources"].append(evidence)
+
+        for product in collected:
+            code = str(product.get("code") or "")
+            if not code:
+                continue
+            key = identity(code, str(product.get("name") or ""), str(product.get("brand") or ""))
+            record = records.setdefault(key, {
+                "id": key, "firstSeenAt": observed_at, "sources": [],
+            })
+            record.update(
+                barcode=code,
+                displayName=product.get("name") or record.get("displayName") or code,
+                openFoodFactsProduct=deepcopy(product.get("product") or {}),
+                lastSeenAt=observed_at,
+            )
+            evidence = source(str(product.get("rawPath") or ""), "OPEN_FOOD_FACTS")
+            if not any(item.get("bundleHash") == bundle_hash and item.get("path") == evidence["path"] for item in record["sources"]):
+                record["sources"].append(evidence)
+
+        shared["updatedAt"] = observed_at
+        shared["foodCount"] = len(records)
+        temporary = self.shared_catalogue_path.with_suffix(".tmp")
+        temporary.write_text(json.dumps(shared, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+        temporary.replace(self.shared_catalogue_path)
+        return len(records)
 
     def save_review(self, review: dict[str, Any]) -> None:
         digest = review["bundleHash"]

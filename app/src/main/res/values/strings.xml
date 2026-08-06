@@ -36,6 +36,7 @@
     <string name="ocr_core_missing">One or more core nutrition values could not be read and must be entered manually.</string>
     <string name="ocr_liquid_basis">Detected a per-100 ml liquid label. An ml measure was added using the usual 1 ml ≈ 1 g logging approximation.</string>
     <string name="review_before_saving">Review the community-provided values before saving</string>
+    <string name="saved_to_catalogue_automatically">Saved to your catalogue automatically · tap to add</string>
     <string name="open_food_facts_review_notice">Community data from Open Food Facts. Verify the label before saving it on this device.</string>
     <string name="quick_add">Quick add</string>
     <string name="recommended_foods">Recommended</string>
@@ -469,6 +470,10 @@
     <string name="release_alpha08_title">Cleaner food images and clearer review evidence</string>
     <string name="release_alpha08_item_images">Nine malformed catalogue thumbnails were replaced after a full audit of the built-in image set.</string>
     <string name="release_alpha08_item_review">The Windows review inbox now keeps Codex analysis beside the original evidence and reviewer notes.</string>
+    <string name="release_alpha10_title">Automatic shared-food collection</string>
+    <string name="release_alpha10_item_auto_catalogue">Valid Open Food Facts results are appended to the searchable on-device catalogue automatically and open directly in quick add.</string>
+    <string name="release_alpha10_item_collection">Review ZIP imports retain their complete source archive and merge shared foods and API products into a barcode-deduplicated catalogue on the review PC.</string>
+    <string name="release_alpha10_item_review_boundary">Ordinary collected products no longer create manual review findings; review is reserved for explicitly reported problems.</string>
     <string name="release_alpha09_title">Better photos and liquid-label scanning</string>
     <string name="release_alpha09_item_crop">Food photos and nutrition labels can open a crop, rotation, and perspective-correction flow before use.</string>
     <string name="release_alpha09_item_liquid">Romanian per-100-ml labels with multiple columns now select the correct values and add practical ml/package measures.</string>

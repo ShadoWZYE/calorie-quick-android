@@ -109,8 +109,8 @@ class ReviewBundleParserTest(unittest.TestCase):
 
             self.assertTrue(report["valid"], report["errors"])
             self.assertEqual(1, report["summary"]["openFoodFactsResponseCount"])
-            self.assertEqual(1, report["summary"]["openFoodFactsCandidateCount"])
-            candidate = report["openFoodFactsCandidates"][0]
+            self.assertEqual(1, report["summary"]["openFoodFactsProductCount"])
+            candidate = report["openFoodFactsProducts"][0]
             self.assertEqual("Sparkling drink", candidate["name"])
             self.assertIn("liquid package and ml measures need normalization", candidate["issues"])
 

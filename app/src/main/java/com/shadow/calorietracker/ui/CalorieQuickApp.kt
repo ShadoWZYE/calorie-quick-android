@@ -462,13 +462,6 @@ fun CalorieQuickApp(viewModel: CalorieViewModel = viewModel()) {
             onScanNutritionLabel = viewModel::scanNutritionLabel,
             onClearNutritionLabelScan = viewModel::clearNutritionLabelScan,
             onFlagFailedNutritionScan = viewModel::flagNutritionLabelScanForSupport,
-            onImportFood = {
-                editingFood = it
-                nutritionLabelPrefill = null
-                newFoodName = ""
-                newFoodBarcode = ""
-                screenName = AppScreen.FOOD_EDITOR.name
-            },
         )
     }
 
@@ -4002,7 +3995,6 @@ private fun TodayScreen(
     onScanNutritionLabel: (Uri, String) -> Unit,
     onClearNutritionLabelScan: () -> Unit,
     onFlagFailedNutritionScan: () -> Unit,
-    onImportFood: (Food) -> Unit,
 ) {
     val context = LocalContext.current
     val activity = LocalActivity.current
@@ -4470,7 +4462,7 @@ private fun TodayScreen(
             if (currentLookup?.status == FoodLookupStatus.SUCCESS && remoteResults.isNotEmpty()) {
                 item { SectionTitle(R.string.open_food_facts_results) }
                 items(remoteResults, key = { it.id }) { food ->
-                    OpenFoodFactsRow(food, locale) { onImportFood(food) }
+                    OpenFoodFactsRow(food, locale) { selectedFood = food }
                 }
             }
             if (currentLookup?.status in setOf(
@@ -5258,12 +5250,12 @@ private fun OpenFoodFactsRow(food: Food, locale: Locale, onReview: () -> Unit) {
                     overflow = TextOverflow.Ellipsis,
                 )
                 Text(
-                    stringResource(R.string.review_before_saving),
+                    stringResource(R.string.saved_to_catalogue_automatically),
                     fontSize = 12.sp,
                     color = MaterialTheme.colorScheme.primary,
                 )
             }
-            Icon(Icons.Default.Edit, stringResource(R.string.review_imported_food), tint = MaterialTheme.colorScheme.primary)
+            Icon(Icons.Default.Add, stringResource(R.string.quick_add), tint = MaterialTheme.colorScheme.primary)
         }
     }
 }

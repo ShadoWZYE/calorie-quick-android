@@ -36,6 +36,7 @@
     <string name="ocr_core_missing">Una sau mai multe valori nutriționale de bază nu au putut fi citite și trebuie introduse manual.</string>
     <string name="ocr_liquid_basis">A fost detectată o etichetă pentru lichid per 100 ml. A fost adăugată unitatea ml folosind aproximarea uzuală de jurnalizare 1 ml ≈ 1 g.</string>
     <string name="review_before_saving">Verifică valorile oferite de comunitate înainte de salvare</string>
+    <string name="saved_to_catalogue_automatically">Salvat automat în catalogul tău · atinge pentru a adăuga</string>
     <string name="open_food_facts_review_notice">Date comunitare din Open Food Facts. Verifică eticheta înainte de salvarea pe acest dispozitiv.</string>
     <string name="quick_add">Adăugare rapidă</string>
     <string name="recommended_foods">Recomandate</string>
@@ -474,6 +475,10 @@
     <string name="release_alpha08_title">Imagini mai curate și dovezi mai clare la verificare</string>
     <string name="release_alpha08_item_images">Nouă miniaturi defecte din catalog au fost înlocuite după verificarea completă a setului de imagini încorporat.</string>
     <string name="release_alpha08_item_review">Instrumentul Windows păstrează acum analiza Codex lângă dovezile originale și notele evaluatorului.</string>
+    <string name="release_alpha10_title">Colectare automată a alimentelor partajate</string>
+    <string name="release_alpha10_item_auto_catalogue">Rezultatele valide Open Food Facts sunt adăugate automat în catalogul local și se deschid direct în adăugarea rapidă.</string>
+    <string name="release_alpha10_item_collection">Importul arhivelor pentru analiză păstrează arhiva sursă completă și combină alimentele partajate și produsele API într-un catalog deduplicat după codul de bare pe PC.</string>
+    <string name="release_alpha10_item_review_boundary">Produsele colectate obișnuite nu mai creează constatări pentru verificare manuală; verificarea este rezervată problemelor raportate explicit.</string>
     <string name="release_alpha09_title">Fotografii mai bune și scanarea etichetelor pentru lichide</string>
     <string name="release_alpha09_item_crop">Fotografiile alimentelor și etichetele nutriționale pot deschide un flux de decupare, rotire și corectare a perspectivei înainte de utilizare.</string>
     <string name="release_alpha09_item_liquid">Etichetele românești per 100 ml cu mai multe coloane aleg acum valorile corecte și adaugă unități practice pentru ml și ambalaj.</string>

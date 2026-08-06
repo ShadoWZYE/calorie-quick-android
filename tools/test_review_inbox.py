@@ -82,14 +82,16 @@ class ReviewInboxStoreTest(unittest.TestCase):
             review, created = store.import_bundle(archive)
 
             self.assertTrue(created)
-            self.assertEqual(3, len(review["items"]))
+            self.assertEqual(1, len(review["items"]))
             feedback = next(item for item in review["items"] if item["sourceType"] == "FEEDBACK")
             self.assertEqual("PERFORMANCE", feedback["classification"])
             self.assertTrue(feedback["assistantAnalysis"])
             self.assertTrue(Path(feedback["attachments"][0]).is_file())
-            cached = next(item for item in review["items"] if item["sourceType"] == "OPEN_FOOD_FACTS_CACHE")
-            self.assertEqual("DATA", cached["classification"])
-            self.assertIn("complete API response", cached["assistantAnalysis"])
+            self.assertFalse(any(item["sourceType"] == "OPEN_FOOD_FACTS_CACHE" for item in review["items"]))
+            self.assertTrue((root / "inbox" / "bundles" / review["bundleHash"] / "source.zip").is_file())
+            shared = json.loads((root / "inbox" / "shared-food-catalogue.json").read_text(encoding="utf-8"))
+            self.assertEqual(2, shared["foodCount"])
+            self.assertIn("barcode:12345670", shared["foods"])
             feedback["reviewerComments"] = "Reproduced on the test phone."
             store.save_review(review)
 
@@ -104,10 +106,10 @@ class ReviewInboxStoreTest(unittest.TestCase):
             root = Path(folder)
             store = ReviewInboxStore(root / "inbox")
             review, _ = store.import_bundle(self.create_bundle(root))
-            accepted, deferred, cached = review["items"]
+            accepted = review["items"][0]
+            deferred = store.add_manual_item(review)
             accepted.update(decision="ACCEPT_NEXT", reviewerComments="Ship after regression test.")
             deferred.update(decision="ACCEPT_BACKLOG", promote=True)
-            cached.update(decision="ACCEPT_BACKLOG")
             output = root / "brief.json"
 
             brief = store.export_implementation_brief([review], output)

@@ -250,6 +250,91 @@ class CalorieRepository(
         return foodId
     }
 
+    suspend fun upsertDiscoveredFoods(foods: List<Food>): Int {
+        val eligible = foods.filter { food ->
+            food.provenance.type == FoodSourceType.OPEN_FOOD_FACTS && food.barcode != null
+        }
+        if (eligible.isEmpty()) return 0
+        var stored = 0
+        val now = System.currentTimeMillis()
+        database.withTransaction {
+            eligible.distinctBy { it.barcode }.forEach { food ->
+                val barcode = requireNotNull(food.barcode)
+                val barcodeMatch = database.foodDao().findActiveByBarcode(barcode)
+                val idMatch = database.foodDao().findFood(food.id)
+                val protectedMatch = listOfNotNull(barcodeMatch, idMatch).firstOrNull {
+                    it.isPersonal || it.sourceType != FoodSourceType.OPEN_FOOD_FACTS.name
+                }
+                if (protectedMatch != null || (barcodeMatch != null && barcodeMatch.id != food.id)) return@forEach
+
+                database.foodDao().upsertFood(
+                    FoodEntity(
+                        id = food.id,
+                        nameEn = food.names.en,
+                        nameRo = food.names.ro,
+                        detailEn = food.details.en,
+                        detailRo = food.details.ro,
+                        caloriesPer100g = food.nutritionPer100g.calories,
+                        proteinMilligramsPer100g = (food.nutritionPer100g.proteinGrams * 1_000).roundToInt(),
+                        carbsMilligramsPer100g = (food.nutritionPer100g.carbsGrams * 1_000).roundToInt(),
+                        fatMilligramsPer100g = (food.nutritionPer100g.fatGrams * 1_000).roundToInt(),
+                        brand = food.brand,
+                        barcode = barcode,
+                        isPersonal = false,
+                        archived = false,
+                        updatedAtEpochMillis = now,
+                        isPackaged = food.isPackaged,
+                        sourceType = FoodSourceType.OPEN_FOOD_FACTS.name,
+                        sourceId = food.provenance.sourceId ?: barcode,
+                        importedAtEpochMillis = idMatch?.importedAtEpochMillis ?: now,
+                        imageRemoteUrl = food.image?.remoteUrl,
+                        imageSource = food.image?.source?.name,
+                        imageAttribution = food.image?.attribution,
+                        imageLicense = food.image?.license,
+                        reviewStatus = ReviewStatus.PRIVATE.name,
+                        categoryKey = food.categoryKey,
+                    ),
+                )
+                database.foodDao().deleteNutrients(food.id)
+                database.foodDao().upsertNutrients(
+                    food.nutritionPer100g.toNutrientEntities(food.id, "open_food_facts"),
+                )
+                database.foodDao().deleteAllergens(food.id)
+                database.foodDao().upsertAllergens(
+                    food.allergens.map { (allergen, declaration) ->
+                        AllergenDeclarationEntity(
+                            "${food.id}|${allergen.name}", food.id, allergen.name, declaration.name,
+                        )
+                    },
+                )
+                database.foodDao().deleteServingPresets(food.id)
+                database.foodDao().deleteServings(food.id)
+                database.foodDao().upsertServings(food.servings.map { serving ->
+                    ServingEntity(
+                        id = serving.id,
+                        foodId = food.id,
+                        labelEn = serving.label.en,
+                        labelRo = serving.label.ro,
+                        grams = serving.grams,
+                        isPackage = serving.isPackage,
+                    )
+                })
+                database.foodDao().upsertServingPresets(food.servings.flatMap { serving ->
+                    serving.suggestedAmounts.map { amount ->
+                        val milliUnits = (amount * 1_000).roundToInt().toLong()
+                        ServingPresetEntity("${serving.id}|$milliUnits", serving.id, milliUnits)
+                    }
+                })
+                database.foodDao().deleteAliases(food.id)
+                database.foodDao().upsertAliases(food.aliases.distinct().mapIndexed { index, alias ->
+                    FoodAliasEntity("${food.id}|off|$index", food.id, alias)
+                })
+                stored += 1
+            }
+        }
+        return stored
+    }
+
     suspend fun saveRecipe(draft: RecipeDraft): String {
         val foodId = draft.id ?: "recipe-${UUID.randomUUID()}"
         val batchId = "recipe-batch-${UUID.randomUUID()}"

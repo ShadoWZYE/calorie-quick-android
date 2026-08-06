@@ -98,6 +98,7 @@ def _off_candidate(product: dict[str, Any], raw_path: str) -> dict[str, Any] | N
         "brand": brands,
         "issues": issues,
         "rawPath": raw_path,
+        "product": product,
     }
 
 
@@ -299,7 +300,7 @@ def inspect_bundle(archive_path: Path) -> dict[str, Any]:
             "imageCount": sum("mimeType" in item for item in entry_summary),
             "imagesWithMetadata": len(images_with_metadata),
             "openFoodFactsResponseCount": len(off_index.get("responses", [])) if isinstance(off_index, dict) and isinstance(off_index.get("responses"), list) else 0,
-            "openFoodFactsCandidateCount": len(off_candidates_by_code),
+            "openFoodFactsProductCount": len(off_candidates_by_code),
         },
         "build": (root or {}).get("app") or ({
             "versionName": support.get("appVersion"),
@@ -307,7 +308,7 @@ def inspect_bundle(archive_path: Path) -> dict[str, Any]:
             "buildId": support.get("buildId"),
         } if support else None),
         "foodFindings": food_findings,
-        "openFoodFactsCandidates": list(off_candidates_by_code.values()),
+        "openFoodFactsProducts": list(off_candidates_by_code.values()),
         "mediaWithMetadata": images_with_metadata,
         "entries": entry_summary,
     }
@@ -323,7 +324,7 @@ def markdown_report(report: dict[str, Any]) -> str:
         f"- Archive SHA-256: `{report.get('archiveSha256', 'unavailable')}`",
         f"- Contents: {summary.get('foodCount', 0)} foods, {summary.get('recipeCount', 0)} recipes, {summary.get('feedbackMessageCount', 0)} feedback messages, {summary.get('imageCount', 0)} images",
         f"- Images containing EXIF/XMP: {summary.get('imagesWithMetadata', 0)}",
-        f"- Open Food Facts cache: {summary.get('openFoodFactsResponseCount', 0)} responses, {summary.get('openFoodFactsCandidateCount', 0)} unique products to review",
+        f"- Open Food Facts cache: {summary.get('openFoodFactsResponseCount', 0)} responses, {summary.get('openFoodFactsProductCount', 0)} unique products collected",
     ]
     for heading, key in (("Errors", "errors"), ("Warnings", "warnings")):
         values = report.get(key, [])
@@ -334,13 +335,12 @@ def markdown_report(report: dict[str, Any]) -> str:
         lines.extend(["", "## Catalogue findings", ""])
         for finding in findings:
             lines.append(f"- {finding.get('name') or finding.get('id') or 'Unnamed food'}: " + "; ".join(finding["issues"]))
-    candidates = report.get("openFoodFactsCandidates", [])
-    if candidates:
-        lines.extend(["", "## Open Food Facts normalization candidates", ""])
-        for candidate in candidates:
-            label = candidate.get("name") or candidate.get("code") or "Unnamed product"
-            issues = "; ".join(candidate.get("issues", [])) or "review before promotion"
-            lines.append(f"- {label} ({candidate.get('code')}): {issues}")
+    collected = report.get("openFoodFactsProducts", [])
+    if collected:
+        lines.extend(["", "## Automatically collected Open Food Facts products", ""])
+        for product in collected:
+            label = product.get("name") or product.get("code") or "Unnamed product"
+            lines.append(f"- {label} ({product.get('code')})")
     lines.extend(["", "The report intentionally omits feedback text and does not extract image contents.", ""])
     return "\n".join(lines)
 

@@ -32,7 +32,9 @@ class OpenFoodFactsClientTest {
                         "fiber_100g": 3.4
                       },
                       "allergens_tags": ["en:milk", "en:nuts"],
-                      "traces_tags": ["en:soybeans", "en:milk"]
+                      "traces_tags": ["en:soybeans", "en:milk"],
+                      "categories_tags": ["en:spreads", "en:nut-butters"],
+                      "image_front_small_url": "https://images.openfoodfacts.org/product.jpg"
                     }
                     """.trimIndent(),
                 ),
@@ -51,6 +53,8 @@ class OpenFoodFactsClientTest {
         assertEquals(AllergenDeclaration.MAY_CONTAIN, food.allergens[Allergen.SOY])
         assertEquals(FoodSourceType.OPEN_FOOD_FACTS, food.provenance.type)
         assertEquals("3017620422003", food.provenance.sourceId)
+        assertEquals("https://images.openfoodfacts.org/product.jpg", food.image?.remoteUrl)
+        assertEquals("nuts-seeds", food.categoryKey)
     }
 
     @Test

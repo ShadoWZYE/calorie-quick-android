@@ -6,6 +6,8 @@ from __future__ import annotations
 import os
 import sys
 import tkinter as tk
+import ctypes
+from ctypes import wintypes
 from pathlib import Path
 from tkinter import filedialog, messagebox, ttk
 
@@ -36,11 +38,42 @@ DECISION_HELP = {
     "RESOLVED": "Already fixed and verified.",
 }
 
+WINDOW_TITLE = "Calorie Quick · Local Review Inbox"
+WINDOWS_MUTEX_NAME = "Local\\CalorieQuickReviewInbox"
+
+
+def acquire_single_instance() -> int | None:
+    if os.name != "nt":
+        return 1
+    kernel32 = ctypes.windll.kernel32
+    kernel32.CreateMutexW.restype = wintypes.HANDLE
+    kernel32.CreateMutexW.argtypes = (ctypes.c_void_p, wintypes.BOOL, wintypes.LPCWSTR)
+    kernel32.CloseHandle.argtypes = (wintypes.HANDLE,)
+    handle = kernel32.CreateMutexW(None, False, WINDOWS_MUTEX_NAME)
+    if not handle:
+        return None
+    if kernel32.GetLastError() == 183:  # ERROR_ALREADY_EXISTS
+        user32 = ctypes.windll.user32
+        user32.FindWindowW.restype = wintypes.HWND
+        user32.FindWindowW.argtypes = (wintypes.LPCWSTR, wintypes.LPCWSTR)
+        window = user32.FindWindowW(None, WINDOW_TITLE)
+        if window:
+            user32.ShowWindow(window, 9)  # SW_RESTORE
+            user32.SetForegroundWindow(window)
+        kernel32.CloseHandle(handle)
+        return None
+    return handle
+
+
+def release_single_instance(handle: int | None) -> None:
+    if os.name == "nt" and handle not in (None, 1):
+        ctypes.windll.kernel32.CloseHandle(handle)
+
 
 class ReviewInboxApp(tk.Tk):
     def __init__(self):
         super().__init__()
-        self.title("Calorie Quick · Local Review Inbox")
+        self.title(WINDOW_TITLE)
         self.geometry("1500x900")
         self.minsize(1120, 720)
         self.store = ReviewInboxStore()
@@ -342,7 +375,11 @@ class ReviewInboxApp(tk.Tk):
         try:
             review, created = self.store.import_bundle(Path(path))
             self.reload_reviews(review["bundleHash"])
-            self.status_text.set("Imported new bundle" if created else "Bundle already existed; opened saved review")
+            collected = self.store.shared_catalogue_count()
+            self.status_text.set(
+                ("Imported new bundle" if created else "Bundle already existed; opened saved review") +
+                f" · shared catalogue: {collected} foods",
+            )
         except Exception as exc:
             self.status_text.set("Import failed")
             messagebox.showerror("Cannot import bundle", str(exc))
@@ -361,7 +398,7 @@ class ReviewInboxApp(tk.Tk):
         build = self.review.get("build") or {}
         self.status_text.set(
             f"{build.get('versionName', 'Unknown build')} · {self.review.get('bundleHash', '')[:12]} · "
-            f"private data: {self.store.root}",
+            f"shared catalogue: {self.store.shared_catalogue_count()} foods · private data: {self.store.root}",
         )
 
     def _visible_items(self) -> list[dict]:
@@ -558,12 +595,17 @@ class ReviewInboxApp(tk.Tk):
 
 
 def main() -> int:
+    instance_handle = acquire_single_instance()
+    if instance_handle is None:
+        return 0
     try:
         ReviewInboxApp().mainloop()
         return 0
     except tk.TclError as exc:
         print(f"Cannot open Windows review inbox: {exc}", file=sys.stderr)
         return 1
+    finally:
+        release_single_instance(instance_handle)
 
 
 if __name__ == "__main__":

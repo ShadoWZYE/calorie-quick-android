@@ -4,6 +4,8 @@ import com.shadow.calorietracker.BuildConfig
 import com.shadow.calorietracker.model.Allergen
 import com.shadow.calorietracker.model.AllergenDeclaration
 import com.shadow.calorietracker.model.Food
+import com.shadow.calorietracker.model.FoodImage
+import com.shadow.calorietracker.model.FoodImageSource
 import com.shadow.calorietracker.model.FoodProvenance
 import com.shadow.calorietracker.model.FoodSourceType
 import com.shadow.calorietracker.model.LocalizedText
@@ -111,6 +113,9 @@ class OpenFoodFactsClient(
             if (listOf(calories, protein, carbs, fat).any { it < 0.0 }) return null
 
             val brand = product.optString("brands").trim().takeIf(String::isNotEmpty)
+            val imageUrl = product.optString("image_front_small_url").trim().ifEmpty {
+                product.optString("image_front_url").trim()
+            }.takeIf { it.startsWith("https://") }
             val packageGrams = packageGrams(product)
             val servingGrams = gramsFromQuantity(
                 product.optDoubleOrNull("serving_quantity"),
@@ -150,7 +155,36 @@ class OpenFoodFactsClient(
                 isPackaged = packageGrams != null,
                 allergens = allergenDeclarations(product),
                 provenance = FoodProvenance(FoodSourceType.OPEN_FOOD_FACTS, sourceId = code),
+                image = imageUrl?.let {
+                    FoodImage(
+                        source = FoodImageSource.REMOTE,
+                        remoteUrl = it,
+                        attribution = "Open Food Facts contributors",
+                    )
+                },
+                categoryKey = categoryKey(product),
             )
+        }
+
+        private fun categoryKey(product: JSONObject): String? {
+            val tags = product.optJSONArray("categories_tags").orEmptyObjectsAndStrings()
+                .joinToString(" ") { it.lowercase() }
+            return when {
+                listOf("beverages", "waters", "juices", "sodas", "coffees", "teas").any(tags::contains) -> "beverages"
+                listOf("dairies", "milks", "cheeses", "yogurts").any(tags::contains) -> "dairy"
+                listOf("fruits", "fruit-based").any(tags::contains) -> "fruit"
+                listOf("vegetables", "vegetable-based").any(tags::contains) -> "vegetables"
+                listOf("meats", "poultries").any(tags::contains) -> "meat"
+                listOf("seafood", "fishes").any(tags::contains) -> "fish"
+                "eggs" in tags -> "eggs"
+                listOf("breads", "pastries", "bakery").any(tags::contains) -> "bakery"
+                listOf("cereals", "grains", "pastas", "rices").any(tags::contains) -> "grains"
+                listOf("legumes", "beans", "lentils").any(tags::contains) -> "legumes"
+                listOf("nuts", "nut-", "seeds").any(tags::contains) -> "nuts-seeds"
+                listOf("oils", "fats", "butters").any(tags::contains) -> "fats"
+                listOf("meals", "prepared-foods", "sandwiches", "pizzas").any(tags::contains) -> "prepared-meals"
+                else -> null
+            }
         }
 
         private fun packageGrams(product: JSONObject): Int? = gramsFromQuantity(
@@ -187,6 +221,11 @@ class OpenFoodFactsClient(
 
         private val GRAM_QUANTITY = Regex("""([0-9]+(?:[.,][0-9]+)?)\s*(kg|g)\b""")
     }
+}
+
+private fun JSONArray?.orEmptyObjectsAndStrings(): List<String> = buildList {
+    if (this@orEmptyObjectsAndStrings == null) return@buildList
+    for (index in 0 until length()) optString(index).takeIf(String::isNotBlank)?.let(::add)
 }
 
 sealed class OpenFoodFactsException(message: String) : IOException(message) {

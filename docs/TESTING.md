@@ -49,7 +49,8 @@ Run `python -m unittest tools/test_catalogue_images.py` when changing built-in t
 25. Open a long quick-add sheet and repeatedly scroll upward and downward. Confirm content scrolls without dragging or jumping the entire sheet.
 26. Run an Open Food Facts search, export opted-in diagnostics, and confirm support schema v7 contains a `performance` entry with duration/outcome/result count/query length but not the search text.
 27. Open `tools\Open Calorie Quick Review.cmd`, import the same review ZIP twice, and confirm edits survive deduplication. Add reviewer comments and corrections, then verify only accepted and explicitly promoted items appear in the generated JSON/Markdown implementation brief.
-28. Repeat the same Open Food Facts search twice and confirm the second lookup works from the local cache. Export a review ZIP, verify `open-food-facts/cache.json` and its response files are present, then import it in the Windows review inbox and confirm each barcode appears once as a normalization candidate without being added to the app catalogue.
+28. Repeat the same Open Food Facts search twice and confirm the second lookup works from the local cache. Confirm valid results appear in All foods automatically, open quick add directly, and never overwrite a personal food with the same barcode.
+29. Export a review ZIP and verify `open-food-facts/cache.json` and its response files are present. Import it in the Windows tool, confirm a retained `source.zip` is created, and verify each barcode and opted-in shared food appears once in `shared-food-catalogue.json` without creating an ordinary review finding.
 
 ## Field feedback to capture
 
