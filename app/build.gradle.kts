@@ -13,8 +13,8 @@ fun gitValue(vararg arguments: String): String = runCatching {
 
 val sourceCommit = gitValue("rev-parse", "HEAD").ifBlank { "unknown" }
 val sourceDirty = gitValue("status", "--porcelain").isNotBlank()
-val releaseVersionName = "0.2.0-alpha06"
-val releaseVersionCode = 7
+val releaseVersionName = "0.2.0-alpha07"
+val releaseVersionCode = 8
 val exactBuildId = "$releaseVersionName+$releaseVersionCode-${sourceCommit.take(12)}${if (sourceDirty) "-dirty" else ""}"
 
 android {

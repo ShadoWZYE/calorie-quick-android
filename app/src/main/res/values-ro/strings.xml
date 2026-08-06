@@ -383,7 +383,7 @@
     <string name="catalogue_export_success">Au fost exportate %1$d înregistrări și %2$d imagini.</string>
     <string name="catalogue_export_empty">Exportul a fost creat, dar niciun element nu a fost selectat. Activează „Include în exportul pentru verificare” când editezi un aliment sau o rețetă.</string>
     <string name="catalogue_export_error">Exportul nu a putut fi creat. Alege altă locație și încearcă din nou.</string>
-    <string name="review_bundle_export_success">Au fost exportate %1$d înregistrări de catalog, %2$d imagini de catalog, %3$d scanări marcate, %4$d rapoarte de blocare UI și %5$d rapoarte de eroare.</string>
+    <string name="review_bundle_export_success">Au fost exportate %1$d înregistrări de catalog, %2$d imagini de catalog, %3$d scanări marcate, %4$d timpi de căutare, %5$d rapoarte de blocare UI și %6$d rapoarte de eroare.</string>
     <string name="feedback_optional">Feedback (opțional)</string>
     <string name="feedback">Feedback</string>
     <string name="feedback_message">Scrie un mesaj</string>
@@ -418,10 +418,12 @@
         <item quantity="other">%1$d ingrediente</item>
     </plurals>
     <string name="saved_scan_diagnostics">%1$d imagini scanate marcate sunt salvate pe acest dispozitiv</string>
+    <string name="scan_and_lookup_diagnostics">Diagnostice pentru scanări și căutări</string>
+    <string name="saved_performance_diagnostics">%1$d rapoarte de timp pentru căutări, fără termeni salvați, sunt pe acest dispozitiv</string>
     <string name="saved_freeze_diagnostics">%1$d rapoarte de blocare UI sunt salvate pe acest dispozitiv</string>
     <string name="saved_crash_diagnostics">%1$d rapoarte de eroare sunt salvate pe acest dispozitiv</string>
-    <string name="delete_saved_diagnostics">Șterge scanările marcate</string>
-    <string name="delete_saved_diagnostics_confirm">Ștergi definitiv toate imaginile scanate marcate acum pentru verificare?</string>
+    <string name="delete_saved_diagnostics">Șterge diagnosticele de scanare și căutare</string>
+    <string name="delete_saved_diagnostics_confirm">Ștergi definitiv toate imaginile scanate marcate și timpii de căutare salvați?</string>
     <string name="delete_saved_freezes">Șterge rapoartele de blocare UI</string>
     <string name="delete_saved_freezes_confirm">Ștergi definitiv toate rapoartele de blocare UI înregistrate?</string>
     <string name="crash_reports">Rapoarte de eroare</string>
@@ -460,6 +462,11 @@
     <string name="view_all_release_notes">Vezi toate notele de versiune</string>
     <string name="continue_to_app">Continuă</string>
     <string name="version_label">Versiunea %1$s</string>
+    <string name="release_alpha07_title">Un proces de testare și verificare mai fluent</string>
+    <string name="release_alpha07_item_back">Tasta Înapoi din Android revine acum din ecranele secundare la sumarul zilnic, în loc să minimizeze aplicația.</string>
+    <string name="release_alpha07_item_sheet">Panourile de adăugare rapidă nu mai concurează cu derularea verticală pentru gesturile de glisare.</string>
+    <string name="release_alpha07_item_performance">Căutările Open Food Facts înregistrează acum timpi și rezultate de diagnostic fără a salva termenii căutați.</string>
+    <string name="release_alpha07_item_review">Exporturile pot fi analizate în noul instrument Windows privat înainte ca un element să fie promovat pentru implementare.</string>
     <string name="release_alpha06_title">Exporturi pentru verificare mai sigure și trasabile</string>
     <string name="release_alpha06_item_bundle">Exporturile includ acum un manifest-rădăcină versionat, selecția explicită și amprente de integritate pentru fiecare imagine.</string>
     <string name="release_alpha06_item_privacy">Imaginile exportate sunt orientate corect, redimensionate și curățate de date despre cameră, locație și editare.</string>

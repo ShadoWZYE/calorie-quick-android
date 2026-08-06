@@ -7,6 +7,7 @@ import android.content.Context
 import android.util.LruCache
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatDelegate
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
@@ -180,8 +181,14 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
-private enum class AppScreen {
+enum class AppScreen {
     TODAY, HISTORY, PROGRESS, SETTINGS, FEEDBACK, WHATS_NEW, FOOD_EDITOR, RECIPE_EDITOR,
+}
+
+fun appBackDestination(screen: AppScreen): AppScreen? = when (screen) {
+    AppScreen.TODAY -> null
+    AppScreen.WHATS_NEW -> AppScreen.SETTINGS
+    else -> AppScreen.TODAY
 }
 
 private const val RELEASE_NOTES_PREFERENCES = "release-notes"
@@ -247,6 +254,23 @@ fun CalorieQuickApp(viewModel: CalorieViewModel = viewModel()) {
             .putInt(LAST_SEEN_RELEASE_VERSION_CODE, BuildConfig.VERSION_CODE)
             .apply()
         showReleaseSummary = false
+    }
+
+    BackHandler(enabled = screenName != AppScreen.TODAY.name) {
+        val currentScreen = AppScreen.valueOf(screenName)
+        when (currentScreen) {
+            AppScreen.FOOD_EDITOR -> {
+                viewModel.clearNutritionLabelScan()
+                editingFood = null
+                nutritionLabelPrefill = null
+            }
+            AppScreen.RECIPE_EDITOR -> {
+                editingRecipe = null
+                recipeSeedFood = null
+            }
+            else -> Unit
+        }
+        appBackDestination(currentScreen)?.let { screenName = it.name }
     }
 
     LaunchedEffect(nutritionLabelScanState.status, nutritionLabelScanState.prefill) {
@@ -556,7 +580,7 @@ private fun SettingsScreen(
             foods = foods.filter { it.isPersonal && it.provenance.type != FoodSourceType.RECIPE },
             recipes = recipes,
             recipeFoods = foods.associateBy(Food::id),
-            diagnosticCount = supportExportState.savedDiagnosticCount,
+            diagnosticCount = supportExportState.savedDiagnosticCount + supportExportState.savedPerformanceCount,
             freezeCount = supportExportState.savedFreezeCount,
             crashCount = supportExportState.savedCrashCount,
             feedbackCount = feedbackCount,
@@ -821,7 +845,7 @@ private fun ExportReviewDialog(
                 item { Text(stringResource(R.string.support_data), fontWeight = FontWeight.Bold) }
                 item {
                     ExportReviewRow(
-                        title = stringResource(R.string.flagged_scan_images),
+                        title = stringResource(R.string.scan_and_lookup_diagnostics),
                         subtitle = stringResource(R.string.item_count, diagnosticCount),
                         selected = includeDiagnostics && diagnosticCount > 0,
                         enabled = diagnosticCount > 0,
@@ -2426,6 +2450,14 @@ private fun ProfileForm(
                 )
                 Text(
                     stringResource(
+                        R.string.saved_performance_diagnostics,
+                        supportExportState?.savedPerformanceCount ?: 0,
+                    ),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    fontSize = 13.sp,
+                )
+                Text(
+                    stringResource(
                         R.string.saved_freeze_diagnostics,
                         supportExportState?.savedFreezeCount ?: 0,
                     ),
@@ -2455,7 +2487,10 @@ private fun ProfileForm(
                     }
                 }
             }
-            if ((supportExportState?.savedDiagnosticCount ?: 0) > 0 && onClearSavedDiagnostics != null) {
+            if (
+                (supportExportState?.savedDiagnosticCount ?: 0) +
+                    (supportExportState?.savedPerformanceCount ?: 0) > 0 && onClearSavedDiagnostics != null
+            ) {
                 item {
                     TextButton(onClick = { confirmClearDiagnostics = true }) {
                         Text(stringResource(R.string.delete_saved_diagnostics))
@@ -2484,7 +2519,7 @@ private fun ProfileForm(
                     val result = exportState.result
                     Text(
                         if (result == null ||
-                            result.itemCount == 0 && result.diagnosticCount == 0 &&
+                            result.itemCount == 0 && result.diagnosticCount == 0 && result.performanceCount == 0 &&
                                 result.freezeCount == 0 && result.crashCount == 0 && !result.hasFeedback
                         ) {
                             stringResource(R.string.catalogue_export_empty)
@@ -2494,6 +2529,7 @@ private fun ProfileForm(
                                 result.itemCount,
                                 result.imageCount,
                                 result.diagnosticCount,
+                                result.performanceCount,
                                 result.freezeCount,
                                 result.crashCount,
                             )
@@ -5376,7 +5412,12 @@ private fun QuickAddSheet(
         val label = stringResource(allergen.labelResource())
         if (declaration == AllergenDeclaration.CONTAINS) containsAllergens += label else mayContainAllergens += label
     }
-    ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheetState) {
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = sheetState,
+        sheetGesturesEnabled = false,
+        dragHandle = null,
+    ) {
         Column(
             Modifier
                 .fillMaxWidth()

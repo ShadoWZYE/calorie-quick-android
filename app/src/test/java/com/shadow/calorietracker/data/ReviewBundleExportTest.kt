@@ -40,6 +40,7 @@ class ReviewBundleExportTest {
             .build()
         support = SupportDiagnosticStore(context)
         support.replaceFeedbackMessages(emptyList())
+        support.clearPerformanceDiagnostics()
         exportFile = File(context.cacheDir, "review-v2.zip")
         sourceImage = File(context.cacheDir, "review-source.jpg")
     }
@@ -50,6 +51,7 @@ class ReviewBundleExportTest {
         exportFile.delete()
         sourceImage.delete()
         support.replaceFeedbackMessages(emptyList())
+        support.clearPerformanceDiagnostics()
     }
 
     @Test
@@ -81,12 +83,19 @@ class ReviewBundleExportTest {
                 imageLocalPath = sourceImage.absolutePath,
             ),
         )
+        support.recordNetworkOperation(
+            operation = "open-food-facts-search",
+            durationMillis = 2_500,
+            outcome = "success",
+            resultCount = 3,
+            queryLength = 6,
+        )
 
         CatalogueExporter(context, database, support).exportTo(
             destination = Uri.fromFile(exportFile),
             selectedFoodIds = setOf("personal-test"),
             selectedRecipeIds = emptySet(),
-            includeDiagnostics = false,
+            includeDiagnostics = true,
             includeFreezeReports = false,
             includeCrashReports = false,
             includeFeedback = false,
@@ -97,6 +106,7 @@ class ReviewBundleExportTest {
             assertEquals("calorie-quick-review-bundle", root.getString("schema"))
             assertEquals(2, root.getInt("schemaVersion"))
             assertNotNull(root.getJSONObject("app").getString("buildId"))
+            assertEquals(7, root.getJSONArray("components").getJSONObject(1).getInt("schemaVersion"))
             val media = root.getJSONArray("media").getJSONObject(0)
             val entry = archive.getEntry(media.getString("path"))
             val bytes = archive.getInputStream(entry).readBytes()
@@ -114,6 +124,14 @@ class ReviewBundleExportTest {
                 archive.getInputStream(archive.getEntry("catalogue/catalogue.json")).bufferedReader().readText(),
             )
             assertTrue(catalogue.getJSONArray("foods").getJSONObject(0).getBoolean("selectedForThisExport"))
+            val supportManifest = JSONObject(
+                archive.getInputStream(archive.getEntry("support/support.json")).bufferedReader().readText(),
+            )
+            assertEquals(7, supportManifest.getInt("schemaVersion"))
+            val performance = supportManifest.getJSONArray("performance").getJSONObject(0)
+            assertEquals("open-food-facts-search", performance.getString("operation"))
+            assertEquals(2_500, performance.getLong("durationMillis"))
+            assertFalse(performance.has("query"))
         }
     }
 

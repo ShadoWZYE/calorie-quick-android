@@ -10,6 +10,18 @@ All notable user-facing changes to Calorie Quick are recorded here. The app is c
 - Wider physical-device and accessibility testing.
 - Continued catalogue coverage and image refinement based on field feedback.
 
+## [0.2.0-alpha07] - 2026-08-06
+
+### Added
+
+- A private Windows review inbox that validates and deduplicates review ZIPs, suggests triage fields, retains reviewer comments/corrections, opens sanitized evidence, and generates implementation briefs only from explicitly accepted and promoted items.
+- Privacy-safe Open Food Facts operation diagnostics containing duration, outcome, result count, and query length without the search text.
+
+### Fixed
+
+- Android Back now returns secondary screens to the daily overview, while preserving normal system behavior on Today.
+- Quick-add content scrolling no longer fights the bottom sheet's own drag gesture.
+
 ## [0.2.0-alpha06] - 2026-08-06
 
 ### Added
@@ -80,7 +92,8 @@ All notable user-facing changes to Calorie Quick are recorded here. The app is c
 - Macro, fiber, allergen, adaptive-goal, and custom-target support.
 - Personal catalogue images, reviewable exports, Romanian localization, and responsive mobile layouts.
 
-[Unreleased]: https://github.com/ShadoWZYE/calorie-quick-android/compare/v0.2.0-alpha06...HEAD
+[Unreleased]: https://github.com/ShadoWZYE/calorie-quick-android/compare/v0.2.0-alpha07...HEAD
+[0.2.0-alpha07]: https://github.com/ShadoWZYE/calorie-quick-android/compare/v0.2.0-alpha06...v0.2.0-alpha07
 [0.2.0-alpha06]: https://github.com/ShadoWZYE/calorie-quick-android/compare/v0.2.0-alpha05...v0.2.0-alpha06
 [0.2.0-alpha05]: https://github.com/ShadoWZYE/calorie-quick-android/compare/v0.2.0-alpha04...v0.2.0-alpha05
 [0.2.0-alpha04]: https://github.com/ShadoWZYE/calorie-quick-android/compare/v0.2.0-alpha03...v0.2.0-alpha04

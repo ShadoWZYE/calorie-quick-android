@@ -17,6 +17,7 @@ data class SupportExportResult(
     val crashCount: Int,
     val hasFeedback: Boolean,
     val feedbackCount: Int = 0,
+    val performanceCount: Int = 0,
     val manifest: JSONObject? = null,
     val media: List<ReviewBundleMedia> = emptyList(),
 )
@@ -33,6 +34,7 @@ class SupportDiagnosticStore(private val context: Context) {
     private val flaggedDirectory = File(context.filesDir, "flagged-scan-diagnostics")
     private val freezeDirectory = File(context.filesDir, "ui-freeze-diagnostics")
     private val crashDirectory = File(context.filesDir, "crash-diagnostics")
+    private val performanceDirectory = File(context.filesDir, "performance-diagnostics")
     private val feedbackImageDirectory = File(context.filesDir, "feedback-images")
     private val feedbackPreferences = context.getSharedPreferences("support-feedback", Context.MODE_PRIVATE)
 
@@ -202,6 +204,41 @@ class SupportDiagnosticStore(private val context: Context) {
         crashDirectory.listFiles()?.forEach(File::delete)
     }
 
+    fun performanceCount(): Int = performanceDirectory.listFiles { file -> file.extension == "json" }?.size ?: 0
+
+    fun clearPerformanceDiagnostics() {
+        performanceDirectory.listFiles()?.forEach(File::delete)
+    }
+
+    @Synchronized
+    fun recordNetworkOperation(
+        operation: String,
+        durationMillis: Long,
+        outcome: String,
+        resultCount: Int,
+        queryLength: Int,
+    ) {
+        performanceDirectory.mkdirs()
+        val occurredAt = System.currentTimeMillis()
+        val id = "$occurredAt-${UUID.randomUUID()}"
+        File(performanceDirectory, "$id.json").writeText(
+            JSONObject()
+                .put("id", id)
+                .put("operation", operation.take(80))
+                .put("occurredAtEpochMillis", occurredAt)
+                .put("durationMillis", durationMillis.coerceAtLeast(0))
+                .put("outcome", outcome.take(80))
+                .put("resultCount", resultCount.coerceAtLeast(0))
+                .put("queryLength", queryLength.coerceAtLeast(0))
+                .toString(2),
+        )
+        performanceDirectory.listFiles { file -> file.extension == "json" }
+            .orEmpty()
+            .sortedByDescending(File::lastModified)
+            .drop(MAX_PERFORMANCE_REPORTS)
+            .forEach(File::delete)
+    }
+
     fun appendTo(
         zip: ZipOutputStream,
         mediaSanitizer: ReviewBundleMediaSanitizer,
@@ -226,6 +263,11 @@ class SupportDiagnosticStore(private val context: Context) {
             .mapNotNull { file -> runCatching { JSONObject(file.readText()) }.getOrNull() }
         else emptyList()
         val crashReports = if (includeCrashReports) crashDirectory.listFiles { file -> file.extension == "json" }
+            .orEmpty()
+            .sortedBy(File::getName)
+            .mapNotNull { file -> runCatching { JSONObject(file.readText()) }.getOrNull() }
+        else emptyList()
+        val performanceReports = if (includeDiagnostics) performanceDirectory.listFiles { file -> file.extension == "json" }
             .orEmpty()
             .sortedBy(File::getName)
             .mapNotNull { file -> runCatching { JSONObject(file.readText()) }.getOrNull() }
@@ -259,7 +301,7 @@ class SupportDiagnosticStore(private val context: Context) {
         val feedbackMediaByOwner = feedbackMedia.associateBy(ReviewBundleMedia::ownerId)
         val manifest = JSONObject()
             .put("schema", "calorie-quick-support-bundle")
-            .put("schemaVersion", 6)
+            .put("schemaVersion", 7)
             .put("generatedAtEpochMillis", System.currentTimeMillis())
             .put("appVersion", BuildConfig.VERSION_NAME)
             .put("appVersionCode", BuildConfig.VERSION_CODE)
@@ -298,6 +340,7 @@ class SupportDiagnosticStore(private val context: Context) {
             })
             .put("uiFreezes", JSONArray(freezeReports))
             .put("crashes", JSONArray(crashReports))
+            .put("performance", JSONArray(performanceReports))
         zip.putNextEntry(ZipEntry("support/support.json"))
         zip.write(manifest.toString(2).toByteArray())
         zip.closeEntry()
@@ -312,6 +355,7 @@ class SupportDiagnosticStore(private val context: Context) {
             crashCount = crashReports.size,
             hasFeedback = feedbackThread.isNotEmpty(),
             feedbackCount = feedbackThread.size,
+            performanceCount = performanceReports.size,
             manifest = manifest,
             media = diagnosticMedia + feedbackMedia,
         )
@@ -320,6 +364,7 @@ class SupportDiagnosticStore(private val context: Context) {
     private companion object {
         const val MAX_FREEZE_REPORTS = 20
         const val MAX_CRASH_REPORTS = 20
+        const val MAX_PERFORMANCE_REPORTS = 50
     }
 }
 

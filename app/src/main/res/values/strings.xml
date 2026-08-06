@@ -379,7 +379,7 @@
     <string name="catalogue_export_success">Exported %1$d records and %2$d images.</string>
     <string name="catalogue_export_empty">Export created, but no items were opted in. Enable “Include in review export” while editing a food or recipe.</string>
     <string name="catalogue_export_error">The export could not be created. Choose another location and try again.</string>
-    <string name="review_bundle_export_success">Exported %1$d catalogue records, %2$d catalogue images, %3$d flagged scans, %4$d UI freeze reports, and %5$d crash reports.</string>
+    <string name="review_bundle_export_success">Exported %1$d catalogue records, %2$d catalogue images, %3$d flagged scans, %4$d lookup timings, %5$d UI freeze reports, and %6$d crash reports.</string>
     <string name="feedback_optional">Feedback (optional)</string>
     <string name="feedback">Feedback</string>
     <string name="feedback_message">Write a message</string>
@@ -413,10 +413,12 @@
         <item quantity="other">%1$d ingredients</item>
     </plurals>
     <string name="saved_scan_diagnostics">%1$d flagged scan images saved on this device</string>
+    <string name="scan_and_lookup_diagnostics">Scan and lookup diagnostics</string>
+    <string name="saved_performance_diagnostics">%1$d privacy-safe lookup timing reports saved on this device</string>
     <string name="saved_freeze_diagnostics">%1$d UI freeze reports saved on this device</string>
     <string name="saved_crash_diagnostics">%1$d crash reports saved on this device</string>
-    <string name="delete_saved_diagnostics">Delete flagged scans</string>
-    <string name="delete_saved_diagnostics_confirm">Permanently delete all scan images currently flagged for review?</string>
+    <string name="delete_saved_diagnostics">Delete scan and lookup diagnostics</string>
+    <string name="delete_saved_diagnostics_confirm">Permanently delete all flagged scan images and saved lookup timings?</string>
     <string name="delete_saved_freezes">Delete UI freeze reports</string>
     <string name="delete_saved_freezes_confirm">Permanently delete all recorded UI freeze reports?</string>
     <string name="crash_reports">Crash reports</string>
@@ -455,6 +457,11 @@
     <string name="view_all_release_notes">View all release notes</string>
     <string name="continue_to_app">Continue</string>
     <string name="version_label">Version %1$s</string>
+    <string name="release_alpha07_title">A smoother test and review loop</string>
+    <string name="release_alpha07_item_back">The Android Back key now returns secondary screens to the daily overview instead of minimizing the app.</string>
+    <string name="release_alpha07_item_sheet">Quick-add sheets no longer compete with vertical scrolling for drag gestures.</string>
+    <string name="release_alpha07_item_performance">Open Food Facts lookups now record privacy-safe timing and outcome diagnostics for review.</string>
+    <string name="release_alpha07_item_review">Review exports can be triaged in the new private Windows review inbox before anything is promoted for implementation.</string>
     <string name="release_alpha06_title">Safer, traceable review exports</string>
     <string name="release_alpha06_item_bundle">Review exports now include a versioned root manifest, explicit selection details, and integrity hashes for every image.</string>
     <string name="release_alpha06_item_privacy">Exported review images are orientation-corrected, resized, and stripped of camera, location, and editing metadata.</string>

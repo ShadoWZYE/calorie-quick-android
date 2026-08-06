@@ -43,6 +43,10 @@ The checked-in catalogue test validates its schema, bilingual names, nutrition b
 21. Create a full backup from Settings. Select it for restore and verify the preview counts/profile version before cancelling. On a disposable test profile, confirm restore replaces user data while retaining the current built-in catalogue.
 22. Attach an image to a feedback message, confirm the thumbnail remains after reopening Feedback, and verify the image appears in both an opted-in review export and a full backup round trip.
 23. On a narrow phone, confirm the Today/date block and History, Progress, Feedback, and Settings icons share one vertically centered header row.
+24. From Settings, Feedback, History, Progress, food editing, recipe editing, and What’s new, press the Android Back key. Confirm it returns through the expected app screen to Today; Back on Today may use normal Android app-exit behavior.
+25. Open a long quick-add sheet and repeatedly scroll upward and downward. Confirm content scrolls without dragging or jumping the entire sheet.
+26. Run an Open Food Facts search, export opted-in diagnostics, and confirm support schema v7 contains a `performance` entry with duration/outcome/result count/query length but not the search text.
+27. Open `tools\Open Calorie Quick Review.cmd`, import the same review ZIP twice, and confirm edits survive deduplication. Add reviewer comments and corrections, then verify only accepted and explicitly promoted items appear in the generated JSON/Markdown implementation brief.
 
 ## Field feedback to capture
 

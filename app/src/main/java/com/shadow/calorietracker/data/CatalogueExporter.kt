@@ -15,6 +15,7 @@ data class CatalogueExportResult(
     val diagnosticCount: Int = 0,
     val freezeCount: Int = 0,
     val crashCount: Int = 0,
+    val performanceCount: Int = 0,
     val hasFeedback: Boolean = false,
 )
 
@@ -213,8 +214,8 @@ class CatalogueExporter(
                         .put(JSONObject()
                             .put("kind", "support")
                             .put("path", "support/support.json")
-                            .put("schemaVersion", 6)
-                            .put("recordCount", supportResult.diagnosticCount + supportResult.freezeCount + supportResult.crashCount + supportResult.feedbackCount)))
+                            .put("schemaVersion", 7)
+                            .put("recordCount", supportResult.diagnosticCount + supportResult.freezeCount + supportResult.crashCount + supportResult.feedbackCount + supportResult.performanceCount)))
                     .put("media", JSONArray(allMedia.map(ReviewBundleMedia::toJson)))
                 zip.putNextEntry(ZipEntry("bundle.json"))
                 zip.write(bundleManifest.toString(2).toByteArray())
@@ -231,6 +232,7 @@ class CatalogueExporter(
             diagnosticCount = supportResult.diagnosticCount,
             freezeCount = supportResult.freezeCount,
             crashCount = supportResult.crashCount,
+            performanceCount = supportResult.performanceCount,
             hasFeedback = supportResult.hasFeedback,
         )
         }

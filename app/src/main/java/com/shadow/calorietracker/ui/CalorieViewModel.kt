@@ -2,6 +2,7 @@ package com.shadow.calorietracker.ui
 
 import android.app.Application
 import android.net.Uri
+import android.os.SystemClock
 import android.util.Log
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
@@ -44,6 +45,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import java.time.LocalDate
@@ -118,6 +120,7 @@ data class CatalogueExportState(
 
 data class SupportExportState(
     val savedDiagnosticCount: Int = 0,
+    val savedPerformanceCount: Int = 0,
     val savedFreezeCount: Int = 0,
     val savedCrashCount: Int = 0,
 )
@@ -143,6 +146,7 @@ class CalorieViewModel(application: Application) : AndroidViewModel(application)
     private val _supportExportState = MutableStateFlow(
         SupportExportState(
             savedDiagnosticCount = supportDiagnostics.count(),
+            savedPerformanceCount = supportDiagnostics.performanceCount(),
             savedFreezeCount = supportDiagnostics.freezeCount(),
             savedCrashCount = supportDiagnostics.crashCount(),
         ),
@@ -403,19 +407,37 @@ class CalorieViewModel(application: Application) : AndroidViewModel(application)
         lookupJob?.cancel()
         _foodLookupState.value = FoodLookupState(normalized, FoodLookupStatus.SEARCHING)
         lookupJob = viewModelScope.launch {
-            _foodLookupState.value = try {
-                FoodLookupState(
-                    query = normalized,
-                    status = FoodLookupStatus.SUCCESS,
-                    results = openFoodFacts.search(normalized, locale),
-                )
+            val startedAt = SystemClock.elapsedRealtime()
+            var outcome = "success"
+            var resultCount = 0
+            try {
+                val results = openFoodFacts.search(normalized, locale)
+                resultCount = results.size
+                _foodLookupState.value = FoodLookupState(normalized, FoodLookupStatus.SUCCESS, results)
             } catch (_: OpenFoodFactsException.RateLimited) {
-                FoodLookupState(normalized, FoodLookupStatus.RATE_LIMITED)
+                outcome = "rate-limited"
+                _foodLookupState.value = FoodLookupState(normalized, FoodLookupStatus.RATE_LIMITED)
             } catch (_: OpenFoodFactsException.ServiceUnavailable) {
-                FoodLookupState(normalized, FoodLookupStatus.SERVICE_UNAVAILABLE)
+                outcome = "service-unavailable"
+                _foodLookupState.value = FoodLookupState(normalized, FoodLookupStatus.SERVICE_UNAVAILABLE)
+            } catch (cancelled: CancellationException) {
+                outcome = "cancelled"
+                throw cancelled
             } catch (error: Exception) {
+                outcome = "error-${error.javaClass.simpleName}"
                 Log.w("OpenFoodFacts", "Search failed", error)
-                FoodLookupState(normalized, FoodLookupStatus.ERROR)
+                _foodLookupState.value = FoodLookupState(normalized, FoodLookupStatus.ERROR)
+            } finally {
+                val duration = SystemClock.elapsedRealtime() - startedAt
+                viewModelScope.launch(Dispatchers.IO) {
+                    supportDiagnostics.recordNetworkOperation(
+                        operation = "open-food-facts-search",
+                        durationMillis = duration,
+                        outcome = outcome,
+                        resultCount = resultCount,
+                        queryLength = normalized.length,
+                    )
+                }
             }
         }
     }
@@ -429,20 +451,42 @@ class CalorieViewModel(application: Application) : AndroidViewModel(application)
             isBarcodeLookup = true,
         )
         lookupJob = viewModelScope.launch {
-            _foodLookupState.value = try {
-                FoodLookupState(
-                    query = normalized,
-                    status = FoodLookupStatus.SUCCESS,
-                    results = listOfNotNull(openFoodFacts.productByBarcode(normalized, locale)),
+            val startedAt = SystemClock.elapsedRealtime()
+            var outcome = "success"
+            var resultCount = 0
+            try {
+                val results = listOfNotNull(openFoodFacts.productByBarcode(normalized, locale))
+                resultCount = results.size
+                _foodLookupState.value = FoodLookupState(
+                    normalized,
+                    FoodLookupStatus.SUCCESS,
+                    results,
                     isBarcodeLookup = true,
                 )
             } catch (_: OpenFoodFactsException.RateLimited) {
-                FoodLookupState(normalized, FoodLookupStatus.RATE_LIMITED, isBarcodeLookup = true)
+                outcome = "rate-limited"
+                _foodLookupState.value = FoodLookupState(normalized, FoodLookupStatus.RATE_LIMITED, isBarcodeLookup = true)
             } catch (_: OpenFoodFactsException.ServiceUnavailable) {
-                FoodLookupState(normalized, FoodLookupStatus.SERVICE_UNAVAILABLE, isBarcodeLookup = true)
+                outcome = "service-unavailable"
+                _foodLookupState.value = FoodLookupState(normalized, FoodLookupStatus.SERVICE_UNAVAILABLE, isBarcodeLookup = true)
+            } catch (cancelled: CancellationException) {
+                outcome = "cancelled"
+                throw cancelled
             } catch (error: Exception) {
+                outcome = "error-${error.javaClass.simpleName}"
                 Log.w("OpenFoodFacts", "Barcode lookup failed", error)
-                FoodLookupState(normalized, FoodLookupStatus.ERROR, isBarcodeLookup = true)
+                _foodLookupState.value = FoodLookupState(normalized, FoodLookupStatus.ERROR, isBarcodeLookup = true)
+            } finally {
+                val duration = SystemClock.elapsedRealtime() - startedAt
+                viewModelScope.launch(Dispatchers.IO) {
+                    supportDiagnostics.recordNetworkOperation(
+                        operation = "open-food-facts-barcode",
+                        durationMillis = duration,
+                        outcome = outcome,
+                        resultCount = resultCount,
+                        queryLength = normalized.length,
+                    )
+                }
             }
         }
     }
@@ -490,6 +534,7 @@ class CalorieViewModel(application: Application) : AndroidViewModel(application)
 
     fun clearSavedDiagnostics() {
         supportDiagnostics.clear()
+        supportDiagnostics.clearPerformanceDiagnostics()
         refreshSupportState()
     }
 
@@ -506,6 +551,7 @@ class CalorieViewModel(application: Application) : AndroidViewModel(application)
     fun refreshSupportState() {
         _supportExportState.value = SupportExportState(
             savedDiagnosticCount = supportDiagnostics.count(),
+            savedPerformanceCount = supportDiagnostics.performanceCount(),
             savedFreezeCount = supportDiagnostics.freezeCount(),
             savedCrashCount = supportDiagnostics.crashCount(),
         )

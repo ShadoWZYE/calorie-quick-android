@@ -203,9 +203,14 @@ def inspect_bundle(archive_path: Path) -> dict[str, Any]:
     if images_with_metadata and not root:
         warnings.append(f"{len(images_with_metadata)} legacy image(s) contain EXIF/XMP metadata.")
     feedback_count = 0
+    performance_count = 0
     if support:
+        if support.get("schema") != "calorie-quick-support-bundle" or support.get("schemaVersion") not in (5, 6, 7):
+            errors.append("Unsupported support schema.")
         thread = support.get("feedbackThread", [])
         feedback_count = len(thread) if isinstance(thread, list) else 0
+        performance = support.get("performance", [])
+        performance_count = len(performance) if isinstance(performance, list) else 0
 
     return {
         "valid": not errors,
@@ -219,6 +224,7 @@ def inspect_bundle(archive_path: Path) -> dict[str, Any]:
             "foodCount": len(foods),
             "recipeCount": len(recipes),
             "feedbackMessageCount": feedback_count,
+            "performanceOperationCount": performance_count,
             "imageCount": sum("mimeType" in item for item in entry_summary),
             "imagesWithMetadata": len(images_with_metadata),
         },

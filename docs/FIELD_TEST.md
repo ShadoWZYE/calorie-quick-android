@@ -5,7 +5,7 @@
 Build `app/build/outputs/apk/debug/CalorieQuick-<version>-debug.apk` with the release gate in `docs/TESTING.md`, enable USB debugging on the test phone, then run:
 
 ```powershell
-adb install -r app/build/outputs/apk/debug/CalorieQuick-0.2.0-alpha06-debug.apk
+adb install -r app/build/outputs/apk/debug/CalorieQuick-0.2.0-alpha07-debug.apk
 ```
 
 `-r` preserves an existing installation's private data. Do not uninstall the app between updates. Keep the same application ID and signing identity throughout the test.
@@ -21,6 +21,8 @@ python tools/review_bundle_parser.py "C:\path\to\calorie-quick-review.zip" --out
 ```
 
 It writes a JSON report for tooling and a privacy-conscious Markdown summary that omits feedback text and image contents.
+
+For editable triage, comments, corrections, evidence viewing, and explicit implementation promotion, use the private Windows inbox documented in [REVIEW_INBOX.md](REVIEW_INBOX.md).
 
 ## Tester expectations
 
