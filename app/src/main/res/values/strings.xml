@@ -159,6 +159,8 @@
     <string name="recipe_name">Dish name</string>
     <string name="ingredients">Ingredients</string>
     <string name="recipe_ingredient_hint">Add foods already saved in your catalogue, then enter the amount used before cooking.</string>
+    <string name="recipe_ingredient_method">Method: %1$s</string>
+    <string name="recipe_method_changes_nutrition">The selected method changes this ingredient’s saved nutrition and image for the new batch.</string>
     <string name="search_ingredients">Search saved foods</string>
     <string name="add_ingredient">Add ingredient</string>
     <string name="remove_ingredient">Remove ingredient</string>
@@ -488,6 +490,10 @@
     <string name="release_alpha10_item_auto_catalogue">Valid Open Food Facts results are appended to the searchable on-device catalogue automatically and open directly in quick add.</string>
     <string name="release_alpha10_item_collection">Review ZIP imports retain their complete source archive and merge shared foods and API products into a barcode-deduplicated catalogue on the review PC.</string>
     <string name="release_alpha10_item_review_boundary">Ordinary collected products no longer create manual review findings; review is reserved for explicitly reported problems.</string>
+    <string name="release_alpha12_title">Cooking methods stay with recipes</string>
+    <string name="release_alpha12_item_snapshot">Each recipe ingredient now saves its selected cooking method and method-specific nutrition with the batch.</string>
+    <string name="release_alpha12_item_picker">Recipe and quick-add method pickers use a clearer two-column image layout.</string>
+    <string name="release_alpha12_item_learning">Cooking a recipe now teaches the app which preparation you use most often.</string>
     <string name="release_alpha11_title">Focused product corrections</string>
     <string name="release_alpha11_item_reporting">Open Food Facts products can now be explicitly reported from quick add with one or more problem categories and an optional note.</string>
     <string name="release_alpha11_item_evidence">Product reports are linked to the matching cached raw API responses in the Windows review inbox.</string>

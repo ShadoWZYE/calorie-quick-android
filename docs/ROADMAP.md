@@ -13,11 +13,11 @@ Implemented:
 
 - First-run onboarding and settings for username, goals, linked calories/macros, fibre, language, body units, tape units, and adaptive goal reviews.
 - Persistent diary with entry editing/removal, previous-day calendar browser, and 7-day/4-week/6-month reports.
-- Normalized foods, nutrients, EU-14 allergens, servings, preparation variants, provenance, immutable diary snapshots, and non-destructive migrations through schema v15.
+- Normalized foods, nutrients, EU-14 allergens, servings, preparation variants, provenance, immutable diary/recipe snapshots, and non-destructive migrations through schema v16.
 - Interaction-ranked serving/gram memory, macro-aware personal-history recommendations, and distinct standalone versus recipe-ingredient usage.
 - Personal-food editor with photos, known/custom units, prepackaged weight/fractions, private store/price metadata, and review opt-in.
 - One-tap customization can either clone a personal variant or seed a recipe for additions such as milk and sugar, without mutating the source catalogue.
-- Meal-prep recipes with ingredient search, cooked yield, portions, repeat batches, and search/quick-add integration.
+- Meal-prep recipes with ingredient search, per-ingredient cooking methods, cooked yield, portions, repeat batches, and search/quick-add integration.
 - Open Food Facts text/barcode lookup and on-device nutrition-label OCR with mandatory review.
 - Manual and scale-OCR body check-ins, optional guided tape measurements, trends, and non-medical adaptive review language.
 - Versioned offline catalogue of 191 English/Romanian generic foods across 15 categories, with aliases, fibre, allergens, measures, cooking ingredients, and common Romanian foods.

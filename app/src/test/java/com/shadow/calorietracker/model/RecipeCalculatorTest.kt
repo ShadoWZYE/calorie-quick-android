@@ -75,6 +75,35 @@ class RecipeCalculatorTest {
         assertEquals(AllergenDeclaration.CONTAINS, result.allergens[Allergen.MILK])
     }
 
+    @Test
+    fun `selected preparation is snapshotted and used for recipe nutrition`() {
+        val fried = FoodPreparation(
+            id = "egg-fried",
+            names = LocalizedText("Fried", "Prăjit"),
+            nutritionPer100g = Nutrition(196, 13.6, 0.8, 14.8, 0.0),
+        )
+        val egg = Food(
+            id = "egg",
+            names = LocalizedText("Whole egg", "Ou întreg"),
+            details = LocalizedText("Raw", "Crud"),
+            nutritionPer100g = Nutrition(143, 12.6, 0.7, 9.5, 0.0),
+            servings = emptyList(),
+            preparations = listOf(fried),
+        )
+
+        val ingredient = egg.toRecipeIngredient(150, fried)
+        val result = RecipeCalculator.calculate(
+            ingredients = listOf(ingredient),
+            cookedYieldGrams = 150,
+            portionCount = 1,
+        )
+
+        assertEquals("egg-fried", ingredient.preparationId)
+        assertEquals("Fried", ingredient.preparationName?.en)
+        assertEquals(196, ingredient.nutritionPer100g.calories)
+        assertEquals(294, result.totalNutrition.calories)
+        assertEquals(196, result.nutritionPer100g.calories)
+    }
     private fun ingredient(
         id: String,
         grams: Int,

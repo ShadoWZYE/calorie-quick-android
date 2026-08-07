@@ -30,7 +30,7 @@ Run `python -m unittest tools/test_catalogue_images.py` when changing built-in t
 10. Create and edit a personal food with fibre, allergens, photo, teaspoon or other known/custom measures, package weight/fractions, store, price, and review opt-in.
 11. Search a packaged product in Open Food Facts and scan a barcode. Confirm imported community data is reviewable before local save. Test offline/error handling.
 12. Scan a nutrition label and review the OCR prefill. Incorrect or ambiguous values must remain editable or blank.
-13. Create a cooked recipe, record yield and portions, add a portion and grams to the diary, then prepare another batch. Verify ingredient and standalone histories stay separate.
+13. Create a cooked recipe containing a food with multiple methods (for example boiled/fried egg). Confirm the method picker shows images in a 2-column grid, changing method changes the ingredient nutrition/image, and the saved batch retains that method after relaunch. Prepare another batch and verify the most-used method learns from recipe use while legacy recipes without a saved method retain their old nutrition. Add both a portion and grams to the diary; ingredient and standalone histories must stay separate.
 14. Add, edit, and remove diary entries; use the Today heading to replace the active day in place, then inspect the 7-day, 4-week, and 6-month reports.
 15. Manually add a body check-in with tape measurements, import a scale screenshot, and review an adaptive-goal suggestion without accepting it.
 16. Rotate, background, kill, and relaunch the app. Verify profile, foods, recipes, photos, history, and totals remain intact.

@@ -151,6 +151,9 @@ data class RecipeIngredientEntity(
     val fatMilligramsPer100g: Int,
     val fiberMilligramsPer100g: Int?,
     val sortOrder: Int,
+    val preparationId: String? = null,
+    val preparationNameEn: String? = null,
+    val preparationNameRo: String? = null,
 )
 
 @Entity(tableName = "recipe_ingredient_allergens", indices = [Index("recipeIngredientId")])

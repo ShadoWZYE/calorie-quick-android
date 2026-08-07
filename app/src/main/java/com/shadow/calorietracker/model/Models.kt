@@ -181,7 +181,25 @@ data class RecipeIngredientDraft(
     val nutritionPer100g: Nutrition,
     val allergens: Map<Allergen, AllergenDeclaration>,
     val grams: Int,
+    val preparationId: String? = null,
+    val preparationName: LocalizedText? = null,
 )
+
+fun Food.toRecipeIngredient(
+    grams: Int,
+    preparation: FoodPreparation? = null,
+): RecipeIngredientDraft {
+    val prepared = preparation?.let(::withPreparation) ?: this
+    return RecipeIngredientDraft(
+        foodId = id,
+        foodName = names,
+        nutritionPer100g = prepared.nutritionPer100g,
+        allergens = allergens,
+        grams = grams,
+        preparationId = preparation?.id,
+        preparationName = preparation?.names,
+    )
+}
 
 data class RecipeDraft(
     val id: String? = null,

@@ -14,6 +14,7 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.IntentSenderRequest
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -135,6 +136,7 @@ import com.shadow.calorietracker.model.CommonMeasure
 import com.shadow.calorietracker.model.EnergyEstimator
 import com.shadow.calorietracker.model.Food
 import com.shadow.calorietracker.model.FoodEntry
+import com.shadow.calorietracker.model.FoodPreparation
 import com.shadow.calorietracker.model.FoodProvenance
 import com.shadow.calorietracker.model.FoodSourceType
 import com.shadow.calorietracker.model.FormulaSex
@@ -158,6 +160,7 @@ import com.shadow.calorietracker.model.TargetMode
 import com.shadow.calorietracker.model.UnitUsage
 import com.shadow.calorietracker.model.UserProfile
 import com.shadow.calorietracker.model.projectedMacroOverages
+import com.shadow.calorietracker.model.toRecipeIngredient
 import com.shadow.calorietracker.data.GRAMS_UNIT_KEY
 import com.shadow.calorietracker.data.NutritionLabelPrefill
 import com.shadow.calorietracker.data.NutritionBasisUnit
@@ -390,6 +393,7 @@ fun CalorieQuickApp(viewModel: CalorieViewModel = viewModel()) {
             seedFood = recipeSeedFood,
             foods = state.foods,
             ingredientUsage = state.ingredientUsage,
+            preparationUsage = state.preparationUsage,
             onBack = { screenName = AppScreen.TODAY.name },
             onSave = {
                 viewModel.saveRecipe(it)
@@ -1571,12 +1575,20 @@ private fun PersonalFoodEditorScreen(
     }
 }
 
+private fun preferredPreparation(food: Food, usage: List<PreparationUsage>): FoodPreparation? {
+    val preparationId = usage.maxWithOrNull(
+        compareBy<PreparationUsage> { it.useCount }.thenBy { it.lastUsedAtEpochMillis },
+    )?.preparationId ?: food.defaultPreparationId ?: food.preparations.firstOrNull()?.id
+    return food.preparations.firstOrNull { it.id == preparationId }
+}
+
 @Composable
 private fun RecipeEditorScreen(
     initial: RecipeTemplate?,
     seedFood: Food?,
     foods: List<Food>,
     ingredientUsage: Map<String, Int>,
+    preparationUsage: Map<String, List<PreparationUsage>>,
     onBack: () -> Unit,
     onSave: (RecipeDraft) -> Unit,
     onArchive: (String) -> Unit,
@@ -1592,17 +1604,22 @@ private fun RecipeEditorScreen(
         mutableStateOf(
             initial?.ingredients.orEmpty().map { snapshot ->
                 foods.firstOrNull { it.id == snapshot.foodId }?.let { current ->
-                    RecipeIngredientDraft(
-                        current.id,
-                        current.names,
-                        current.nutritionPer100g,
-                        current.allergens,
-                        snapshot.grams,
-                    )
+                    val preparationId = snapshot.preparationId
+                    val selectedPreparation = preparationId?.let { id ->
+                        current.preparations.firstOrNull { it.id == id }
+                    }
+                    if (preparationId == null || selectedPreparation == null) {
+                        snapshot
+                    } else {
+                        current.toRecipeIngredient(snapshot.grams, selectedPreparation)
+                    }
                 } ?: snapshot
             }.ifEmpty {
                 listOfNotNull(seedFood?.let { food ->
-                    RecipeIngredientDraft(food.id, food.names, food.nutritionPer100g, food.allergens, seedGrams)
+                    food.toRecipeIngredient(
+                        seedGrams,
+                        preferredPreparation(food, preparationUsage[food.id].orEmpty()),
+                    )
                 })
             },
         )
@@ -1718,13 +1735,14 @@ private fun RecipeEditorScreen(
         items(searchResults, key = { "recipe-search-${it.id}" }) { food ->
             Card(
                 onClick = {
+                    val selectedPreparation = preferredPreparation(
+                        food,
+                        preparationUsage[food.id].orEmpty(),
+                    )
                     updateIngredients(
-                        ingredients + RecipeIngredientDraft(
-                            food.id,
-                            food.names,
-                            food.nutritionPer100g,
-                            food.allergens,
+                        ingredients + food.toRecipeIngredient(
                             (food.servings.firstOrNull()?.grams ?: 100.0).roundToInt(),
+                            selectedPreparation,
                         ),
                     )
                     ingredientQuery = ""
@@ -1763,10 +1781,24 @@ private fun RecipeEditorScreen(
             item { Text(stringResource(R.string.no_saved_ingredient), color = MaterialTheme.colorScheme.onSurfaceVariant) }
         }
         items(ingredients, key = { "recipe-ingredient-${it.foodId}" }) { ingredient ->
+            val ingredientFood = foods.firstOrNull { it.id == ingredient.foodId }
             RecipeIngredientRow(
                 ingredient = ingredient,
-                food = foods.firstOrNull { it.id == ingredient.foodId },
+                food = ingredientFood,
                 locale = locale,
+                preferredPreparationId = ingredientFood?.let { preferredPreparation(it, preparationUsage[it.id].orEmpty())?.id },
+                preferredFromUsage = preparationUsage[ingredient.foodId].orEmpty().isNotEmpty(),
+                onPreparationChange = { preparation ->
+                    val sourceFood = foods.firstOrNull { it.id == ingredient.foodId }
+                        ?: return@RecipeIngredientRow
+                    updateIngredients(
+                        ingredients.map { current ->
+                            if (current.foodId == ingredient.foodId) {
+                                sourceFood.toRecipeIngredient(current.grams, preparation)
+                            } else current
+                        },
+                    )
+                },
                 onGramsChange = { grams ->
                     updateIngredients(
                         ingredients.map { current ->
@@ -1931,11 +1963,18 @@ private fun RecipeIngredientRow(
     ingredient: RecipeIngredientDraft,
     food: Food?,
     locale: Locale,
+    preferredPreparationId: String?,
+    preferredFromUsage: Boolean,
+    onPreparationChange: (FoodPreparation) -> Unit,
     onGramsChange: (Int) -> Unit,
     onRemove: () -> Unit,
 ) {
+    var methodPickerOpen by remember(ingredient.foodId) { mutableStateOf(false) }
+    val displayFood = food?.let { source ->
+        source.preparations.firstOrNull { it.id == ingredient.preparationId }?.let(source::withPreparation) ?: source
+    }
     val gramsLabel = stringResource(R.string.grams_short)
-    val choices = food?.let { buildUnitChoices(it, emptyList(), locale, gramsLabel) }
+    val choices = displayFood?.let { buildUnitChoices(it, emptyList(), locale, gramsLabel) }
         ?: listOf(UnitChoice(GRAMS_UNIT_KEY, gramsLabel, null))
     val initialChoice = choices.firstOrNull { choice ->
         choice.serving?.let { serving ->
@@ -1962,7 +2001,7 @@ private fun RecipeIngredientRow(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
             ) {
-                food?.let {
+                displayFood?.let {
                     FoodVisual(
                         it,
                         Modifier.width(60.dp).height(60.dp).clip(RoundedCornerShape(12.dp)),
@@ -1975,6 +2014,13 @@ private fun RecipeIngredientRow(
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         fontSize = 12.sp,
                     )
+                    ingredient.preparationName?.let { preparationName ->
+                        Text(
+                            stringResource(R.string.recipe_ingredient_method, preparationName.forLocale(locale)),
+                            color = MaterialTheme.colorScheme.primary,
+                            fontSize = 12.sp,
+                        )
+                    }
                 }
             }
             Text(
@@ -1986,6 +2032,16 @@ private fun RecipeIngredientRow(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 fontSize = 12.sp,
             )
+            if (food != null && food.preparations.size > 1) {
+                OutlinedButton(onClick = { methodPickerOpen = true }) {
+                    Icon(Icons.Default.RestaurantMenu, null)
+                    Text(
+                        ingredient.preparationName?.forLocale(locale)
+                            ?: stringResource(R.string.choose_cooking_method),
+                        Modifier.padding(start = 8.dp),
+                    )
+                }
+            }
             FlowRow(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -2032,8 +2088,114 @@ private fun RecipeIngredientRow(
             }
         }
     }
+    if (methodPickerOpen && food != null) {
+        PreparationPickerDialog(
+            food = food,
+            selectedPreparationId = ingredient.preparationId,
+            preferredPreparationId = preferredPreparationId,
+            preferredFromUsage = preferredFromUsage,
+            locale = locale,
+            onDismiss = { methodPickerOpen = false },
+            onSelect = {
+                onPreparationChange(it)
+                methodPickerOpen = false
+            },
+        )
+    }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun PreparationPickerDialog(
+    food: Food,
+    selectedPreparationId: String?,
+    preferredPreparationId: String?,
+    preferredFromUsage: Boolean,
+    locale: Locale,
+    onDismiss: () -> Unit,
+    onSelect: (FoodPreparation) -> Unit,
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.choose_cooking_method)) },
+        text = {
+            Column(
+                Modifier.fillMaxWidth().heightIn(max = 520.dp).verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                Text(
+                    stringResource(R.string.recipe_method_changes_nutrition),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                FlowRow(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    verticalArrangement = Arrangement.spacedBy(10.dp),
+                    maxItemsInEachRow = 2,
+                ) {
+                    food.preparations.forEach { preparation ->
+                        PreparationChoiceCard(
+                            food = food,
+                            preparation = preparation,
+                            selected = preparation.id == selectedPreparationId,
+                            preferred = preparation.id == preferredPreparationId,
+                            preferredFromUsage = preferredFromUsage,
+                            locale = locale,
+                            onClick = { onSelect(preparation) },
+                            modifier = Modifier.width(128.dp),
+                        )
+                    }
+                }
+            }
+        },
+        confirmButton = {},
+        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) } },
+    )
+}
+
+@Composable
+private fun PreparationChoiceCard(
+    food: Food,
+    preparation: FoodPreparation,
+    selected: Boolean,
+    preferred: Boolean,
+    preferredFromUsage: Boolean,
+    locale: Locale,
+    onClick: () -> Unit,
+    modifier: Modifier,
+) {
+    Card(
+        onClick = onClick,
+        modifier = modifier,
+        colors = CardDefaults.cardColors(
+            containerColor = if (selected) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surface,
+        ),
+        border = if (selected) BorderStroke(2.dp, MaterialTheme.colorScheme.primary) else null,
+    ) {
+        Column(
+            Modifier.fillMaxWidth().padding(8.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(6.dp),
+        ) {
+            FoodVisual(
+                food.withPreparation(preparation),
+                Modifier.fillMaxWidth().height(64.dp).clip(RoundedCornerShape(10.dp)),
+            )
+            Text(
+                preparation.names.forLocale(locale),
+                fontWeight = FontWeight.SemiBold,
+                maxLines = 2,
+            )
+            if (preferred) {
+                Text(
+                    stringResource(if (preferredFromUsage) R.string.most_used else R.string.default_method),
+                    fontSize = 11.sp,
+                    color = MaterialTheme.colorScheme.primary,
+                )
+            }
+        }
+    }
+}
 private fun Double.editableValue(): String =
     if (this % 1.0 == 0.0) toInt().toString() else toString().trimEnd('0').trimEnd('.')
 
@@ -5646,7 +5808,7 @@ private fun QuickAddSheet(
                 }
             }
             FoodVisual(
-                food,
+                effectiveFood,
                 Modifier.fillMaxWidth().height(128.dp).clip(RoundedCornerShape(18.dp)),
             )
             if (choosingPreparation) {
@@ -5658,26 +5820,19 @@ private fun QuickAddSheet(
                     maxItemsInEachRow = 2,
                 ) {
                     food.preparations.forEach { preparation ->
-                        OutlinedButton(
+                        PreparationChoiceCard(
+                            food = food,
+                            preparation = preparation,
+                            selected = preparation.id == selectedPreparationId,
+                            preferred = preparation.id == preferredPreparationId,
+                            preferredFromUsage = preparationUsage.isNotEmpty(),
+                            locale = locale,
                             onClick = {
                                 selectedPreparationId = preparation.id
                                 choosingPreparation = false
                             },
-                            modifier = Modifier.width(150.dp).height(96.dp),
-                        ) {
-                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                Icon(Icons.Default.RestaurantMenu, null)
-                                Text(preparation.names.forLocale(locale), fontWeight = FontWeight.SemiBold)
-                                if (preparation.id == preferredPreparationId) {
-                                    Text(
-                                        stringResource(
-                                            if (preparationUsage.isEmpty()) R.string.default_method else R.string.most_used,
-                                        ),
-                                        fontSize = 11.sp,
-                                    )
-                                }
-                            }
-                        }
+                            modifier = Modifier.width(150.dp),
+                        )
                     }
                 }
             } else {

@@ -140,6 +140,10 @@ class CatalogueExporter(
                                                     JSONObject()
                                                         .put("foodId", ingredient.foodId)
                                                         .put("name", JSONObject().put("en", ingredient.foodNameEn).put("ro", ingredient.foodNameRo))
+                                                        .put("preparationId", ingredient.preparationId ?: JSONObject.NULL)
+                                                        .put("preparationName", ingredient.preparationNameEn?.let { nameEn ->
+                                                            JSONObject().put("en", nameEn).put("ro", ingredient.preparationNameRo ?: nameEn)
+                                                        } ?: JSONObject.NULL)
                                                         .put("grams", ingredient.grams)
                                                         .put("nutritionPer100g", JSONObject()
                                                             .put("calories", ingredient.caloriesPer100g)

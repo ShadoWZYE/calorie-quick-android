@@ -27,7 +27,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         PreparationUsageEntity::class,
         FoodAliasEntity::class,
     ],
-    version = 15,
+    version = 16,
     exportSchema = true,
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -63,6 +63,7 @@ abstract class AppDatabase : RoomDatabase() {
                 MIGRATION_12_13,
                 MIGRATION_13_14,
                 MIGRATION_14_15,
+                MIGRATION_15_16,
             ).build().also { instance = it }
         }
 
@@ -352,6 +353,14 @@ abstract class AppDatabase : RoomDatabase() {
                 db.execSQL("DROP TABLE servings")
                 db.execSQL("ALTER TABLE servings_new RENAME TO servings")
                 db.execSQL("CREATE INDEX IF NOT EXISTS index_servings_foodId ON servings(foodId)")
+            }
+        }
+
+        private val MIGRATION_15_16 = object : Migration(15, 16) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE recipe_ingredients ADD COLUMN preparationId TEXT")
+                db.execSQL("ALTER TABLE recipe_ingredients ADD COLUMN preparationNameEn TEXT")
+                db.execSQL("ALTER TABLE recipe_ingredients ADD COLUMN preparationNameRo TEXT")
             }
         }
     }

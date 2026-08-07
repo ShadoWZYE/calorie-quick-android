@@ -105,6 +105,10 @@ class CalorieRepository(
                             AllergenDeclaration.valueOf(declaration.declaration)
                     },
                     grams = it.grams,
+                    preparationId = it.preparationId,
+                    preparationName = it.preparationNameEn?.let { nameEn ->
+                        LocalizedText(nameEn, it.preparationNameRo ?: nameEn)
+                    },
                 )
             }
         recipes.mapNotNull { recipe ->
@@ -406,10 +410,23 @@ class CalorieRepository(
                     carbsMilligramsPer100g = (ingredient.nutritionPer100g.carbsGrams * 1_000).roundToInt(),
                     fatMilligramsPer100g = (ingredient.nutritionPer100g.fatGrams * 1_000).roundToInt(),
                     fiberMilligramsPer100g = ingredient.nutritionPer100g.fiberGrams?.let { (it * 1_000).roundToInt() },
+                    preparationId = ingredient.preparationId,
+                    preparationNameEn = ingredient.preparationName?.en,
+                    preparationNameRo = ingredient.preparationName?.ro,
                     sortOrder = index,
                 )
             }
             database.recipeDao().insertIngredients(ingredientEntities)
+            draft.ingredients.mapNotNull { ingredient ->
+                ingredient.preparationId?.let { ingredient.foodId to it }
+            }.distinct().forEach { (ingredientFoodId, preparationId) ->
+                val usageId = "$ingredientFoodId|$preparationId"
+                if (database.preparationUsageDao().increment(usageId, now) == 0) {
+                    database.preparationUsageDao().insert(
+                        PreparationUsageEntity(usageId, ingredientFoodId, preparationId, 1, now),
+                    )
+                }
+            }
             database.recipeDao().insertIngredientAllergens(
                 draft.ingredients.zip(ingredientEntities).flatMap { (ingredient, entity) ->
                     ingredient.allergens.map { (allergen, declaration) ->
