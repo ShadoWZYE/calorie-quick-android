@@ -44,6 +44,7 @@ class CatalogueExporter(
             if (ids.isEmpty()) emptyList() else database.recipeDao().listRecipesByIds(ids.toList())
         } ?: database.recipeDao().listReviewableRecipes()
         val batches = database.recipeDao().listAllBatches().groupBy(RecipeBatchEntity::recipeFoodId)
+        val templates = database.recipeDao().listAllTemplateBatches().associateBy(RecipeBatchEntity::recipeFoodId)
         val ingredients = database.recipeDao().listAllIngredients().groupBy(RecipeIngredientEntity::batchId)
         val ingredientAllergens = database.recipeDao().listAllIngredientAllergens()
             .groupBy(RecipeIngredientAllergenEntity::recipeIngredientId)
@@ -126,6 +127,31 @@ class CatalogueExporter(
                         .put("reviewStatus", recipe.reviewStatus)
                         .put("reviewStatusAtExport", recipe.reviewStatus)
                         .put("selectedForThisExport", true)
+                        .put("template", templates[recipe.foodId]?.let { template ->
+                            JSONObject()
+                                .put("cookedYieldGrams", template.cookedYieldGrams)
+                                .put("portionCount", template.portionCount)
+                                .put("ingredients", JSONArray().apply {
+                                    ingredients[template.id].orEmpty().sortedBy(RecipeIngredientEntity::sortOrder).forEach { ingredient ->
+                                        put(
+                                            JSONObject()
+                                                .put("foodId", ingredient.foodId)
+                                                .put("name", JSONObject().put("en", ingredient.foodNameEn).put("ro", ingredient.foodNameRo))
+                                                .put("preparationId", ingredient.preparationId ?: JSONObject.NULL)
+                                                .put("preparationName", ingredient.preparationNameEn?.let { nameEn ->
+                                                    JSONObject().put("en", nameEn).put("ro", ingredient.preparationNameRo ?: nameEn)
+                                                } ?: JSONObject.NULL)
+                                                .put("grams", ingredient.grams)
+                                                .put("nutritionPer100g", JSONObject()
+                                                    .put("calories", ingredient.caloriesPer100g)
+                                                    .put("proteinGrams", ingredient.proteinMilligramsPer100g / 1_000.0)
+                                                    .put("carbsGrams", ingredient.carbsMilligramsPer100g / 1_000.0)
+                                                    .put("fatGrams", ingredient.fatMilligramsPer100g / 1_000.0)
+                                                    .put("fiberGrams", ingredient.fiberMilligramsPer100g?.div(1_000.0) ?: JSONObject.NULL)),
+                                        )
+                                    }
+                                })
+                        } ?: JSONObject.NULL)
                         .put("batches", JSONArray().apply {
                             batches[recipe.foodId].orEmpty().forEach { batch ->
                                 put(

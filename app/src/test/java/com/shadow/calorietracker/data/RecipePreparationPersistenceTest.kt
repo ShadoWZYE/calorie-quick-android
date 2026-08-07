@@ -62,7 +62,8 @@ class RecipePreparationPersistenceTest {
             ),
         )
 
-        val stored = database.recipeDao().listAllIngredients().single()
+        val stored = database.recipeDao().listAllIngredients()
+            .single { !it.batchId.startsWith("recipe-template|") }
         assertEquals("egg-fried", stored.preparationId)
         assertEquals("Fried", stored.preparationNameEn)
         assertEquals("Prăjit", stored.preparationNameRo)
@@ -72,5 +73,46 @@ class RecipePreparationPersistenceTest {
         assertEquals("egg", usage.foodId)
         assertEquals("egg-fried", usage.preparationId)
         assertEquals(1, usage.useCount)
+    }
+
+    @Test
+    fun `saving a recipe template does not create prepared leftovers`() = runBlocking {
+        val ingredient = RecipeIngredientDraft(
+            foodId = "oats",
+            foodName = LocalizedText("Oats", "Ovăz"),
+            nutritionPer100g = Nutrition(380, 13.0, 68.0, 7.0, 10.0),
+            allergens = emptyMap(),
+            grams = 100,
+        )
+
+        val foodId = repository.saveRecipeTemplate(
+            RecipeDraft(
+                name = "Oat bake",
+                ingredients = listOf(ingredient),
+                cookedYieldGrams = 200,
+                portionCount = 2,
+            ),
+        )
+
+        val saved = repository.recipes.first().single()
+        assertEquals(foodId, saved.foodId)
+        assertEquals(0, saved.batches.size)
+        assertEquals(0, saved.remainingGrams)
+        assertEquals(0, database.recipeDao().countBatches(foodId))
+
+        repository.cookRecipe(
+            RecipeDraft(
+                id = foodId,
+                name = saved.name,
+                ingredients = saved.ingredients,
+                cookedYieldGrams = 180,
+                portionCount = 2,
+            ),
+        )
+
+        val cooked = repository.recipes.first().single()
+        assertEquals(1, cooked.batches.size)
+        assertEquals(180, cooked.remainingGrams)
+        assertEquals(200, cooked.cookedYieldGrams)
     }
 }

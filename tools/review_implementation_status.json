@@ -21,6 +21,14 @@
     "manual:1": {
       "state": "TESTING",
       "reference": "0.2.0-alpha08"
+    },
+    "feedback:a72845a2-f102-4953-9f29-fd93b522bf5f": {
+      "state": "TESTING",
+      "reference": "0.2.0-alpha13"
+    },
+    "feedback:872b8eb0-3ded-4f4e-afa1-3f96b63d40a3": {
+      "state": "TESTING",
+      "reference": "0.2.0-alpha13"
     }
   }
 }

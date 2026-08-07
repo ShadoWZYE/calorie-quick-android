@@ -287,8 +287,19 @@ class CalorieViewModel(application: Application) : AndroidViewModel(application)
         }
     }
 
-    fun saveRecipe(draft: RecipeDraft) {
-        viewModelScope.launch { repository.saveRecipe(draft) }
+    fun saveRecipeTemplate(draft: RecipeDraft) {
+        viewModelScope.launch {
+            val pendingUri = draft.pendingImageUri?.let(Uri::parse)
+            val image = pendingUri?.let(foodImageStore::import) ?: draft.image
+            repository.saveRecipeTemplate(draft.copy(image = image, pendingImageUri = null))
+            if (pendingUri?.authority == "${getApplication<Application>().packageName}.fileprovider") {
+                runCatching { getApplication<Application>().contentResolver.delete(pendingUri, null, null) }
+            }
+        }
+    }
+
+    fun cookRecipe(draft: RecipeDraft) {
+        viewModelScope.launch { repository.cookRecipe(draft.copy(pendingImageUri = null)) }
     }
 
     fun archivePersonalFood(foodId: String) {

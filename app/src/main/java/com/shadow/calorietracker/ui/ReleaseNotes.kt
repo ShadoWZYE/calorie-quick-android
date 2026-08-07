@@ -11,6 +11,16 @@ data class ReleaseNote(
 object ReleaseNotes {
     val all = listOf(
         ReleaseNote(
+            versionName = "0.2.0-alpha13",
+            titleResource = R.string.release_alpha13_title,
+            itemResources = listOf(
+                R.string.release_alpha13_item_recipe_flow,
+                R.string.release_alpha13_item_methods,
+                R.string.release_alpha13_item_images,
+                R.string.release_alpha13_item_install,
+            ),
+        ),
+        ReleaseNote(
             versionName = "0.2.0-alpha12",
             titleResource = R.string.release_alpha12_title,
             itemResources = listOf(

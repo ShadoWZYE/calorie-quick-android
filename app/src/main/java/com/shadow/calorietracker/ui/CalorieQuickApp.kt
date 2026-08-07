@@ -196,6 +196,8 @@ enum class AppScreen {
     TODAY, HISTORY, PROGRESS, SETTINGS, FEEDBACK, WHATS_NEW, FOOD_EDITOR, RECIPE_EDITOR,
 }
 
+private enum class RecipeEditorMode { EDIT_TEMPLATE, COOK_BATCH }
+
 fun appBackDestination(screen: AppScreen): AppScreen? = when (screen) {
     AppScreen.TODAY -> null
     AppScreen.WHATS_NEW -> AppScreen.SETTINGS
@@ -234,6 +236,7 @@ fun CalorieQuickApp(viewModel: CalorieViewModel = viewModel()) {
     var nutritionLabelPrefill by remember { mutableStateOf<NutritionLabelPrefill?>(null) }
     var editingRecipe by remember { mutableStateOf<RecipeTemplate?>(null) }
     var recipeSeedFood by remember { mutableStateOf<Food?>(null) }
+    var recipeEditorMode by rememberSaveable { mutableStateOf(RecipeEditorMode.EDIT_TEMPLATE.name) }
     var showReleaseSummary by rememberSaveable { mutableStateOf(false) }
 
     LaunchedEffect(state.loaded, profile?.onboardingComplete) {
@@ -390,13 +393,19 @@ fun CalorieQuickApp(viewModel: CalorieViewModel = viewModel()) {
         )
         screenName == AppScreen.RECIPE_EDITOR.name -> RecipeEditorScreen(
             initial = editingRecipe,
+            initialFood = editingRecipe?.let { recipe -> state.foods.firstOrNull { it.id == recipe.foodId } },
             seedFood = recipeSeedFood,
+            mode = RecipeEditorMode.valueOf(recipeEditorMode),
             foods = state.foods,
             ingredientUsage = state.ingredientUsage,
             preparationUsage = state.preparationUsage,
             onBack = { screenName = AppScreen.TODAY.name },
-            onSave = {
-                viewModel.saveRecipe(it)
+            onSaveTemplate = {
+                viewModel.saveRecipeTemplate(it)
+                screenName = AppScreen.TODAY.name
+            },
+            onCook = {
+                viewModel.cookRecipe(it)
                 screenName = AppScreen.TODAY.name
             },
             onArchive = { foodId ->
@@ -431,6 +440,7 @@ fun CalorieQuickApp(viewModel: CalorieViewModel = viewModel()) {
                     state.recipes[it.id]?.let { recipe ->
                         editingRecipe = recipe
                         recipeSeedFood = null
+                        recipeEditorMode = RecipeEditorMode.EDIT_TEMPLATE.name
                         screenName = AppScreen.RECIPE_EDITOR.name
                     }
                 } else {
@@ -452,12 +462,22 @@ fun CalorieQuickApp(viewModel: CalorieViewModel = viewModel()) {
             onCreateRecipe = {
                 editingRecipe = null
                 recipeSeedFood = null
+                recipeEditorMode = RecipeEditorMode.EDIT_TEMPLATE.name
                 screenName = AppScreen.RECIPE_EDITOR.name
             },
             onCreateRecipeFromFood = {
                 editingRecipe = null
                 recipeSeedFood = it
+                recipeEditorMode = RecipeEditorMode.EDIT_TEMPLATE.name
                 screenName = AppScreen.RECIPE_EDITOR.name
+            },
+            onCookRecipe = { food ->
+                state.recipes[food.id]?.let { recipe ->
+                    editingRecipe = recipe
+                    recipeSeedFood = null
+                    recipeEditorMode = RecipeEditorMode.COOK_BATCH.name
+                    screenName = AppScreen.RECIPE_EDITOR.name
+                }
             },
             lookupState = lookupState,
             nutritionLabelScanState = nutritionLabelScanState,
@@ -1575,32 +1595,69 @@ private fun PersonalFoodEditorScreen(
     }
 }
 
+private data class RecipeMethodDefinition(
+    val key: String,
+    val names: LocalizedText,
+    val symbol: String,
+)
+
+private val commonRecipeMethods = listOf(
+    RecipeMethodDefinition("raw", LocalizedText("Raw / unchanged", "Crud / nemodificat"), "🥗"),
+    RecipeMethodDefinition("boiled", LocalizedText("Boiled", "Fiert"), "💧"),
+    RecipeMethodDefinition("fried", LocalizedText("Fried", "Prăjit"), "🍳"),
+    RecipeMethodDefinition("baked", LocalizedText("Baked", "Copt"), "♨️"),
+    RecipeMethodDefinition("roasted", LocalizedText("Roasted", "Fript"), "🔥"),
+    RecipeMethodDefinition("grilled", LocalizedText("Grilled", "La grătar"), "♨️"),
+    RecipeMethodDefinition("steamed", LocalizedText("Steamed", "La abur"), "💨"),
+    RecipeMethodDefinition("sauteed", LocalizedText("Sautéed", "Sotat"), "🍳"),
+    RecipeMethodDefinition("simmered", LocalizedText("Simmered", "Înăbușit"), "🍲"),
+)
+
+private fun recipePreparationOptions(food: Food): List<FoodPreparation> {
+    val coveredKeys = food.preparations.map { it.id.substringAfterLast('|').lowercase() }.toSet()
+    val generic = commonRecipeMethods.filterNot { it.key in coveredKeys }.mapIndexed { index, method ->
+        FoodPreparation(
+            id = "recipe-method|${method.key}",
+            names = method.names,
+            nutritionPer100g = food.nutritionPer100g,
+            sortOrder = food.preparations.size + index,
+        )
+    }
+    return food.preparations + generic
+}
+
 private fun preferredPreparation(food: Food, usage: List<PreparationUsage>): FoodPreparation? {
+    val options = recipePreparationOptions(food)
     val preparationId = usage.maxWithOrNull(
         compareBy<PreparationUsage> { it.useCount }.thenBy { it.lastUsedAtEpochMillis },
     )?.preparationId ?: food.defaultPreparationId ?: food.preparations.firstOrNull()?.id
-    return food.preparations.firstOrNull { it.id == preparationId }
+    return options.firstOrNull { it.id == preparationId }
 }
 
 @Composable
 private fun RecipeEditorScreen(
     initial: RecipeTemplate?,
+    initialFood: Food?,
     seedFood: Food?,
+    mode: RecipeEditorMode,
     foods: List<Food>,
     ingredientUsage: Map<String, Int>,
     preparationUsage: Map<String, List<PreparationUsage>>,
     onBack: () -> Unit,
-    onSave: (RecipeDraft) -> Unit,
+    onSaveTemplate: (RecipeDraft) -> Unit,
+    onCook: (RecipeDraft) -> Unit,
     onArchive: (String) -> Unit,
 ) {
+    val context = LocalContext.current
     val locale = LocalLocale.current.platformLocale
+    val isCooking = mode == RecipeEditorMode.COOK_BATCH
     val seedGrams = (seedFood?.servings?.firstOrNull()?.grams ?: 100.0).roundToInt()
     val seedRecipeName = seedFood?.let { stringResource(R.string.food_recipe_name, it.name(locale)) }.orEmpty()
-    var name by rememberSaveable(initial?.activeBatchId, seedFood?.id) {
+    var name by rememberSaveable(initial?.foodId, seedFood?.id, mode) {
         mutableStateOf(initial?.name ?: seedRecipeName)
     }
-    var ingredientQuery by rememberSaveable(initial?.activeBatchId, seedFood?.id) { mutableStateOf("") }
-    var ingredients by remember(initial?.activeBatchId, seedFood?.id) {
+    var ingredientQuery by rememberSaveable(initial?.foodId, seedFood?.id, mode) { mutableStateOf("") }
+    var ingredients by remember(initial?.foodId, seedFood?.id, mode) {
         mutableStateOf(
             initial?.ingredients.orEmpty().map { snapshot ->
                 foods.firstOrNull { it.id == snapshot.foodId }?.let { current ->
@@ -1624,17 +1681,46 @@ private fun RecipeEditorScreen(
             },
         )
     }
-    var cookedYield by rememberSaveable(initial?.activeBatchId, seedFood?.id) {
+    var cookedYield by rememberSaveable(initial?.foodId, seedFood?.id, mode) {
         mutableStateOf(initial?.cookedYieldGrams?.toString() ?: seedFood?.let { seedGrams.toString() }.orEmpty())
     }
-    var portionCount by rememberSaveable(initial?.activeBatchId, seedFood?.id) {
+    var portionCount by rememberSaveable(initial?.foodId, seedFood?.id, mode) {
         mutableStateOf(initial?.portionCount?.toString() ?: if (seedFood != null) "1" else "4")
     }
-    var yieldManuallyEdited by rememberSaveable(initial?.activeBatchId) { mutableStateOf(initial != null) }
+    var yieldManuallyEdited by rememberSaveable(initial?.foodId, mode) { mutableStateOf(initial != null) }
     var confirmArchive by remember { mutableStateOf(false) }
-    var shareForReview by rememberSaveable(initial?.activeBatchId) {
+    var shareForReview by rememberSaveable(initial?.foodId, mode) {
         mutableStateOf(initial?.reviewStatus == ReviewStatus.READY_FOR_REVIEW)
     }
+    var pendingImageUri by rememberSaveable(initial?.foodId) { mutableStateOf<String?>(null) }
+    var pendingCameraUri by rememberSaveable(initial?.foodId) { mutableStateOf<String?>(null) }
+    var keepExistingImage by rememberSaveable(initial?.foodId) { mutableStateOf(true) }
+    val recipeImagePicker = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
+        uri?.let {
+            pendingImageUri = it.toString()
+            keepExistingImage = true
+        }
+    }
+    val recipeImageFilePicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        uri?.let {
+            pendingImageUri = it.toString()
+            keepExistingImage = true
+        }
+    }
+    val recipeCamera = rememberLauncherForActivityResult(ActivityResultContracts.TakePicture()) { captured ->
+        pendingCameraUri?.let(Uri::parse)?.let { uri ->
+            if (captured) {
+                pendingImageUri = uri.toString()
+                keepExistingImage = true
+            } else {
+                runCatching { context.contentResolver.delete(uri, null, null) }
+            }
+        }
+        pendingCameraUri = null
+    }
+    val shownRecipeImage = pendingImageUri
+        ?: initialFood?.image?.localPath?.takeIf { keepExistingImage }
+        ?: initialFood?.image?.remoteUrl?.takeIf { keepExistingImage }
     val cookedYieldValue = cookedYield.toIntOrNull()
     val portionCountValue = portionCount.toIntOrNull()
     val rawIngredientWeight = ingredients.sumOf(RecipeIngredientDraft::grams)
@@ -1680,14 +1766,82 @@ private fun RecipeEditorScreen(
                 }
                 Column {
                     Text(
-                        stringResource(if (initial == null) R.string.create_recipe else R.string.cook_recipe_again),
+                        stringResource(
+                            when {
+                                isCooking -> R.string.cook_recipe_again
+                                initial == null -> R.string.create_recipe
+                                else -> R.string.edit_recipe
+                            },
+                        ),
                         fontSize = 28.sp,
                         fontWeight = FontWeight.Bold,
                     )
                     Text(
-                        stringResource(R.string.recipe_version_explanation),
+                        stringResource(
+                            if (isCooking) R.string.cook_recipe_explanation else R.string.edit_recipe_explanation,
+                        ),
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
+                }
+            }
+        }
+        if (!isCooking) {
+            item {
+                Card(
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer),
+                    shape = RoundedCornerShape(18.dp),
+                ) {
+                    Column(
+                        Modifier.fillMaxWidth().padding(14.dp),
+                        verticalArrangement = Arrangement.spacedBy(10.dp),
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Default.AddAPhoto, null, tint = MaterialTheme.colorScheme.primary)
+                            Column(Modifier.padding(start = 10.dp)) {
+                                Text(stringResource(R.string.recipe_photo), fontWeight = FontWeight.SemiBold)
+                                Text(
+                                    stringResource(R.string.recipe_photo_hint),
+                                    color = MaterialTheme.colorScheme.onSecondaryContainer,
+                                    fontSize = 13.sp,
+                                )
+                            }
+                        }
+                        shownRecipeImage?.let { source ->
+                            FoodImagePreview(
+                                source = source,
+                                modifier = Modifier.fillMaxWidth().height(180.dp).clip(RoundedCornerShape(14.dp)),
+                            )
+                        }
+                        FlowRow(
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp),
+                        ) {
+                            Button(onClick = {
+                                val directory = File(context.cacheDir, "recipe-captures").apply { mkdirs() }
+                                val file = File.createTempFile("recipe-photo-", ".jpg", directory)
+                                val uri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
+                                pendingCameraUri = uri.toString()
+                                recipeCamera.launch(uri)
+                            }) {
+                                Icon(Icons.Default.AddAPhoto, null)
+                                Text(stringResource(R.string.take_photo), Modifier.padding(start = 6.dp))
+                            }
+                            OutlinedButton(onClick = {
+                                recipeImagePicker.launch(
+                                    PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly),
+                                )
+                            }) { Text(stringResource(R.string.photo_library)) }
+                            OutlinedButton(onClick = { recipeImageFilePicker.launch(arrayOf("image/*")) }) {
+                                Text(stringResource(R.string.browse_image_files))
+                            }
+                        }
+                        if (shownRecipeImage != null) {
+                            TextButton(onClick = {
+                                pendingImageUri = null
+                                keepExistingImage = false
+                            }) { Text(stringResource(R.string.remove_photo)) }
+                        }
+                    }
                 }
             }
         }
@@ -1698,6 +1852,7 @@ private fun RecipeEditorScreen(
                 label = { Text(stringResource(R.string.recipe_name)) },
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = true,
+                enabled = !isCooking,
             )
         }
         item { SectionTitle(R.string.ingredients, horizontalPadding = 0.dp) }
@@ -1874,39 +2029,52 @@ private fun RecipeEditorScreen(
                 }
             }
         }
-        item {
-            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                FilterChip(
-                    selected = shareForReview,
-                    onClick = { shareForReview = !shareForReview },
-                    label = { Text(stringResource(R.string.include_in_review_export)) },
-                )
-                Text(
-                    stringResource(R.string.review_export_opt_in_hint),
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    fontSize = 12.sp,
-                )
+        if (!isCooking) {
+            item {
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    FilterChip(
+                        selected = shareForReview,
+                        onClick = { shareForReview = !shareForReview },
+                        label = { Text(stringResource(R.string.include_in_review_export)) },
+                    )
+                    Text(
+                        stringResource(R.string.review_export_opt_in_hint),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        fontSize = 12.sp,
+                    )
+                }
             }
         }
         item {
             Button(
                 enabled = valid,
                 onClick = {
-                    onSave(
-                        RecipeDraft(
-                            id = initial?.foodId,
-                            name = name.trim(),
-                            ingredients = ingredients,
-                            cookedYieldGrams = requireNotNull(cookedYieldValue),
-                            portionCount = requireNotNull(portionCountValue),
-                            reviewStatus = if (shareForReview) ReviewStatus.READY_FOR_REVIEW else ReviewStatus.PRIVATE,
-                        ),
+                    val draft = RecipeDraft(
+                        id = initial?.foodId,
+                        name = name.trim(),
+                        ingredients = ingredients,
+                        cookedYieldGrams = requireNotNull(cookedYieldValue),
+                        portionCount = requireNotNull(portionCountValue),
+                        image = initialFood?.image?.takeIf { keepExistingImage },
+                        pendingImageUri = pendingImageUri,
+                        reviewStatus = if (shareForReview) ReviewStatus.READY_FOR_REVIEW else ReviewStatus.PRIVATE,
                     )
+                    if (isCooking) onCook(draft) else onSaveTemplate(draft)
                 },
                 modifier = Modifier.fillMaxWidth(),
-            ) { Text(stringResource(if (initial == null) R.string.save_recipe else R.string.save_new_batch)) }
+            ) {
+                Text(
+                    stringResource(
+                        when {
+                            isCooking -> R.string.save_new_batch
+                            initial == null -> R.string.save_recipe
+                            else -> R.string.save_recipe_changes
+                        },
+                    ),
+                )
+            }
         }
-        if (initial != null && initial.batches.isNotEmpty()) {
+        if (!isCooking && initial != null && initial.batches.isNotEmpty()) {
             item { SectionTitle(R.string.batch_history, horizontalPadding = 0.dp) }
             items(initial.batches, key = { it.id }) { batch ->
                 Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
@@ -1932,7 +2100,7 @@ private fun RecipeEditorScreen(
                 }
             }
         }
-        if (initial != null) {
+        if (!isCooking && initial != null) {
             item {
                 OutlinedButton(onClick = { confirmArchive = true }, modifier = Modifier.fillMaxWidth()) {
                     Text(stringResource(R.string.archive_recipe), color = MaterialTheme.colorScheme.error)
@@ -1942,7 +2110,7 @@ private fun RecipeEditorScreen(
         item { Spacer(Modifier.height(24.dp)) }
     }
 
-    if (confirmArchive && initial != null) {
+    if (confirmArchive && !isCooking && initial != null) {
         AlertDialog(
             onDismissRequest = { confirmArchive = false },
             title = { Text(stringResource(R.string.archive_recipe)) },
@@ -2032,7 +2200,7 @@ private fun RecipeIngredientRow(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 fontSize = 12.sp,
             )
-            if (food != null && food.preparations.size > 1) {
+            if (food != null) {
                 OutlinedButton(onClick = { methodPickerOpen = true }) {
                     Icon(Icons.Default.RestaurantMenu, null)
                     Text(
@@ -2104,7 +2272,7 @@ private fun RecipeIngredientRow(
     }
 }
 
-@OptIn(ExperimentalLayoutApi::class)
+@OptIn(ExperimentalLayoutApi::class, ExperimentalMaterial3Api::class)
 @Composable
 private fun PreparationPickerDialog(
     food: Food,
@@ -2115,25 +2283,41 @@ private fun PreparationPickerDialog(
     onDismiss: () -> Unit,
     onSelect: (FoodPreparation) -> Unit,
 ) {
-    AlertDialog(
+    val preparations = recipePreparationOptions(food)
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    ModalBottomSheet(
         onDismissRequest = onDismiss,
-        title = { Text(stringResource(R.string.choose_cooking_method)) },
-        text = {
+        sheetState = sheetState,
+        modifier = Modifier.fillMaxSize(),
+    ) {
+        Column(
+            Modifier.fillMaxSize().padding(horizontal = 20.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            Text(
+                stringResource(R.string.choose_cooking_method),
+                style = MaterialTheme.typography.headlineSmall,
+                fontWeight = FontWeight.SemiBold,
+            )
+            Text(
+                stringResource(R.string.recipe_method_nutrition_notice),
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Text(
+                stringResource(R.string.cooking_methods_scroll_hint, preparations.size),
+                color = MaterialTheme.colorScheme.primary,
+                fontWeight = FontWeight.SemiBold,
+            )
             Column(
-                Modifier.fillMaxWidth().heightIn(max = 520.dp).verticalScroll(rememberScrollState()),
-                verticalArrangement = Arrangement.spacedBy(12.dp),
+                Modifier.fillMaxWidth().weight(1f).verticalScroll(rememberScrollState()),
             ) {
-                Text(
-                    stringResource(R.string.recipe_method_changes_nutrition),
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
                 FlowRow(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(10.dp),
                     verticalArrangement = Arrangement.spacedBy(10.dp),
                     maxItemsInEachRow = 2,
                 ) {
-                    food.preparations.forEach { preparation ->
+                    preparations.forEach { preparation ->
                         PreparationChoiceCard(
                             food = food,
                             preparation = preparation,
@@ -2146,11 +2330,14 @@ private fun PreparationPickerDialog(
                         )
                     }
                 }
+                Spacer(Modifier.height(16.dp))
             }
-        },
-        confirmButton = {},
-        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) } },
-    )
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) }
+            }
+            Spacer(Modifier.navigationBarsPadding())
+        }
+    }
 }
 
 @Composable
@@ -2164,6 +2351,9 @@ private fun PreparationChoiceCard(
     onClick: () -> Unit,
     modifier: Modifier,
 ) {
+    val genericMethod = preparation.id.takeIf { it.startsWith("recipe-method|") }
+        ?.substringAfter('|')
+        ?.let { key -> commonRecipeMethods.firstOrNull { it.key == key } }
     Card(
         onClick = onClick,
         modifier = modifier,
@@ -2177,10 +2367,19 @@ private fun PreparationChoiceCard(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(6.dp),
         ) {
-            FoodVisual(
-                food.withPreparation(preparation),
-                Modifier.fillMaxWidth().height(64.dp).clip(RoundedCornerShape(10.dp)),
-            )
+            if (genericMethod == null) {
+                FoodVisual(
+                    food.withPreparation(preparation),
+                    Modifier.fillMaxWidth().height(64.dp).clip(RoundedCornerShape(10.dp)),
+                )
+            } else {
+                Box(
+                    Modifier.fillMaxWidth().height(64.dp),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Text(genericMethod.symbol, fontSize = 34.sp)
+                }
+            }
             Text(
                 preparation.names.forLocale(locale),
                 fontWeight = FontWeight.SemiBold,
@@ -4161,6 +4360,7 @@ private fun TodayScreen(
     onUpdate: (FoodEntry, Double, Long) -> Unit,
     onCreateFood: (Pair<String, String?>) -> Unit,
     onCreateRecipe: () -> Unit,
+    onCookRecipe: (Food) -> Unit,
     onEditFood: (Food) -> Unit,
     onCreateVariant: (Food) -> Unit,
     onCreateRecipeFromFood: (Food) -> Unit,
@@ -4370,7 +4570,8 @@ private fun TodayScreen(
                         horizontalArrangement = Arrangement.spacedBy(10.dp),
                     ) {
                         items(recipesWithLeftovers, key = { it.foodId }) { recipe ->
-                            LeftoverCard(recipe, locale) {
+                            val recipeFood = state.foods.firstOrNull { it.id == recipe.foodId }
+                            LeftoverCard(recipe, recipeFood, locale) {
                                 state.foods.firstOrNull { it.id == recipe.foodId }?.let { selectedFood = it }
                             }
                         }
@@ -4573,12 +4774,24 @@ private fun TodayScreen(
             }
             if (query.isBlank()) {
                 item {
-                    OutlinedButton(
-                        onClick = onCreateRecipe,
+                    Row(
                         modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp),
                     ) {
-                        Icon(Icons.Default.RestaurantMenu, null)
-                        Text(stringResource(R.string.create_recipe), Modifier.padding(start = 8.dp))
+                        OutlinedButton(
+                            onClick = {
+                                selectedCatalogueCategory = CATALOGUE_CATEGORY_RECIPES
+                                showFoodFilters = false
+                            },
+                            modifier = Modifier.weight(1f),
+                        ) {
+                            Icon(Icons.Default.RestaurantMenu, null)
+                            Text(stringResource(R.string.cook_saved_recipe), Modifier.padding(start = 6.dp))
+                        }
+                        OutlinedButton(onClick = onCreateRecipe, modifier = Modifier.weight(1f)) {
+                            Icon(Icons.Default.Add, null)
+                            Text(stringResource(R.string.add_new_recipe), Modifier.padding(start = 6.dp))
+                        }
                     }
                 }
             }
@@ -4712,7 +4925,7 @@ private fun TodayScreen(
             onPrepareBatch = state.recipes[food.id]?.let {
                 {
                     selectedFood = null
-                    onEditFood(food)
+                    onCookRecipe(food)
                 }
             },
             onReportIssue = if (food.provenance.type == FoodSourceType.OPEN_FOOD_FACTS) {
@@ -4913,7 +5126,7 @@ private fun SeamlessProgressBar(progress: Float, modifier: Modifier = Modifier) 
 }
 
 @Composable
-private fun LeftoverCard(recipe: RecipeTemplate, locale: Locale, onAdd: () -> Unit) {
+private fun LeftoverCard(recipe: RecipeTemplate, food: Food?, locale: Locale, onAdd: () -> Unit) {
     val availableBatches = recipe.batches.filter { it.remainingGrams > 0 }
     val remainingGrams = availableBatches.sumOf { it.remainingGrams }
     val remainingPortions = availableBatches.sumOf { it.remainingPortions }
@@ -4925,10 +5138,14 @@ private fun LeftoverCard(recipe: RecipeTemplate, locale: Locale, onAdd: () -> Un
         shape = RoundedCornerShape(18.dp),
     ) {
         Row(Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
-            CategoryFoodImage(
-                "prepared-meals",
-                Modifier.width(62.dp).height(62.dp).clip(RoundedCornerShape(14.dp)),
-            )
+            if (food != null) {
+                FoodVisual(food, Modifier.width(62.dp).height(62.dp).clip(RoundedCornerShape(14.dp)))
+            } else {
+                CategoryFoodImage(
+                    "prepared-meals",
+                    Modifier.width(62.dp).height(62.dp).clip(RoundedCornerShape(14.dp)),
+                )
+            }
             Column(Modifier.padding(start = 12.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
             Text(recipe.name, fontWeight = FontWeight.Bold)
             Text(
@@ -5874,11 +6091,13 @@ private fun QuickAddSheet(
                     fontWeight = FontWeight.SemiBold,
                 )
             }
-            if (recipe != null && selectedBatch == null) {
-                Text(
-                    stringResource(R.string.no_leftovers_recipe_log_hint),
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
+            if (recipe != null) {
+                if (selectedBatch == null) {
+                    Text(
+                        stringResource(R.string.no_leftovers_recipe_log_hint),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
                 onPrepareBatch?.let { prepare ->
                     OutlinedButton(onClick = prepare, modifier = Modifier.fillMaxWidth()) {
                         Icon(Icons.Default.RestaurantMenu, null)

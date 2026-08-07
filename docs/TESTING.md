@@ -30,7 +30,7 @@ Run `python -m unittest tools/test_catalogue_images.py` when changing built-in t
 10. Create and edit a personal food with fibre, allergens, photo, teaspoon or other known/custom measures, package weight/fractions, store, price, and review opt-in.
 11. Search a packaged product in Open Food Facts and scan a barcode. Confirm imported community data is reviewable before local save. Test offline/error handling.
 12. Scan a nutrition label and review the OCR prefill. Incorrect or ambiguous values must remain editable or blank.
-13. Create a cooked recipe containing a food with multiple methods (for example boiled/fried egg). Confirm the method picker shows images in a 2-column grid, changing method changes the ingredient nutrition/image, and the saved batch retains that method after relaunch. Prepare another batch and verify the most-used method learns from recipe use while legacy recipes without a saved method retain their old nutrition. Add both a portion and grams to the diary; ingredient and standalone histories must stay separate.
+13. Create a recipe template and verify that saving it creates no leftovers. Add or replace its photo and confirm the recipe/search card uses it. Every ingredient must expose common cooking methods; verified variants such as boiled/fried egg must also change nutrition. Choose **Cook saved recipe**, adjust the run, and confirm only that action creates a batch. Relaunch and verify template, photo, batch method snapshots, and most-used choices persist. Add both a portion and grams to the diary; ingredient and standalone histories must stay separate.
 14. Add, edit, and remove diary entries; use the Today heading to replace the active day in place, then inspect the 7-day, 4-week, and 6-month reports.
 15. Manually add a body check-in with tape measurements, import a scale screenshot, and review an adaptive-goal suggestion without accepting it.
 16. Rotate, background, kill, and relaunch the app. Verify profile, foods, recipes, photos, history, and totals remain intact.
@@ -69,6 +69,6 @@ Include the app version, phone model, Android version, screenshot, and exact pre
 - The 191-food built-in catalogue contains rounded generic reference values; brands and home recipes vary. Package labels and weighed saved recipes take precedence.
 - Open Food Facts is community data and needs user review. Network coverage is not guaranteed.
 - OCR is an entry aid, never an authoritative nutrition source.
-- The release APK produced locally is unsigned. Use the debug APK for direct trusted-device testing until a private signing key and distribution channel are configured.
+- Private-alpha debug and release APKs are signed with the same local test key so either can update matching tester installs. This is not production signing; moving build machines or adopting a store still requires a deliberate key migration.
 - Full diary/profile backup and restore is available separately. Review-export ZIPs remain review artifacts, not backups, and contain only the explicitly selected catalogue/support data.
 - Cloud backup is disabled because the database contains private nutrition and body data.

@@ -10,6 +10,18 @@ All notable user-facing changes to Calorie Quick are recorded here. The app is c
 - Wider physical-device and accessibility testing.
 - Continued catalogue coverage and image refinement based on field feedback.
 
+## [0.2.0-alpha13] - 2026-08-07
+
+### Added
+
+- Recipe photos with camera, photo-library, file-browser, replacement, and removal controls.
+- Common cooking-method labels for every recipe ingredient; verified catalogue variants continue to change nutrition.
+
+### Changed
+
+- Recipe editing now saves a reusable template without producing leftovers. Cooking an existing recipe is a separate batch flow.
+- The private-alpha release APK is signed with the current test key for direct installation and preserve-data upgrades from matching test builds.
+
 ## [0.2.0-alpha07] - 2026-08-06
 
 ### Added

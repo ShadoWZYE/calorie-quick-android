@@ -37,6 +37,10 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
 import kotlin.math.roundToInt
 
+private const val RECIPE_TEMPLATE_BATCH_PREFIX = "recipe-template|"
+
+private fun recipeTemplateBatchId(foodId: String) = "$RECIPE_TEMPLATE_BATCH_PREFIX$foodId"
+
 class CalorieRepository(
     private val database: AppDatabase,
     private val builtInCatalogueImporter: BuiltInCatalogueImporter? = null,
@@ -67,7 +71,8 @@ class CalorieRepository(
     }
     val allEntries: Flow<List<FoodEntry>> = database.diaryDao().observeAll().map { rows -> rows.map { it.toModel() } }
     val ingredientUsage: Flow<Map<String, Int>> = database.recipeDao().observeIngredients().map { rows ->
-        rows.groupBy(RecipeIngredientEntity::foodId).mapValues { (_, uses) ->
+        rows.filterNot { it.batchId.startsWith(RECIPE_TEMPLATE_BATCH_PREFIX) }
+            .groupBy(RecipeIngredientEntity::foodId).mapValues { (_, uses) ->
             uses.distinctBy(RecipeIngredientEntity::batchId).size
         }
     }
@@ -84,7 +89,8 @@ class CalorieRepository(
         database.recipeDao().observeIngredientAllergens(),
     ) { recipes, batches, ingredients, ingredientAllergens ->
         val batchesById = batches.associateBy(RecipeBatchEntity::id)
-        val batchesByRecipe = batches.groupBy(RecipeBatchEntity::recipeFoodId)
+        val preparedBatches = batches.filterNot { it.id.startsWith(RECIPE_TEMPLATE_BATCH_PREFIX) }
+        val batchesByRecipe = preparedBatches.groupBy(RecipeBatchEntity::recipeFoodId)
         val ingredientsByBatch = ingredients.groupBy(RecipeIngredientEntity::batchId)
         val allergensByIngredient = ingredientAllergens.groupBy(RecipeIngredientAllergenEntity::recipeIngredientId)
         fun ingredientsFor(batchId: String) = ingredientsByBatch[batchId].orEmpty()
@@ -110,10 +116,17 @@ class CalorieRepository(
                         LocalizedText(nameEn, it.preparationNameRo ?: nameEn)
                     },
                 )
-            }
+        }
         recipes.mapNotNull { recipe ->
-            val batch = batchesById[recipe.activeBatchId] ?: return@mapNotNull null
-            val activeIngredients = ingredientsFor(batch.id)
+            val templateBatch = batchesById[recipeTemplateBatchId(recipe.foodId)]
+            val activeBatch = batchesById[recipe.activeBatchId]
+                ?.takeUnless { it.id.startsWith(RECIPE_TEMPLATE_BATCH_PREFIX) }
+            val defaults = templateBatch ?: activeBatch ?: return@mapNotNull null
+            val templateIngredients = templateBatch?.let { ingredientsFor(it.id) }.orEmpty()
+            val activeIngredients = templateIngredients.ifEmpty {
+                activeBatch?.let { ingredientsFor(it.id) }.orEmpty()
+            }
+            if (activeIngredients.isEmpty()) return@mapNotNull null
             val batchHistory = batchesByRecipe[recipe.foodId].orEmpty().mapNotNull { recipeBatch ->
                 val batchIngredients = ingredientsFor(recipeBatch.id)
                 if (batchIngredients.isEmpty()) return@mapNotNull null
@@ -132,13 +145,13 @@ class CalorieRepository(
             }.sortedByDescending(RecipeBatchSummary::cookedAtEpochMillis)
             RecipeTemplate(
                 foodId = recipe.foodId,
-                activeBatchId = batch.id,
+                activeBatchId = activeBatch?.id.orEmpty(),
                 name = recipe.name,
                 ingredients = activeIngredients,
-                cookedYieldGrams = batch.cookedYieldGrams,
-                portionCount = batch.portionCount,
-                cookedAtEpochMillis = batch.cookedAtEpochMillis,
-                remainingGrams = batch.remainingGrams,
+                cookedYieldGrams = defaults.cookedYieldGrams,
+                portionCount = defaults.portionCount,
+                cookedAtEpochMillis = activeBatch?.cookedAtEpochMillis ?: 0L,
+                remainingGrams = activeBatch?.remainingGrams ?: 0,
                 batches = batchHistory,
                 reviewStatus = runCatching { ReviewStatus.valueOf(recipe.reviewStatus) }
                     .getOrDefault(ReviewStatus.PRIVATE),
@@ -339,9 +352,9 @@ class CalorieRepository(
         return stored
     }
 
-    suspend fun saveRecipe(draft: RecipeDraft): String {
+    suspend fun saveRecipeTemplate(draft: RecipeDraft): String {
         val foodId = draft.id ?: "recipe-${UUID.randomUUID()}"
-        val batchId = "recipe-batch-${UUID.randomUUID()}"
+        val templateBatchId = recipeTemplateBatchId(foodId)
         val now = System.currentTimeMillis()
         val calculation = RecipeCalculator.calculate(draft.ingredients, draft.cookedYieldGrams, draft.portionCount)
         val existingRecipe = database.recipeDao().findRecipe(foodId)
@@ -363,7 +376,13 @@ class CalorieRepository(
                     updatedAtEpochMillis = now,
                     sourceType = FoodSourceType.RECIPE.name,
                     sourceId = foodId,
+                    imageLocalPath = draft.image?.localPath,
+                    imageRemoteUrl = draft.image?.remoteUrl,
+                    imageSource = draft.image?.source?.name,
+                    imageAttribution = draft.image?.attribution,
+                    imageLicense = draft.image?.license,
                     reviewStatus = draft.reviewStatus.name,
+                    categoryKey = "prepared-meals",
                 ),
             )
             database.foodDao().deleteNutrients(foodId)
@@ -387,6 +406,42 @@ class CalorieRepository(
                     ),
                 ),
             )
+            database.recipeDao().upsertBatch(
+                RecipeBatchEntity(
+                    id = templateBatchId,
+                    recipeFoodId = foodId,
+                    cookedYieldGrams = draft.cookedYieldGrams,
+                    remainingGrams = 0,
+                    portionCount = draft.portionCount,
+                    cookedAtEpochMillis = 0,
+                ),
+            )
+            database.recipeDao().deleteIngredientAllergensForBatch(templateBatchId)
+            database.recipeDao().deleteIngredientsForBatch(templateBatchId)
+            val ingredientEntities = recipeIngredientEntities(templateBatchId, draft.ingredients)
+            database.recipeDao().insertIngredients(ingredientEntities)
+            database.recipeDao().insertIngredientAllergens(recipeIngredientAllergens(draft.ingredients, ingredientEntities))
+            database.recipeDao().upsertRecipe(
+                RecipeEntity(
+                    foodId = foodId,
+                    name = name,
+                    activeBatchId = existingRecipe?.activeBatchId ?: templateBatchId,
+                    createdAtEpochMillis = existingRecipe?.createdAtEpochMillis ?: now,
+                    updatedAtEpochMillis = now,
+                    reviewStatus = draft.reviewStatus.name,
+                ),
+            )
+        }
+        return foodId
+    }
+
+    suspend fun cookRecipe(draft: RecipeDraft): String {
+        val foodId = requireNotNull(draft.id) { "A saved recipe template is required before cooking" }
+        val existingRecipe = requireNotNull(database.recipeDao().findRecipe(foodId)) { "Recipe template not found" }
+        val batchId = "recipe-batch-${UUID.randomUUID()}"
+        val now = System.currentTimeMillis()
+        RecipeCalculator.calculate(draft.ingredients, draft.cookedYieldGrams, draft.portionCount)
+        database.withTransaction {
             database.recipeDao().insertBatch(
                 RecipeBatchEntity(
                     id = batchId,
@@ -397,26 +452,9 @@ class CalorieRepository(
                     cookedAtEpochMillis = now,
                 ),
             )
-            val ingredientEntities = draft.ingredients.mapIndexed { index, ingredient ->
-                RecipeIngredientEntity(
-                    id = "$batchId|$index",
-                    batchId = batchId,
-                    foodId = ingredient.foodId,
-                    foodNameEn = ingredient.foodName.en,
-                    foodNameRo = ingredient.foodName.ro,
-                    grams = ingredient.grams,
-                    caloriesPer100g = ingredient.nutritionPer100g.calories,
-                    proteinMilligramsPer100g = (ingredient.nutritionPer100g.proteinGrams * 1_000).roundToInt(),
-                    carbsMilligramsPer100g = (ingredient.nutritionPer100g.carbsGrams * 1_000).roundToInt(),
-                    fatMilligramsPer100g = (ingredient.nutritionPer100g.fatGrams * 1_000).roundToInt(),
-                    fiberMilligramsPer100g = ingredient.nutritionPer100g.fiberGrams?.let { (it * 1_000).roundToInt() },
-                    preparationId = ingredient.preparationId,
-                    preparationNameEn = ingredient.preparationName?.en,
-                    preparationNameRo = ingredient.preparationName?.ro,
-                    sortOrder = index,
-                )
-            }
+            val ingredientEntities = recipeIngredientEntities(batchId, draft.ingredients)
             database.recipeDao().insertIngredients(ingredientEntities)
+            database.recipeDao().insertIngredientAllergens(recipeIngredientAllergens(draft.ingredients, ingredientEntities))
             draft.ingredients.mapNotNull { ingredient ->
                 ingredient.preparationId?.let { ingredient.foodId to it }
             }.distinct().forEach { (ingredientFoodId, preparationId) ->
@@ -427,30 +465,58 @@ class CalorieRepository(
                     )
                 }
             }
-            database.recipeDao().insertIngredientAllergens(
-                draft.ingredients.zip(ingredientEntities).flatMap { (ingredient, entity) ->
-                    ingredient.allergens.map { (allergen, declaration) ->
-                        RecipeIngredientAllergenEntity(
-                            id = "${entity.id}|${allergen.name}",
-                            recipeIngredientId = entity.id,
-                            allergenKey = allergen.name,
-                            declaration = declaration.name,
-                        )
-                    }
-                },
-            )
             database.recipeDao().upsertRecipe(
-                RecipeEntity(
-                    foodId = foodId,
-                    name = name,
+                existingRecipe.copy(
                     activeBatchId = batchId,
-                    createdAtEpochMillis = existingRecipe?.createdAtEpochMillis ?: now,
                     updatedAtEpochMillis = now,
-                    reviewStatus = draft.reviewStatus.name,
                 ),
             )
         }
         return foodId
+    }
+
+    /** Backward-compatible convenience used by repository tests and migrations: save defaults, then cook them. */
+    suspend fun saveRecipe(draft: RecipeDraft): String {
+        val foodId = saveRecipeTemplate(draft)
+        cookRecipe(draft.copy(id = foodId, pendingImageUri = null))
+        return foodId
+    }
+
+    private fun recipeIngredientEntities(
+        batchId: String,
+        ingredients: List<RecipeIngredientDraft>,
+    ) = ingredients.mapIndexed { index, ingredient ->
+        RecipeIngredientEntity(
+            id = "$batchId|$index",
+            batchId = batchId,
+            foodId = ingredient.foodId,
+            foodNameEn = ingredient.foodName.en,
+            foodNameRo = ingredient.foodName.ro,
+            grams = ingredient.grams,
+            caloriesPer100g = ingredient.nutritionPer100g.calories,
+            proteinMilligramsPer100g = (ingredient.nutritionPer100g.proteinGrams * 1_000).roundToInt(),
+            carbsMilligramsPer100g = (ingredient.nutritionPer100g.carbsGrams * 1_000).roundToInt(),
+            fatMilligramsPer100g = (ingredient.nutritionPer100g.fatGrams * 1_000).roundToInt(),
+            fiberMilligramsPer100g = ingredient.nutritionPer100g.fiberGrams?.let { (it * 1_000).roundToInt() },
+            preparationId = ingredient.preparationId,
+            preparationNameEn = ingredient.preparationName?.en,
+            preparationNameRo = ingredient.preparationName?.ro,
+            sortOrder = index,
+        )
+    }
+
+    private fun recipeIngredientAllergens(
+        ingredients: List<RecipeIngredientDraft>,
+        entities: List<RecipeIngredientEntity>,
+    ) = ingredients.zip(entities).flatMap { (ingredient, entity) ->
+        ingredient.allergens.map { (allergen, declaration) ->
+            RecipeIngredientAllergenEntity(
+                id = "${entity.id}|${allergen.name}",
+                recipeIngredientId = entity.id,
+                allergenKey = allergen.name,
+                declaration = declaration.name,
+            )
+        }
     }
 
     suspend fun archivePersonalFood(foodId: String) {

@@ -9,7 +9,7 @@
 - Put the versioned `CalorieQuick-<version>-<build-type>.apk`, version, commit, checksum, migration notes, and changelog together in each handoff.
 - Ask testers to create a full backup before a risky schema change. The review bundle is diagnostic/contribution data and is not a diary backup.
 
-Debug-signed APKs are suitable only while one trusted machine produces every field-test build. Moving to another build machine or distribution service requires retaining that debug key or installing a separately signed app, which Android treats as a different trust lineage.
+Debug and private-alpha release APKs currently use the same local test key and package ID. They can update one another when produced on this trusted machine. Moving to another build machine or distribution service requires retaining that key or installing a separately signed app, which Android treats as a different trust lineage.
 
 ## Broader private alpha
 

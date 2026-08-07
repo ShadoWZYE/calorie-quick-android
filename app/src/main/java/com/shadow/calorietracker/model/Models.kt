@@ -207,6 +207,8 @@ data class RecipeDraft(
     val ingredients: List<RecipeIngredientDraft>,
     val cookedYieldGrams: Int,
     val portionCount: Int,
+    val image: FoodImage? = null,
+    val pendingImageUri: String? = null,
     val reviewStatus: ReviewStatus = ReviewStatus.PRIVATE,
 )
 

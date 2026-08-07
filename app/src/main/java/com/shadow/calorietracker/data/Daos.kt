@@ -123,8 +123,11 @@ interface RecipeDao {
     @Query("SELECT * FROM recipes WHERE foodId IN (:foodIds)")
     suspend fun listRecipesByIds(foodIds: List<String>): List<RecipeEntity>
 
-    @Query("SELECT * FROM recipe_batches")
+    @Query("SELECT * FROM recipe_batches WHERE id NOT LIKE 'recipe-template|%'")
     suspend fun listAllBatches(): List<RecipeBatchEntity>
+
+    @Query("SELECT * FROM recipe_batches WHERE id LIKE 'recipe-template|%'")
+    suspend fun listAllTemplateBatches(): List<RecipeBatchEntity>
 
     @Query("SELECT * FROM recipe_ingredients")
     suspend fun listAllIngredients(): List<RecipeIngredientEntity>
@@ -135,7 +138,7 @@ interface RecipeDao {
     @Query("UPDATE recipes SET reviewStatus = 'EXPORTED' WHERE foodId IN (:foodIds)")
     suspend fun markExported(foodIds: List<String>)
 
-    @Query("SELECT COUNT(*) FROM recipe_batches WHERE recipeFoodId = :foodId")
+    @Query("SELECT COUNT(*) FROM recipe_batches WHERE recipeFoodId = :foodId AND id NOT LIKE 'recipe-template|%'")
     suspend fun countBatches(foodId: String): Int
 
     @Query("SELECT * FROM recipe_batches WHERE id = :batchId LIMIT 1")
@@ -153,11 +156,23 @@ interface RecipeDao {
     @Insert
     suspend fun insertBatch(batch: RecipeBatchEntity)
 
+    @Upsert
+    suspend fun upsertBatch(batch: RecipeBatchEntity)
+
     @Insert
     suspend fun insertIngredients(ingredients: List<RecipeIngredientEntity>)
 
     @Insert
     suspend fun insertIngredientAllergens(allergens: List<RecipeIngredientAllergenEntity>)
+
+    @Query(
+        "DELETE FROM recipe_ingredient_allergens WHERE recipeIngredientId IN " +
+            "(SELECT id FROM recipe_ingredients WHERE batchId = :batchId)",
+    )
+    suspend fun deleteIngredientAllergensForBatch(batchId: String)
+
+    @Query("DELETE FROM recipe_ingredients WHERE batchId = :batchId")
+    suspend fun deleteIngredientsForBatch(batchId: String)
 }
 
 @Dao

@@ -47,6 +47,7 @@ The v5 local schema adds normalized nutrient and EU-14 allergen rows while retai
 - `PreparationVariant`: links a base food to a method such as raw, boiled, fried, baked, or grilled. It owns preparation-specific nutrition, yield/water change, optional image, and serving conversions; it is not a duplicate base food.
 - `PreparationUsage`: user-scoped use count and recency for each food + preparation pairing. The chooser defaults to the most-used valid preparation, using recency only as a tie-breaker.
 - `RecipeIngredientSnapshot`: stores the chosen preparation ID/name together with method-specific nutrition, allergens, and grams. Existing batches remain stable if a catalogue method is edited or removed; legacy snapshots without a method are never silently recalculated.
+- `RecipeTemplate`: reusable name, image, default ingredient/method snapshots, expected cooked yield, and portion count. Editing it never creates inventory. A separately confirmed cooking run copies those defaults into an immutable prepared batch with its own remaining quantity.
 - `Store`: user-scoped store identity with optional branch/location metadata; a free-text name remains valid when structured location is unwanted.
 - `PriceObservation`: package/food, store, price in integer minor currency units, currency, quantity basis, and observation timestamp. “Last known price” is derived from history rather than overwriting it.
 - `SharingConsent`: explicit per-record opt-in and consent version. Personal foods, stores, prices, and images remain private by default.
