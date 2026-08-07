@@ -1,0 +1,944 @@
+{
+  "schema": "calorie-quick-built-in-catalogue",
+  "version": 1,
+  "source": {
+    "name": "Calorie Quick promoted catalogue",
+    "url": "https://github.com/ShadoWZYE/calorie-quick-android",
+    "license": "MIXED-PER-RECORD",
+    "note": "Automatically validated records; provenance and attribution are retained per item."
+  },
+  "foods": [
+    {
+      "id": "off-3174780000363",
+      "name": {
+        "en": "Original COCA-COLA",
+        "ro": "Original COCA-COLA"
+      },
+      "detail": {
+        "en": "Coca cola · 500 ml",
+        "ro": "Coca cola · 500 ml"
+      },
+      "category": "beverages",
+      "sourceId": "cq-promoted:OPEN_FOOD_FACTS:3174780000363",
+      "catalogueOrigin": "OPEN_FOOD_FACTS",
+      "verified": false,
+      "brand": "Coca cola",
+      "barcode": "3174780000363",
+      "isPackaged": true,
+      "aliases": [],
+      "nutritionPer100g": {
+        "calories": 42,
+        "proteinGrams": 0.0,
+        "carbsGrams": 10.6,
+        "fatGrams": 0.0,
+        "fiberGrams": 0.0
+      },
+      "servings": [
+        {
+          "id": "off-3174780000363-package",
+          "label": {
+            "en": "1 bottle",
+            "ro": "1 sticlă"
+          },
+          "grams": 500.0,
+          "suggestedAmounts": [
+            0.5,
+            0.25
+          ],
+          "isPackage": true
+        },
+        {
+          "id": "off-3174780000363-serving",
+          "label": {
+            "en": "1 serving",
+            "ro": "1 porție"
+          },
+          "grams": 250.0,
+          "suggestedAmounts": [
+            1
+          ],
+          "isPackage": false
+        },
+        {
+          "id": "off-3174780000363-millilitre",
+          "label": {
+            "en": "ml",
+            "ro": "ml"
+          },
+          "grams": 1,
+          "suggestedAmounts": [
+            100,
+            250
+          ],
+          "isPackage": false
+        }
+      ],
+      "allergens": {},
+      "preparations": [],
+      "image": {
+        "remoteUrl": "https://images.openfoodfacts.org/images/products/317/478/000/0363/front_fr.152.200.jpg",
+        "attribution": "Open Food Facts contributors",
+        "license": "Open Food Facts database/image terms"
+      }
+    },
+    {
+      "id": "off-42105220",
+      "name": {
+        "en": "Coca Cola",
+        "ro": "Coca Cola"
+      },
+      "detail": {
+        "en": "Coca-Cola · 450 ml",
+        "ro": "Coca-Cola · 450 ml"
+      },
+      "category": "beverages",
+      "sourceId": "cq-promoted:OPEN_FOOD_FACTS:42105220",
+      "catalogueOrigin": "OPEN_FOOD_FACTS",
+      "verified": false,
+      "brand": "Coca-Cola",
+      "barcode": "42105220",
+      "isPackaged": true,
+      "aliases": [],
+      "nutritionPer100g": {
+        "calories": 42,
+        "proteinGrams": 0.0,
+        "carbsGrams": 10.6,
+        "fatGrams": 0.0,
+        "fiberGrams": null
+      },
+      "servings": [
+        {
+          "id": "off-42105220-package",
+          "label": {
+            "en": "1 bottle",
+            "ro": "1 sticlă"
+          },
+          "grams": 450.0,
+          "suggestedAmounts": [
+            0.5,
+            0.25
+          ],
+          "isPackage": true
+        },
+        {
+          "id": "off-42105220-millilitre",
+          "label": {
+            "en": "ml",
+            "ro": "ml"
+          },
+          "grams": 1,
+          "suggestedAmounts": [
+            100,
+            250
+          ],
+          "isPackage": false
+        }
+      ],
+      "allergens": {},
+      "preparations": [],
+      "image": {
+        "remoteUrl": "https://images.openfoodfacts.org/images/products/000/004/210/5220/front_en.90.200.jpg",
+        "attribution": "Open Food Facts contributors",
+        "license": "Open Food Facts database/image terms"
+      }
+    },
+    {
+      "id": "off-5000112519945",
+      "name": {
+        "en": "Coca-Cola Zero",
+        "ro": "Coca-Cola Zero"
+      },
+      "detail": {
+        "en": "Coca Cola · 330 ml",
+        "ro": "Coca Cola · 330 ml"
+      },
+      "category": "beverages",
+      "sourceId": "cq-promoted:OPEN_FOOD_FACTS:5000112519945",
+      "catalogueOrigin": "OPEN_FOOD_FACTS",
+      "verified": false,
+      "brand": "Coca Cola",
+      "barcode": "5000112519945",
+      "isPackaged": true,
+      "aliases": [],
+      "nutritionPer100g": {
+        "calories": 0,
+        "proteinGrams": 0.0,
+        "carbsGrams": 0.0,
+        "fatGrams": 0.0,
+        "fiberGrams": null
+      },
+      "servings": [
+        {
+          "id": "off-5000112519945-package",
+          "label": {
+            "en": "1 bottle",
+            "ro": "1 sticlă"
+          },
+          "grams": 330.0,
+          "suggestedAmounts": [
+            0.5,
+            0.25
+          ],
+          "isPackage": true
+        },
+        {
+          "id": "off-5000112519945-millilitre",
+          "label": {
+            "en": "ml",
+            "ro": "ml"
+          },
+          "grams": 1,
+          "suggestedAmounts": [
+            100,
+            250
+          ],
+          "isPackage": false
+        }
+      ],
+      "allergens": {},
+      "preparations": [],
+      "image": {
+        "remoteUrl": "https://images.openfoodfacts.org/images/products/500/011/251/9945/front_en.5.200.jpg",
+        "attribution": "Open Food Facts contributors",
+        "license": "Open Food Facts database/image terms"
+      }
+    },
+    {
+      "id": "off-5000112558272",
+      "name": {
+        "en": "Coca-Cola",
+        "ro": "COCA COLA 50CL"
+      },
+      "detail": {
+        "en": "Coca-Cola · 500 ml",
+        "ro": "Coca-Cola · 500 ml"
+      },
+      "category": "beverages",
+      "sourceId": "cq-promoted:OPEN_FOOD_FACTS:5000112558272",
+      "catalogueOrigin": "OPEN_FOOD_FACTS",
+      "verified": false,
+      "brand": "Coca-Cola",
+      "barcode": "5000112558272",
+      "isPackaged": true,
+      "aliases": [],
+      "nutritionPer100g": {
+        "calories": 42,
+        "proteinGrams": 0.0,
+        "carbsGrams": 10.8,
+        "fatGrams": 0.0,
+        "fiberGrams": null
+      },
+      "servings": [
+        {
+          "id": "off-5000112558272-package",
+          "label": {
+            "en": "1 bottle",
+            "ro": "1 sticlă"
+          },
+          "grams": 500.0,
+          "suggestedAmounts": [
+            0.5,
+            0.25
+          ],
+          "isPackage": true
+        },
+        {
+          "id": "off-5000112558272-serving",
+          "label": {
+            "en": "1 serving",
+            "ro": "1 porție"
+          },
+          "grams": 250.0,
+          "suggestedAmounts": [
+            1
+          ],
+          "isPackage": false
+        },
+        {
+          "id": "off-5000112558272-millilitre",
+          "label": {
+            "en": "ml",
+            "ro": "ml"
+          },
+          "grams": 1,
+          "suggestedAmounts": [
+            100,
+            250
+          ],
+          "isPackage": false
+        }
+      ],
+      "allergens": {},
+      "preparations": [],
+      "image": {
+        "remoteUrl": "https://images.openfoodfacts.org/images/products/500/011/255/8272/front_fr.97.200.jpg",
+        "attribution": "Open Food Facts contributors",
+        "license": "Open Food Facts database/image terms"
+      }
+    },
+    {
+      "id": "off-5449000000439",
+      "name": {
+        "en": "Coca-Cola",
+        "ro": "Coca Cola Original taste"
+      },
+      "detail": {
+        "en": "Coca-Cola · 1.5l",
+        "ro": "Coca-Cola · 1.5l"
+      },
+      "category": "beverages",
+      "sourceId": "cq-promoted:OPEN_FOOD_FACTS:5449000000439",
+      "catalogueOrigin": "OPEN_FOOD_FACTS",
+      "verified": false,
+      "brand": "Coca-Cola",
+      "barcode": "5449000000439",
+      "isPackaged": true,
+      "aliases": [],
+      "nutritionPer100g": {
+        "calories": 45,
+        "proteinGrams": 0.0,
+        "carbsGrams": 11.2,
+        "fatGrams": 0.0,
+        "fiberGrams": 0.0
+      },
+      "servings": [
+        {
+          "id": "off-5449000000439-package",
+          "label": {
+            "en": "1 bottle",
+            "ro": "1 sticlă"
+          },
+          "grams": 1500.0,
+          "suggestedAmounts": [
+            0.5,
+            0.25
+          ],
+          "isPackage": true
+        },
+        {
+          "id": "off-5449000000439-serving",
+          "label": {
+            "en": "1 serving",
+            "ro": "1 porție"
+          },
+          "grams": 100.0,
+          "suggestedAmounts": [
+            1
+          ],
+          "isPackage": false
+        },
+        {
+          "id": "off-5449000000439-millilitre",
+          "label": {
+            "en": "ml",
+            "ro": "ml"
+          },
+          "grams": 1,
+          "suggestedAmounts": [
+            100,
+            250
+          ],
+          "isPackage": false
+        }
+      ],
+      "allergens": {},
+      "preparations": [],
+      "image": {
+        "remoteUrl": "https://images.openfoodfacts.org/images/products/544/900/000/0439/front_en.292.200.jpg",
+        "attribution": "Open Food Facts contributors",
+        "license": "Open Food Facts database/image terms"
+      }
+    },
+    {
+      "id": "off-5449000028921",
+      "name": {
+        "en": "Coca Cola",
+        "ro": "Coca Cola"
+      },
+      "detail": {
+        "en": "Coca-Cola · 1.25L",
+        "ro": "Coca-Cola · 1.25L"
+      },
+      "category": "beverages",
+      "sourceId": "cq-promoted:OPEN_FOOD_FACTS:5449000028921",
+      "catalogueOrigin": "OPEN_FOOD_FACTS",
+      "verified": false,
+      "brand": "Coca-Cola",
+      "barcode": "5449000028921",
+      "isPackaged": true,
+      "aliases": [],
+      "nutritionPer100g": {
+        "calories": 42,
+        "proteinGrams": 0.0,
+        "carbsGrams": 10.6,
+        "fatGrams": 0.0,
+        "fiberGrams": null
+      },
+      "servings": [
+        {
+          "id": "off-5449000028921-package",
+          "label": {
+            "en": "1 bottle",
+            "ro": "1 sticlă"
+          },
+          "grams": 1250.0,
+          "suggestedAmounts": [
+            0.5,
+            0.25
+          ],
+          "isPackage": true
+        },
+        {
+          "id": "off-5449000028921-serving",
+          "label": {
+            "en": "1 serving",
+            "ro": "1 porție"
+          },
+          "grams": 250.0,
+          "suggestedAmounts": [
+            1
+          ],
+          "isPackage": false
+        },
+        {
+          "id": "off-5449000028921-millilitre",
+          "label": {
+            "en": "ml",
+            "ro": "ml"
+          },
+          "grams": 1,
+          "suggestedAmounts": [
+            100,
+            250
+          ],
+          "isPackage": false
+        }
+      ],
+      "allergens": {},
+      "preparations": [],
+      "image": {
+        "remoteUrl": "https://images.openfoodfacts.org/images/products/544/900/002/8921/front_en.100.200.jpg",
+        "attribution": "Open Food Facts contributors",
+        "license": "Open Food Facts database/image terms"
+      }
+    },
+    {
+      "id": "off-5449000036872",
+      "name": {
+        "en": "Hawai Tropical",
+        "ro": "Hawai Tropical"
+      },
+      "detail": {
+        "en": "Coca cola, Hawai · 1 L",
+        "ro": "Coca cola, Hawai · 1 L"
+      },
+      "category": "beverages",
+      "sourceId": "cq-promoted:OPEN_FOOD_FACTS:5449000036872",
+      "catalogueOrigin": "OPEN_FOOD_FACTS",
+      "verified": false,
+      "brand": "Coca cola, Hawai",
+      "barcode": "5449000036872",
+      "isPackaged": true,
+      "aliases": [],
+      "nutritionPer100g": {
+        "calories": 41,
+        "proteinGrams": 0.0,
+        "carbsGrams": 10.0,
+        "fatGrams": 0.0,
+        "fiberGrams": 4.0
+      },
+      "servings": [
+        {
+          "id": "off-5449000036872-package",
+          "label": {
+            "en": "1 bottle",
+            "ro": "1 sticlă"
+          },
+          "grams": 1000.0,
+          "suggestedAmounts": [
+            0.5,
+            0.25
+          ],
+          "isPackage": true
+        },
+        {
+          "id": "off-5449000036872-serving",
+          "label": {
+            "en": "1 serving",
+            "ro": "1 porție"
+          },
+          "grams": 250.0,
+          "suggestedAmounts": [
+            1
+          ],
+          "isPackage": false
+        },
+        {
+          "id": "off-5449000036872-millilitre",
+          "label": {
+            "en": "ml",
+            "ro": "ml"
+          },
+          "grams": 1,
+          "suggestedAmounts": [
+            100,
+            250
+          ],
+          "isPackage": false
+        }
+      ],
+      "allergens": {
+        "NUTS": "MAY_CONTAIN"
+      },
+      "preparations": [],
+      "image": {
+        "remoteUrl": "https://images.openfoodfacts.org/images/products/544/900/003/6872/front_en.44.200.jpg",
+        "attribution": "Open Food Facts contributors",
+        "license": "Open Food Facts database/image terms"
+      }
+    },
+    {
+      "id": "off-5449000051981",
+      "name": {
+        "en": "Original Taste",
+        "ro": "Original Taste"
+      },
+      "detail": {
+        "en": "Coca Cola, Coke · 1,5 l",
+        "ro": "Coca Cola, Coke · 1,5 l"
+      },
+      "category": "beverages",
+      "sourceId": "cq-promoted:OPEN_FOOD_FACTS:5449000051981",
+      "catalogueOrigin": "OPEN_FOOD_FACTS",
+      "verified": false,
+      "brand": "Coca Cola, Coke",
+      "barcode": "5449000051981",
+      "isPackaged": true,
+      "aliases": [],
+      "nutritionPer100g": {
+        "calories": 44,
+        "proteinGrams": 0.0,
+        "carbsGrams": 10.9,
+        "fatGrams": 0.0,
+        "fiberGrams": null
+      },
+      "servings": [
+        {
+          "id": "off-5449000051981-package",
+          "label": {
+            "en": "1 bottle",
+            "ro": "1 sticlă"
+          },
+          "grams": 1500.0,
+          "suggestedAmounts": [
+            0.5,
+            0.25
+          ],
+          "isPackage": true
+        },
+        {
+          "id": "off-5449000051981-serving",
+          "label": {
+            "en": "1 serving",
+            "ro": "1 porție"
+          },
+          "grams": 250.0,
+          "suggestedAmounts": [
+            1
+          ],
+          "isPackage": false
+        },
+        {
+          "id": "off-5449000051981-millilitre",
+          "label": {
+            "en": "ml",
+            "ro": "ml"
+          },
+          "grams": 1,
+          "suggestedAmounts": [
+            100,
+            250
+          ],
+          "isPackage": false
+        }
+      ],
+      "allergens": {},
+      "preparations": [],
+      "image": {
+        "remoteUrl": "https://images.openfoodfacts.org/images/products/544/900/005/1981/front_en.97.200.jpg",
+        "attribution": "Open Food Facts contributors",
+        "license": "Open Food Facts database/image terms"
+      }
+    },
+    {
+      "id": "off-5449000054227",
+      "name": {
+        "en": "Coca-Cola Original Taste",
+        "ro": "Coca-Cola Original Taste"
+      },
+      "detail": {
+        "en": "Coca Cola Life, Coca-Cola · 1 L",
+        "ro": "Coca Cola Life, Coca-Cola · 1 L"
+      },
+      "category": "beverages",
+      "sourceId": "cq-promoted:OPEN_FOOD_FACTS:5449000054227",
+      "catalogueOrigin": "OPEN_FOOD_FACTS",
+      "verified": false,
+      "brand": "Coca Cola Life, Coca-Cola",
+      "barcode": "5449000054227",
+      "isPackaged": true,
+      "aliases": [],
+      "nutritionPer100g": {
+        "calories": 42,
+        "proteinGrams": 0.0,
+        "carbsGrams": 10.6,
+        "fatGrams": 0.0,
+        "fiberGrams": 0.0
+      },
+      "servings": [
+        {
+          "id": "off-5449000054227-package",
+          "label": {
+            "en": "1 bottle",
+            "ro": "1 sticlă"
+          },
+          "grams": 1000.0,
+          "suggestedAmounts": [
+            0.5,
+            0.25
+          ],
+          "isPackage": true
+        },
+        {
+          "id": "off-5449000054227-serving",
+          "label": {
+            "en": "1 serving",
+            "ro": "1 porție"
+          },
+          "grams": 250.0,
+          "suggestedAmounts": [
+            1
+          ],
+          "isPackage": false
+        },
+        {
+          "id": "off-5449000054227-millilitre",
+          "label": {
+            "en": "ml",
+            "ro": "ml"
+          },
+          "grams": 1,
+          "suggestedAmounts": [
+            100,
+            250
+          ],
+          "isPackage": false
+        }
+      ],
+      "allergens": {},
+      "preparations": [],
+      "image": {
+        "remoteUrl": "https://images.openfoodfacts.org/images/products/544/900/005/4227/front_en.543.200.jpg",
+        "attribution": "Open Food Facts contributors",
+        "license": "Open Food Facts database/image terms"
+      }
+    },
+    {
+      "id": "off-8901764032707",
+      "name": {
+        "en": "Sprite",
+        "ro": "Sprite"
+      },
+      "detail": {
+        "en": "Coca Cola · 600 ml",
+        "ro": "Coca Cola · 600 ml"
+      },
+      "category": "beverages",
+      "sourceId": "cq-promoted:OPEN_FOOD_FACTS:8901764032707",
+      "catalogueOrigin": "OPEN_FOOD_FACTS",
+      "verified": false,
+      "brand": "Coca Cola",
+      "barcode": "8901764032707",
+      "isPackaged": true,
+      "aliases": [],
+      "nutritionPer100g": {
+        "calories": 40,
+        "proteinGrams": 0.0,
+        "carbsGrams": 10.0,
+        "fatGrams": 0.0,
+        "fiberGrams": null
+      },
+      "servings": [
+        {
+          "id": "off-8901764032707-package",
+          "label": {
+            "en": "1 bottle",
+            "ro": "1 sticlă"
+          },
+          "grams": 600.0,
+          "suggestedAmounts": [
+            0.5,
+            0.25
+          ],
+          "isPackage": true
+        },
+        {
+          "id": "off-8901764032707-serving",
+          "label": {
+            "en": "1 serving",
+            "ro": "1 porție"
+          },
+          "grams": 200.0,
+          "suggestedAmounts": [
+            1
+          ],
+          "isPackage": false
+        },
+        {
+          "id": "off-8901764032707-millilitre",
+          "label": {
+            "en": "ml",
+            "ro": "ml"
+          },
+          "grams": 1,
+          "suggestedAmounts": [
+            100,
+            250
+          ],
+          "isPackage": false
+        }
+      ],
+      "allergens": {},
+      "preparations": [],
+      "image": {
+        "remoteUrl": "https://images.openfoodfacts.org/images/products/890/176/403/2707/front_en.20.200.jpg",
+        "attribution": "Open Food Facts contributors",
+        "license": "Open Food Facts database/image terms"
+      }
+    },
+    {
+      "id": "off-8901764032905",
+      "name": {
+        "en": "Sprite",
+        "ro": "Sprite"
+      },
+      "detail": {
+        "en": "Coca cola, Sprite · 2.25l",
+        "ro": "Coca cola, Sprite · 2.25l"
+      },
+      "category": "beverages",
+      "sourceId": "cq-promoted:OPEN_FOOD_FACTS:8901764032905",
+      "catalogueOrigin": "OPEN_FOOD_FACTS",
+      "verified": false,
+      "brand": "Coca cola, Sprite",
+      "barcode": "8901764032905",
+      "isPackaged": true,
+      "aliases": [],
+      "nutritionPer100g": {
+        "calories": 40,
+        "proteinGrams": 0.0,
+        "carbsGrams": 10.0,
+        "fatGrams": 0.0,
+        "fiberGrams": null
+      },
+      "servings": [
+        {
+          "id": "off-8901764032905-package",
+          "label": {
+            "en": "1 bottle",
+            "ro": "1 sticlă"
+          },
+          "grams": 2250.0,
+          "suggestedAmounts": [
+            0.5,
+            0.25
+          ],
+          "isPackage": true
+        },
+        {
+          "id": "off-8901764032905-millilitre",
+          "label": {
+            "en": "ml",
+            "ro": "ml"
+          },
+          "grams": 1,
+          "suggestedAmounts": [
+            100,
+            250
+          ],
+          "isPackage": false
+        }
+      ],
+      "allergens": {
+        "GLUTEN": "MAY_CONTAIN",
+        "MILK": "MAY_CONTAIN"
+      },
+      "preparations": [],
+      "image": {
+        "remoteUrl": "https://images.openfoodfacts.org/images/products/890/176/403/2905/front_en.28.200.jpg",
+        "attribution": "Open Food Facts contributors",
+        "license": "Open Food Facts database/image terms"
+      }
+    },
+    {
+      "id": "off-90375323",
+      "name": {
+        "en": "Zero Zuccheri",
+        "ro": "Coca cola zero"
+      },
+      "detail": {
+        "en": "Coca-Cola · 450 ml",
+        "ro": "Coca-Cola · 450 ml"
+      },
+      "category": "beverages",
+      "sourceId": "cq-promoted:OPEN_FOOD_FACTS:90375323",
+      "catalogueOrigin": "OPEN_FOOD_FACTS",
+      "verified": false,
+      "brand": "Coca-Cola",
+      "barcode": "90375323",
+      "isPackaged": true,
+      "aliases": [],
+      "nutritionPer100g": {
+        "calories": 0,
+        "proteinGrams": 0.0,
+        "carbsGrams": 0.0,
+        "fatGrams": 0.0,
+        "fiberGrams": null
+      },
+      "servings": [
+        {
+          "id": "off-90375323-package",
+          "label": {
+            "en": "1 bottle",
+            "ro": "1 sticlă"
+          },
+          "grams": 450.0,
+          "suggestedAmounts": [
+            0.5,
+            0.25
+          ],
+          "isPackage": true
+        },
+        {
+          "id": "off-90375323-millilitre",
+          "label": {
+            "en": "ml",
+            "ro": "ml"
+          },
+          "grams": 1,
+          "suggestedAmounts": [
+            100,
+            250
+          ],
+          "isPackage": false
+        }
+      ],
+      "allergens": {},
+      "preparations": [],
+      "image": {
+        "remoteUrl": "https://images.openfoodfacts.org/images/products/000/009/037/5323/front_it.69.200.jpg",
+        "attribution": "Open Food Facts contributors",
+        "license": "Open Food Facts database/image terms"
+      }
+    },
+    {
+      "id": "recipe-21e87ae7-71f4-4ea3-9cc3-ff9d558d3918",
+      "name": {
+        "en": "Black coffee with honey",
+        "ro": "Black coffee with honey"
+      },
+      "detail": {
+        "en": "2 ingredients · 251 g batch",
+        "ro": "2 ingrediente · preparat de 251 g"
+      },
+      "category": "prepared-meals",
+      "sourceId": "cq-promoted:OPT_IN:recipe-21e87ae7-71f4-4ea3-9cc3-ff9d558d3918",
+      "catalogueOrigin": "OPT_IN",
+      "verified": false,
+      "brand": null,
+      "barcode": null,
+      "isPackaged": false,
+      "aliases": [
+        "My Coffee",
+        "Black coffee",
+        "Honey"
+      ],
+      "nutritionPer100g": {
+        "calories": 14,
+        "proteinGrams": 0.10876494023904382,
+        "carbsGrams": 3.6111553784860555,
+        "fatGrams": 0.0,
+        "fiberGrams": 0.008764940239043825
+      },
+      "servings": [
+        {
+          "id": "recipe-21e87ae7-71f4-4ea3-9cc3-ff9d558d3918-portion",
+          "label": {
+            "en": "1 portion",
+            "ro": "1 porție"
+          },
+          "grams": 251.0,
+          "suggestedAmounts": [
+            1
+          ],
+          "isPackage": false
+        }
+      ],
+      "allergens": {},
+      "preparations": [],
+      "image": null
+    }
+  ],
+  "recipes": [
+    {
+      "foodId": "recipe-21e87ae7-71f4-4ea3-9cc3-ff9d558d3918",
+      "name": "Black coffee with honey",
+      "originalName": "My Coffee",
+      "sourceId": "cq-promoted:OPT_IN:recipe-21e87ae7-71f4-4ea3-9cc3-ff9d558d3918",
+      "catalogueOrigin": "OPT_IN",
+      "verified": false,
+      "cookedYieldGrams": 251,
+      "portionCount": 1,
+      "ingredients": [
+        {
+          "id": "recipe-21e87ae7-71f4-4ea3-9cc3-ff9d558d3918-ingredient-0",
+          "foodId": "black-coffee",
+          "name": {
+            "en": "Black coffee",
+            "ro": "Cafea neagră"
+          },
+          "preparationId": null,
+          "preparationName": null,
+          "grams": 240,
+          "nutritionPer100g": {
+            "calories": 1,
+            "proteinGrams": 0.1,
+            "carbsGrams": 0.0,
+            "fatGrams": 0.0,
+            "fiberGrams": 0.0
+          },
+          "allergens": {}
+        },
+        {
+          "id": "recipe-21e87ae7-71f4-4ea3-9cc3-ff9d558d3918-ingredient-1",
+          "foodId": "honey",
+          "name": {
+            "en": "Honey",
+            "ro": "Miere"
+          },
+          "preparationId": null,
+          "preparationName": null,
+          "grams": 11,
+          "nutritionPer100g": {
+            "calories": 304,
+            "proteinGrams": 0.3,
+            "carbsGrams": 82.4,
+            "fatGrams": 0.0,
+            "fiberGrams": 0.2
+          },
+          "allergens": {}
+        }
+      ]
+    }
+  ]
+}

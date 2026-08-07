@@ -104,17 +104,22 @@ data class Food(
 
     fun matches(query: String): Boolean {
         val normalizedQuery = query.normalizedFoodText()
-        return (names.all() + details.all() + aliases).any { it.normalizedFoodText().contains(normalizedQuery) }
+        return (names.all() + details.all() + aliases + listOfNotNull(barcode) + categoryKey.searchTerms()).any {
+            it.normalizedFoodText().contains(normalizedQuery)
+        }
     }
 
     fun hasExactName(query: String): Boolean = names.all().any { it.trim().equals(query.trim(), ignoreCase = true) }
 
-    fun hasSameIdentity(name: String, brand: String?): Boolean =
-        normalizedFoodIdentity(names.en, this.brand) == normalizedFoodIdentity(name, brand) ||
-            normalizedFoodIdentity(names.ro, this.brand) == normalizedFoodIdentity(name, brand)
+    fun hasSameIdentity(name: String, brand: String?): Boolean {
+        val candidateIdentity = normalizedFoodIdentity(name, brand)
+        return normalizedFoodIdentity(names.en, this.brand) == candidateIdentity ||
+            normalizedFoodIdentity(names.ro, this.brand) == candidateIdentity
+    }
 
     fun hasSameCatalogueIdentity(other: Food): Boolean {
-        val barcodeMatches = barcode != null && other.barcode != null && barcode == other.barcode
+        val barcodeMatches = barcode != null && other.barcode != null && barcode == other.barcode &&
+            barcode.isGloballyIdentifyingBarcode()
         if (provenance.type == FoodSourceType.RECIPE || other.provenance.type == FoodSourceType.RECIPE) {
             return barcodeMatches
         }
@@ -131,23 +136,62 @@ data class Food(
 }
 
 enum class FoodSourceType { BUILT_IN, PERSONAL, OPEN_FOOD_FACTS, OCR, RECIPE }
+enum class CatalogueOrigin { CALORIE_QUICK, OPT_IN, OPEN_FOOD_FACTS }
 
 data class FoodProvenance(
     val type: FoodSourceType,
     val sourceId: String? = null,
     val importedAtEpochMillis: Long? = null,
     val locallyModified: Boolean = false,
+    val catalogueOrigin: CatalogueOrigin? = null,
+    val verified: Boolean = false,
 )
 
 fun normalizedFoodIdentity(name: String, brand: String?): String = listOf(name, brand.orEmpty())
     .joinToString("|") { it.normalizedFoodText() }
 
+/**
+ * GS1 prefixes 20-29 are reserved for restricted-circulation numbers. They can
+ * still be useful for a user's local scan shortcut, but cannot identify a
+ * product globally or safely merge records collected from different stores.
+ */
+fun String.isGloballyIdentifyingBarcode(): Boolean {
+    val digits = filter(Char::isDigit)
+    if (digits != this || digits.length !in 8..14) return false
+    val prefix = digits.take(2).toIntOrNull() ?: return false
+    return prefix !in 20..29
+}
+
+private val FOOD_COMBINING_MARKS = Regex("\\p{Mn}+")
+private val FOOD_APOSTROPHES = Regex("['’]")
+private val FOOD_NON_ALPHANUMERIC = Regex("[^a-z0-9]+")
+
 private fun String.normalizedFoodText(): String = java.text.Normalizer
     .normalize(lowercase(), java.text.Normalizer.Form.NFD)
-    .replace(Regex("\\p{Mn}+"), "")
-    .replace(Regex("['’]"), "")
-    .replace(Regex("[^a-z0-9]+"), " ")
+    .replace(FOOD_COMBINING_MARKS, "")
+    .replace(FOOD_APOSTROPHES, "")
+    .replace(FOOD_NON_ALPHANUMERIC, " ")
     .trim()
+
+private fun String?.searchTerms(): List<String> = when (this) {
+    "fruit" -> listOf("fruit", "fruits", "fruct", "fructe")
+    "vegetables" -> listOf("vegetable", "vegetables", "legumă", "legume")
+    "grains" -> listOf("grain", "grains", "cereal", "cereals", "cereale")
+    "bakery" -> listOf("bakery", "bread", "baked goods", "panificație", "pâine")
+    "meat" -> listOf("meat", "carne")
+    "fish" -> listOf("fish", "seafood", "fish and seafood", "pește", "fructe de mare")
+    "eggs" -> listOf("egg", "eggs", "ou", "ouă")
+    "legumes" -> listOf("legume", "legumes", "beans", "pulses", "fasole", "leguminoase")
+    "plant-protein" -> listOf("plant protein", "plant-based protein", "proteină vegetală")
+    "dairy" -> listOf("dairy", "milk products", "lactate", "produse lactate")
+    "fats" -> listOf("fat", "fats", "oil", "oils", "grăsime", "grăsimi", "ulei")
+    "pantry" -> listOf("pantry", "ingredient", "ingredients", "cămară", "ingrediente")
+    "nuts-seeds" -> listOf("nuts", "seeds", "nuts and seeds", "nuci", "semințe")
+    "prepared-meals" -> listOf("prepared meal", "prepared meals", "ready meal", "mâncare preparată", "preparate")
+    "beverages" -> listOf("beverage", "beverages", "drink", "drinks", "băutură", "băuturi")
+    "other" -> listOf("other", "altele")
+    else -> listOfNotNull(this?.replace('-', ' '))
+}
 
 enum class Allergen { GLUTEN, CRUSTACEANS, EGGS, FISH, PEANUTS, SOY, MILK, NUTS, CELERY, MUSTARD, SESAME, SULPHITES, LUPIN, MOLLUSCS }
 enum class AllergenDeclaration { CONTAINS, MAY_CONTAIN }
@@ -165,6 +209,7 @@ data class PersonalFoodDraft(
     val image: FoodImage? = null,
     val pendingImageUri: String? = null,
     val reviewStatus: ReviewStatus = ReviewStatus.PRIVATE,
+    val categoryKey: String? = null,
 )
 
 data class PersonalMeasure(
@@ -223,7 +268,14 @@ data class RecipeTemplate(
     val remainingGrams: Int,
     val batches: List<RecipeBatchSummary>,
     val reviewStatus: ReviewStatus = ReviewStatus.PRIVATE,
-)
+) {
+    fun hasIngredientMatching(query: String): Boolean {
+        val normalizedQuery = query.normalizedFoodText()
+        return ingredients.any { ingredient ->
+            ingredient.foodName.all().any { name -> name.normalizedFoodText().contains(normalizedQuery) }
+        }
+    }
+}
 
 data class PreparationUsage(
     val foodId: String,
@@ -252,6 +304,19 @@ data class RecipeCalculation(
 )
 
 object RecipeCalculator {
+    fun scaleIngredients(
+        ingredients: List<RecipeIngredientDraft>,
+        sourceYieldGrams: Int,
+        targetYieldGrams: Int,
+    ): List<RecipeIngredientDraft> {
+        require(sourceYieldGrams > 0)
+        require(targetYieldGrams > 0)
+        val scale = targetYieldGrams.toDouble() / sourceYieldGrams
+        return ingredients.map { ingredient ->
+            ingredient.copy(grams = (ingredient.grams * scale).roundToInt().coerceAtLeast(1))
+        }
+    }
+
     fun calculate(
         ingredients: List<RecipeIngredientDraft>,
         cookedYieldGrams: Int,

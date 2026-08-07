@@ -3,6 +3,7 @@ package com.shadow.calorietracker.data
 import com.shadow.calorietracker.BuildConfig
 import com.shadow.calorietracker.model.Allergen
 import com.shadow.calorietracker.model.AllergenDeclaration
+import com.shadow.calorietracker.model.CatalogueOrigin
 import com.shadow.calorietracker.model.Food
 import com.shadow.calorietracker.model.FoodImage
 import com.shadow.calorietracker.model.FoodImageSource
@@ -29,14 +30,27 @@ class OpenFoodFactsClient(
         URI(url).toURL().openConnection() as HttpURLConnection
     },
 ) {
-    suspend fun search(query: String, locale: String): List<Food> = withContext(Dispatchers.IO) {
+    suspend fun search(query: String, locale: String, page: Int = 1): List<Food> =
+        searchPage(query, locale, page).foods
+
+    suspend fun searchPage(
+        query: String,
+        locale: String,
+        page: Int = 1,
+    ): OpenFoodFactsSearchPage = withContext(Dispatchers.IO) {
+        val normalizedPage = page.coerceAtLeast(1)
         val encodedQuery = URLEncoder.encode(query.trim(), StandardCharsets.UTF_8.toString())
         val encodedLocale = URLEncoder.encode(locale, StandardCharsets.UTF_8.toString())
-        val url = "$BASE_URL/cgi/search.pl?action=process&search_terms=$encodedQuery&json=1&page_size=20" +
-            "&lc=$encodedLocale"
+        val url = "$BASE_URL/cgi/search.pl?action=process&search_terms=$encodedQuery&json=1" +
+            "&page_size=$SEARCH_PAGE_SIZE&page=$normalizedPage&lc=$encodedLocale"
         val root = requireNotNull(requestJsonWithRetry(url, locale, requestKind = "search"))
-        root.optJSONArray("products").orEmptyObjects().mapNotNull(::parseProduct)
-            .distinctBy { it.barcode ?: it.id }
+        val rawProducts = root.optJSONArray("products").orEmptyObjects()
+        val foods = rawProducts.mapNotNull(::parseProduct).distinctBy { it.barcode ?: it.id }
+        val totalCount = root.optInt("count", -1)
+        OpenFoodFactsSearchPage(
+            foods = foods,
+            hasMore = hasMoreSearchResults(normalizedPage, totalCount, rawProducts.size),
+        )
     }
 
     suspend fun productByBarcode(barcode: String, locale: String): Food? = withContext(Dispatchers.IO) {
@@ -93,6 +107,14 @@ class OpenFoodFactsClient(
     }
 
     companion object {
+        const val SEARCH_PAGE_SIZE = 10
+        fun hasMoreSearchResults(page: Int, totalCount: Int, rawProductCount: Int): Boolean =
+            if (totalCount >= 0) {
+                page.coerceAtLeast(1) * SEARCH_PAGE_SIZE < totalCount
+            } else {
+                rawProductCount == SEARCH_PAGE_SIZE
+            }
+
         private const val BASE_URL = "https://world.openfoodfacts.org"
         private val USER_AGENT =
             "CalorieQuick/${BuildConfig.VERSION_NAME} (https://github.com/ShadoWZYE/calorie-quick-android)"
@@ -113,10 +135,16 @@ class OpenFoodFactsClient(
             if (listOf(calories, protein, carbs, fat).any { it < 0.0 }) return null
 
             val brand = product.optString("brands").trim().takeIf(String::isNotEmpty)
+            val declaredQuantity = product.optString("quantity").trim().takeIf(String::isNotEmpty)
+            val productDetail = listOfNotNull(brand, declaredQuantity)
+                .distinctBy { it.lowercase() }
+                .joinToString(" · ")
+                .ifEmpty { "Open Food Facts" }
             val imageUrl = product.optString("image_front_small_url").trim().ifEmpty {
                 product.optString("image_front_url").trim()
             }.takeIf { it.startsWith("https://") }
             val packageGrams = packageGrams(product)
+            val liquidPackage = hasLiquidQuantity(product)
             val servingGrams = gramsFromQuantity(
                 product.optDoubleOrNull("serving_quantity"),
                 product.optString("serving_quantity_unit"),
@@ -126,7 +154,11 @@ class OpenFoodFactsClient(
                     add(
                         Serving(
                             id = "off-$code-package",
-                            label = LocalizedText("1 package", "1 ambalaj"),
+                            label = if (liquidPackage) {
+                                LocalizedText("1 bottle", "1 sticlă")
+                            } else {
+                                LocalizedText("1 package", "1 ambalaj")
+                            },
                             grams = it,
                             suggestedAmounts = listOf(0.5, 0.25),
                             isPackage = true,
@@ -136,12 +168,22 @@ class OpenFoodFactsClient(
                 servingGrams?.takeIf { it != packageGrams }?.let {
                     add(Serving("off-$code-serving", LocalizedText("1 serving", "1 porție"), it))
                 }
+                if (liquidPackage) {
+                    add(
+                        Serving(
+                            id = "off-$code-millilitre",
+                            label = LocalizedText("1 ml", "1 ml"),
+                            grams = 1,
+                            suggestedAmounts = listOf(100.0, 250.0),
+                        ),
+                    )
+                }
             }
 
             return Food(
                 id = "off-$code",
                 names = LocalizedText(nameEn.ifEmpty { nameRo }, nameRo.ifEmpty { nameEn }),
-                details = LocalizedText(brand ?: "Open Food Facts", brand ?: "Open Food Facts"),
+                details = LocalizedText(productDetail, productDetail),
                 nutritionPer100g = Nutrition(
                     calories = calories.roundToInt().coerceAtLeast(0),
                     proteinGrams = protein,
@@ -154,7 +196,11 @@ class OpenFoodFactsClient(
                 barcode = code,
                 isPackaged = packageGrams != null,
                 allergens = allergenDeclarations(product),
-                provenance = FoodProvenance(FoodSourceType.OPEN_FOOD_FACTS, sourceId = code),
+                provenance = FoodProvenance(
+                    FoodSourceType.OPEN_FOOD_FACTS,
+                    sourceId = code,
+                    catalogueOrigin = CatalogueOrigin.OPEN_FOOD_FACTS,
+                ),
                 image = imageUrl?.let {
                     FoodImage(
                         source = FoodImageSource.REMOTE,
@@ -169,8 +215,17 @@ class OpenFoodFactsClient(
         private fun categoryKey(product: JSONObject): String? {
             val tags = product.optJSONArray("categories_tags").orEmptyObjectsAndStrings()
                 .joinToString(" ") { it.lowercase() }
+            val searchableText = listOf(
+                tags,
+                product.optString("product_name"),
+                product.optString("product_name_en"),
+                product.optString("generic_name"),
+            ).joinToString(" ").lowercase()
             return when {
-                listOf("beverages", "waters", "juices", "sodas", "coffees", "teas").any(tags::contains) -> "beverages"
+                listOf(
+                    "beverages", "waters", "juices", "sodas", "coffees", "teas",
+                    "cola", "pepsi", "schweppes", "soft drink", "energy drink",
+                ).any(searchableText::contains) -> "beverages"
                 listOf("dairies", "milks", "cheeses", "yogurts").any(tags::contains) -> "dairy"
                 listOf("fruits", "fruit-based").any(tags::contains) -> "fruit"
                 listOf("vegetables", "vegetable-based").any(tags::contains) -> "vegetables"
@@ -197,15 +252,25 @@ class OpenFoodFactsClient(
             val grams = when (unit.trim().lowercase()) {
                 "g", "gram", "grams" -> value
                 "kg", "kilogram", "kilograms" -> value * 1_000.0
+                "ml", "millilitre", "millilitres", "milliliter", "milliliters" -> value
+                "cl", "centilitre", "centilitres", "centiliter", "centiliters" -> value * 10.0
+                "l", "litre", "litres", "liter", "liters" -> value * 1_000.0
                 else -> return null
             }
             return grams.roundToInt().takeIf { it in 1..50_000 }
         }
 
         private fun parseGrams(text: String): Int? {
-            val match = GRAM_QUANTITY.find(text.lowercase()) ?: return null
+            val match = QUANTITY.find(text.lowercase()) ?: return null
             val value = match.groupValues[1].replace(',', '.').toDoubleOrNull() ?: return null
             return gramsFromQuantity(value, match.groupValues[2])
+        }
+
+        private fun hasLiquidQuantity(product: JSONObject): Boolean {
+            val unit = product.optString("product_quantity_unit").trim().lowercase()
+            if (unit in LIQUID_UNITS) return true
+            return QUANTITY.find(product.optString("quantity").lowercase())
+                ?.groupValues?.getOrNull(2)?.lowercase() in LIQUID_UNITS
         }
 
         private fun allergenDeclarations(product: JSONObject): Map<Allergen, AllergenDeclaration> {
@@ -219,9 +284,18 @@ class OpenFoodFactsClient(
             return declarations
         }
 
-        private val GRAM_QUANTITY = Regex("""([0-9]+(?:[.,][0-9]+)?)\s*(kg|g)\b""")
+        private val QUANTITY = Regex("""([0-9]+(?:[.,][0-9]+)?)\s*(kg|g|ml|cl|l)\b""")
+        private val LIQUID_UNITS = setOf(
+            "ml", "cl", "l", "millilitre", "millilitres", "milliliter", "milliliters",
+            "centilitre", "centilitres", "centiliter", "centiliters", "litre", "litres", "liter", "liters",
+        )
     }
 }
+
+data class OpenFoodFactsSearchPage(
+    val foods: List<Food>,
+    val hasMore: Boolean,
+)
 
 private fun JSONArray?.orEmptyObjectsAndStrings(): List<String> = buildList {
     if (this@orEmptyObjectsAndStrings == null) return@buildList

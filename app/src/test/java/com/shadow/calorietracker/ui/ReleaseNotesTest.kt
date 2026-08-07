@@ -1,6 +1,5 @@
 package com.shadow.calorietracker.ui
 
-import com.shadow.calorietracker.BuildConfig
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -8,8 +7,9 @@ import org.junit.Test
 
 class ReleaseNotesTest {
     @Test
-    fun `current release notes match the packaged version`() {
-        assertEquals(BuildConfig.VERSION_NAME, ReleaseNotes.current.versionName)
+    fun `in-app release history stops at the last consolidated stable build`() {
+        assertEquals("0.2.1", ReleaseNotes.current.versionName)
+        assertFalse(ReleaseNotes.all.any { it.versionName.endsWith("-dev") })
     }
 
     @Test

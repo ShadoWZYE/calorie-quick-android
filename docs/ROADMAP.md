@@ -20,7 +20,7 @@ Implemented:
 - Meal-prep recipes with ingredient search, per-ingredient cooking methods, cooked yield, portions, repeat batches, and search/quick-add integration.
 - Open Food Facts text/barcode lookup and on-device nutrition-label OCR with mandatory review.
 - Manual and scale-OCR body check-ins, optional guided tape measurements, trends, and non-medical adaptive review language.
-- Versioned offline catalogue of 191 English/Romanian generic foods across 15 categories, with aliases, fibre, allergens, measures, cooking ingredients, and common Romanian foods.
+- Versioned offline catalogue of 192 English/Romanian generic foods across 15 categories, with aliases, fibre, allergens, measures, cooking ingredients, and common Romanian foods.
 - Density-aware millilitre input for common bundled liquids without treating cooking oil as water.
 - One offline review ZIP with explicitly opted-in foods/recipes, explicitly flagged failed-scan images, optional feedback, capped UI-freeze/crash reports, and separate machine-readable catalogue/support manifests.
 - Versioned full backup/restore with preview, transactional user-data replacement, cross-device image remapping, and current built-in catalogue preservation. Backups are currently unencrypted ZIPs and must be stored securely.
@@ -35,9 +35,11 @@ Private-alpha exit gate:
 
 Remaining before a broader beta:
 
-- Full private diary/profile backup, restore, and delete controls.
-- Signed release configuration, private distribution, crash reporting with explicit consent, accessibility audit, and Android 6/8/modern-device matrix.
-- Reminders and performance measurements on low-end hardware.
+- Complete the current real-device regression cycle without data corruption or blocking diary/recipe flows.
+- Production signing, a controlled private distribution channel, accessibility audit, and Android 6/8/modern-device coverage.
+- Validate the new privacy-safe UI-jank summaries on low-end hardware and use the evidence to address remaining scroll/input stalls.
+- Add deliberate local delete controls and finish the public-facing privacy/retention language around backups, review exports, images, and optional contributions.
+- Reminders remain intentionally deferred until the core logging loop proves reliable and non-intrusive.
 
 ## M2 — Catalogue and barcode beta
 
@@ -45,6 +47,7 @@ Remaining before a broader beta:
 - Add catalogue items from observed misses instead of speculative bulk growth.
 - Hosted moderation queue for opted-in submissions, abuse controls, and immutable review history.
 - Optional image catalogue with licensing and storage policy.
+- Automated promotion of structurally valid, unflagged collected records, while suspicious values and explicit incorrect-product reports remain quarantined for review.
 
 ## M3 — Optional account and ecosystem
 

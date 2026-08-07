@@ -263,7 +263,7 @@ class CatalogueExporter(
                         .put(JSONObject()
                             .put("kind", "support")
                             .put("path", "support/support.json")
-                            .put("schemaVersion", 8)
+                            .put("schemaVersion", 9)
                             .put("recordCount", supportResult.diagnosticCount + supportResult.freezeCount + supportResult.crashCount + supportResult.feedbackCount + supportResult.performanceCount + supportResult.productIssueCount))
                         .put(JSONObject()
                             .put("kind", "open-food-facts-cache")

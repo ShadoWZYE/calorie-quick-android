@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import os
 import hashlib
+import re
 import shutil
 import zipfile
 from copy import deepcopy
@@ -17,6 +18,8 @@ from review_bundle_parser import inspect_bundle
 INBOX_SCHEMA = "calorie-quick-local-review-inbox"
 INBOX_SCHEMA_VERSION = 1
 BRIEF_SCHEMA = "calorie-quick-implementation-brief"
+
+_VERSION_PATTERN = re.compile(r"^(\d+)\.(\d+)\.(\d+)(?:-(alpha|beta)(\d+))?", re.IGNORECASE)
 
 CLASSIFICATIONS = ["BUG", "UI_UX", "PERFORMANCE", "DATA", "OCR", "FEATURE", "QUESTION"]
 SEVERITIES = ["CRITICAL", "HIGH", "MEDIUM", "LOW"]
@@ -41,6 +44,17 @@ def default_inbox_root() -> Path:
 
 def _now() -> str:
     return datetime.now(timezone.utc).isoformat()
+
+
+def _version_order(value: str | None) -> tuple[int, int, int, int, int]:
+    """Order stable and prerelease builds without depending on packaging libraries."""
+    match = _VERSION_PATTERN.match(str(value or "").strip())
+    if not match:
+        return (-1, -1, -1, -1, -1)
+    major, minor, patch = (int(match.group(index)) for index in range(1, 4))
+    stage = {"alpha": 0, "beta": 1, None: 2}[match.group(4).lower() if match.group(4) else None]
+    prerelease = int(match.group(5) or 0)
+    return (major, minor, patch, stage, prerelease)
 
 
 def _title(text: str, fallback: str) -> str:
@@ -272,6 +286,34 @@ class ReviewInboxStore:
                 ),
             )
 
+        for session in support.get("uiJank", []):
+            if not isinstance(session, dict):
+                continue
+            jank_rate = float(session.get("jankRate") or 0)
+            severe_frames = int(session.get("severeFrames") or 0)
+            max_frame = int(session.get("maxFrameDurationMillis") or 0)
+            if jank_rate < 0.05 and severe_frames < 2 and max_frame < 150:
+                continue
+            screens = [item for item in session.get("screens", []) if isinstance(item, dict)]
+            worst = max(screens, key=lambda item: float(item.get("jankRate") or 0), default={})
+            session_id = str(session.get("id") or "unknown")
+            description = (
+                f"screen={worst.get('screen') or 'unknown'}; "
+                f"janky frames={session.get('jankyFrames', 0)}/{session.get('totalFrames', 0)} "
+                f"({jank_rate * 100:.1f}%); severe frames={severe_frames}; "
+                f"maximum frame={max_frame} ms"
+            )
+            items.append(
+                _item(
+                    item_id=f"jank:{session_id}",
+                    source_type="PERFORMANCE_DIAGNOSTIC",
+                    title=f"UI stutter: {worst.get('screen') or 'unknown screen'}",
+                    description=description,
+                    classification="PERFORMANCE",
+                    severity="MEDIUM" if severe_frames or max_frame >= 150 else "LOW",
+                ),
+            )
+
         review = {
             "schema": INBOX_SCHEMA,
             "schemaVersion": INBOX_SCHEMA_VERSION,
@@ -287,14 +329,85 @@ class ReviewInboxStore:
             "items": items,
         }
         review["summary"]["sharedCatalogueCount"] = shared_count
+        reconciliation = self._advance_backlog_for_new_bundle(review)
+        review["summary"].update(reconciliation)
         self._reconcile_implementation_status(review)
         self.save_review(review)
         return review, True
 
+    def _advance_backlog_for_new_bundle(self, new_review: dict[str, Any]) -> dict[str, int]:
+        """Use a genuinely newer field package as confirmation and planning boundary.
+
+        Implemented findings in TESTING are considered resolved when they do not recur in the
+        next newer review package. Deliberately deferred items are moved to Next so "Later" is a
+        temporary planning choice rather than a permanent hiding place.
+        """
+        new_version = str((new_review.get("build") or {}).get("versionName") or "")
+        new_order = _version_order(new_version)
+        if new_order[0] < 0:
+            return {"autoResolvedTestingCount": 0, "rolledForwardCount": 0}
+        current_ids = {str(item.get("id")) for item in new_review.get("items", [])}
+        auto_resolved = 0
+        try:
+            registry = json.loads(self.implementation_status_path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            registry = {"schema": "calorie-quick-review-implementation-status", "schemaVersion": 1, "items": {}}
+        entries = registry.setdefault("items", {})
+        registry_changed = False
+        for item_id, implementation in entries.items():
+            if not isinstance(implementation, dict) or implementation.get("state") != "TESTING":
+                continue
+            if _version_order(implementation.get("reference")) >= new_order:
+                continue
+            if item_id in current_ids:
+                implementation["lastRepeatedIn"] = new_version
+                registry_changed = True
+                continue
+            implementation.update({
+                "state": "DONE",
+                "confirmedByVersion": new_version,
+                "resolution": "Not reported again in the next newer review package.",
+                "confirmedAt": _now(),
+            })
+            registry_changed = True
+            auto_resolved += 1
+        if registry_changed:
+            temporary = self.implementation_status_path.with_suffix(".tmp")
+            temporary.write_text(json.dumps(registry, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+            temporary.replace(self.implementation_status_path)
+
+        rolled_forward = 0
+        for path in self.bundle_root.glob("*/review.json"):
+            if path.parent.name == new_review.get("bundleHash"):
+                continue
+            try:
+                previous = json.loads(path.read_text(encoding="utf-8"))
+            except (OSError, json.JSONDecodeError):
+                continue
+            previous_version = str((previous.get("build") or {}).get("versionName") or "")
+            if _version_order(previous_version) >= new_order:
+                continue
+            changed = self._reconcile_implementation_status(previous)
+            for item in previous.get("items", []):
+                if item.get("decision") != "ACCEPT_BACKLOG":
+                    continue
+                item.update({
+                    "decision": "ACCEPT_NEXT",
+                    "status": "READY",
+                    "promote": True,
+                    "rolledForwardAt": _now(),
+                    "rolledForwardByVersion": new_version,
+                })
+                changed = True
+                rolled_forward += 1
+            if changed:
+                self.save_review(previous)
+        return {"autoResolvedTestingCount": auto_resolved, "rolledForwardCount": rolled_forward}
+
     def shared_catalogue_count(self) -> int:
         try:
             catalogue = json.loads(self.shared_catalogue_path.read_text(encoding="utf-8"))
-            return len(catalogue.get("foods", {}))
+            return len(catalogue.get("foods", {})) + len(catalogue.get("recipes", {}))
         except (OSError, json.JSONDecodeError):
             return 0
 
@@ -312,17 +425,36 @@ class ReviewInboxStore:
         except (OSError, json.JSONDecodeError, ValueError):
             shared = {
                 "schema": "calorie-quick-local-shared-food-catalogue",
-                "schemaVersion": 1,
+                "schemaVersion": 2,
                 "foods": {},
+                "recipes": {},
             }
         records = shared.setdefault("foods", {})
+        recipe_records = shared.setdefault("recipes", {})
         observed_at = _now()
 
         def identity(barcode: str, name: str, brand: str) -> str:
-            if barcode:
+            restricted = len(barcode) >= 2 and barcode[:2].isdigit() and 20 <= int(barcode[:2]) <= 29
+            if barcode and not restricted:
                 return f"barcode:{barcode}"
             normalized = "|".join((name, brand)).lower().strip()
             return "identity:" + hashlib.sha256(normalized.encode("utf-8")).hexdigest()
+
+        # Older inbox versions used every barcode as a global key. Re-key any
+        # retained restricted-circulation record before adding new evidence.
+        for old_key, record in list(records.items()):
+            barcode = str(record.get("barcode") or "")
+            restricted = len(barcode) >= 2 and barcode[:2].isdigit() and 20 <= int(barcode[:2]) <= 29
+            if not restricted or not old_key.startswith("barcode:"):
+                continue
+            normalized_food = record.get("normalizedFood") if isinstance(record.get("normalizedFood"), dict) else {}
+            names = normalized_food.get("name") if isinstance(normalized_food.get("name"), dict) else {}
+            name = str(record.get("displayName") or names.get("en") or names.get("ro") or "")
+            brand = str(normalized_food.get("brand") or "")
+            new_key = identity("", name, brand)
+            record["id"] = new_key
+            records.pop(old_key)
+            records.setdefault(new_key, record)
 
         def source(path: str, source_type: str) -> dict[str, Any]:
             return {
@@ -371,8 +503,28 @@ class ReviewInboxStore:
             if not any(item.get("bundleHash") == bundle_hash and item.get("path") == evidence["path"] for item in record["sources"]):
                 record["sources"].append(evidence)
 
+        for recipe in catalogue.get("recipes", []):
+            if not isinstance(recipe, dict) or not recipe.get("selectedForThisExport", True):
+                continue
+            recipe_id = str(recipe.get("foodId") or "").strip()
+            if not recipe_id:
+                continue
+            record = recipe_records.setdefault(recipe_id, {
+                "id": recipe_id, "firstSeenAt": observed_at, "sources": [],
+            })
+            record.update(
+                displayName=str(recipe.get("name") or recipe_id),
+                normalizedRecipe=deepcopy(recipe),
+                lastSeenAt=observed_at,
+            )
+            evidence = source("catalogue/catalogue.json", "OPT_IN_RECIPE")
+            if not any(item.get("bundleHash") == bundle_hash and item.get("path") == evidence["path"] for item in record["sources"]):
+                record["sources"].append(evidence)
+
         shared["updatedAt"] = observed_at
+        shared["schemaVersion"] = 2
         shared["foodCount"] = len(records)
+        shared["recipeCount"] = len(recipe_records)
         temporary = self.shared_catalogue_path.with_suffix(".tmp")
         temporary.write_text(json.dumps(shared, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
         temporary.replace(self.shared_catalogue_path)

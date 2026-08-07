@@ -29,11 +29,16 @@ class ReviewInboxStoreTest(unittest.TestCase):
                 },
                 "image": None,
             }],
-            "recipes": [],
+            "recipes": [{
+                "foodId": "recipe-1", "name": "Test soup", "reviewStatusAtExport": "READY_FOR_REVIEW",
+                "selectedForThisExport": True,
+                "template": {"cookedYieldGrams": 500, "portionCount": 2, "ingredients": []},
+                "batches": [],
+            }],
         }
         support = {
             "schema": "calorie-quick-support-bundle",
-            "schemaVersion": 8,
+            "schemaVersion": 9,
             "feedbackThread": [{
                 "id": "feedback-1",
                 "text": "Scrolling freezes until results load.",
@@ -41,6 +46,18 @@ class ReviewInboxStoreTest(unittest.TestCase):
             }],
             "diagnostics": [],
             "performance": [],
+            "uiJank": [{
+                "id": "jank-1",
+                "totalFrames": 600,
+                "jankyFrames": 60,
+                "jankRate": 0.1,
+                "severeFrames": 3,
+                "maxFrameDurationMillis": 180,
+                "screens": [{
+                    "screen": "TODAY", "totalFrames": 600, "jankyFrames": 60,
+                    "jankRate": 0.1, "severeFrames": 3, "maxFrameDurationMillis": 180,
+                }],
+            }],
             "productDataIssues": [{
                 "id": "issue-1",
                 "barcode": "12345670",
@@ -90,7 +107,7 @@ class ReviewInboxStoreTest(unittest.TestCase):
             review, created = store.import_bundle(archive)
 
             self.assertTrue(created)
-            self.assertEqual(2, len(review["items"]))
+            self.assertEqual(3, len(review["items"]))
             feedback = next(item for item in review["items"] if item["sourceType"] == "FEEDBACK")
             self.assertEqual("PERFORMANCE", feedback["classification"])
             self.assertTrue(feedback["assistantAnalysis"])
@@ -99,9 +116,13 @@ class ReviewInboxStoreTest(unittest.TestCase):
             product_issue = next(item for item in review["items"] if item["sourceType"] == "PRODUCT_DATA_ISSUE")
             self.assertIn("NUTRITION", product_issue["description"])
             self.assertIn("open-food-facts/responses/test.json", product_issue["description"])
+            jank = next(item for item in review["items"] if item["id"] == "jank:jank-1")
+            self.assertIn("screen=TODAY", jank["description"])
             self.assertTrue((root / "inbox" / "bundles" / review["bundleHash"] / "source.zip").is_file())
             shared = json.loads((root / "inbox" / "shared-food-catalogue.json").read_text(encoding="utf-8"))
             self.assertEqual(2, shared["foodCount"])
+            self.assertEqual(1, shared["recipeCount"])
+            self.assertIn("recipe-1", shared["recipes"])
             self.assertIn("barcode:12345670", shared["foods"])
             feedback["reviewerComments"] = "Reproduced on the test phone."
             store.save_review(review)
@@ -131,6 +152,53 @@ class ReviewInboxStoreTest(unittest.TestCase):
             self.assertTrue(output.is_file())
             self.assertTrue(output.with_suffix(".md").is_file())
 
+    def test_restricted_circulation_barcodes_do_not_merge_unrelated_foods(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            store = ReviewInboxStore(root / "inbox")
+            catalogue = {
+                "foods": [
+                    {
+                        "id": "store-a", "name": {"en": "Deli roll A", "ro": "Ruladă A"},
+                        "brand": "Store A", "barcode": "2951989002487",
+                    },
+                    {
+                        "id": "store-b", "name": {"en": "Deli roll B", "ro": "Ruladă B"},
+                        "brand": "Store B", "barcode": "2951989002487",
+                    },
+                ],
+            }
+            store._merge_shared_catalogue(catalogue, [], "bundle", root / "source.zip")
+            shared = json.loads((root / "inbox" / "shared-food-catalogue.json").read_text(encoding="utf-8"))
+
+            restricted = [item for item in shared["foods"].values() if item.get("barcode") == "2951989002487"]
+            self.assertEqual(2, len(restricted))
+            self.assertFalse(any(key.startswith("barcode:2951989002487") for key in shared["foods"]))
+
+    def test_legacy_restricted_barcode_key_is_migrated(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            store = ReviewInboxStore(root / "inbox")
+            store.shared_catalogue_path.write_text(json.dumps({
+                "schema": "calorie-quick-local-shared-food-catalogue",
+                "schemaVersion": 1,
+                "foods": {
+                    "barcode:2951989002487": {
+                        "id": "barcode:2951989002487",
+                        "barcode": "2951989002487",
+                        "displayName": "Deli roll",
+                        "normalizedFood": {"name": {"en": "Deli roll"}, "brand": "Store A"},
+                        "sources": [],
+                    },
+                },
+            }), encoding="utf-8")
+
+            store._merge_shared_catalogue({"foods": []}, [], "bundle", root / "source.zip")
+            shared = json.loads(store.shared_catalogue_path.read_text(encoding="utf-8"))
+
+            self.assertNotIn("barcode:2951989002487", shared["foods"])
+            self.assertEqual(1, len(shared["foods"]))
+
     def test_implemented_items_move_to_testing_without_regressing_done(self):
         with tempfile.TemporaryDirectory() as folder:
             root = Path(folder)
@@ -159,6 +227,45 @@ class ReviewInboxStoreTest(unittest.TestCase):
             self.assertFalse(testing["promote"])
             self.assertEqual("0.2.0-alpha09", testing["linkedReference"])
             self.assertEqual("RESOLVED", done["decision"])
+
+    def test_newer_bundle_resolves_silent_testing_and_rolls_later_forward(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            status_path = root / "implementation-status.json"
+            status_path.write_text(json.dumps({
+                "items": {
+                    "feedback:silent": {"state": "TESTING", "reference": "0.2.0-alpha14"},
+                    "feedback:repeated": {"state": "TESTING", "reference": "0.2.0-alpha14"},
+                },
+            }), encoding="utf-8")
+            store = ReviewInboxStore(root / "inbox", status_path)
+            previous = {
+                "bundleHash": "older",
+                "build": {"versionName": "0.2.0-alpha14-test"},
+                "items": [
+                    {"id": "feedback:silent", "decision": "NEEDS_REPRODUCTION", "status": "NEEDS_INFO"},
+                    {"id": "manual:later", "decision": "ACCEPT_BACKLOG", "status": "TRIAGED"},
+                ],
+            }
+            store.save_review(previous)
+
+            result = store._advance_backlog_for_new_bundle({
+                "bundleHash": "newer",
+                "build": {"versionName": "0.2.0-alpha16-test"},
+                "items": [{"id": "feedback:repeated"}],
+            })
+
+            self.assertEqual({"autoResolvedTestingCount": 1, "rolledForwardCount": 1}, result)
+            registry = json.loads(status_path.read_text(encoding="utf-8"))["items"]
+            self.assertEqual("DONE", registry["feedback:silent"]["state"])
+            self.assertEqual("0.2.0-alpha16-test", registry["feedback:silent"]["confirmedByVersion"])
+            self.assertEqual("TESTING", registry["feedback:repeated"]["state"])
+            self.assertEqual("0.2.0-alpha16-test", registry["feedback:repeated"]["lastRepeatedIn"])
+            loaded = store.list_reviews()[0]
+            silent, later = loaded["items"]
+            self.assertEqual("RESOLVED", silent["decision"])
+            self.assertEqual("ACCEPT_NEXT", later["decision"])
+            self.assertTrue(later["promote"])
 
 
 if __name__ == "__main__":

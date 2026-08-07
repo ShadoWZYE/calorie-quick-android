@@ -140,6 +140,29 @@ class QuantityPresetsTest {
             "g",
         )
 
-        assertEquals(listOf("ml · 1 g", "100 ml · 100 g", "200 ml · 200 g", "100 g"), presets.map { it.label })
+        assertEquals(listOf("1 ml", "100 ml", "200 ml", "100 g"), presets.map { it.label })
+    }
+
+    @Test
+    fun liquidPackageUsesVolumeInItsPresetLabel() {
+        val cola = Food(
+            id = "cola-bottle",
+            names = LocalizedText("Cola", "Cola"),
+            details = LocalizedText("2 L bottle", "Sticlă de 2 L"),
+            nutritionPer100g = Nutrition(42, 0.0, 10.6, 0.0),
+            servings = listOf(
+                Serving("bottle", LocalizedText("1 bottle", "1 sticlă"), 2_000.0, listOf(0.5)),
+                Serving("ml", LocalizedText("1 ml", "1 ml"), 1.0, listOf(250.0)),
+            ),
+        )
+
+        val presets = buildQuantityPresets(
+            buildUnitChoices(cola, emptyList(), Locale.ENGLISH, "g"),
+            emptyList(),
+            Locale.ENGLISH,
+            "g",
+        )
+
+        assertEquals(listOf("bottle · 2000 ml", "½ × bottle · 1000 ml", "1 ml", "250 ml", "100 g"), presets.map { it.label })
     }
 }

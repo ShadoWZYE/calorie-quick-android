@@ -16,6 +16,7 @@ from review_inbox_core import (
     SEVERITIES,
     ReviewInboxStore,
 )
+from promote_catalogue import run as promote_catalogue_update
 
 SIMPLE_DECISIONS = [
     ("Not decided", "UNDECIDED"),
@@ -89,8 +90,10 @@ class ReviewInboxApp(tk.Tk):
         toolbar = ttk.Frame(self, padding=8)
         toolbar.pack(fill=tk.X)
         ttk.Button(toolbar, text="1 · Import review ZIP…", command=self.import_bundle).pack(side=tk.LEFT, padx=3)
+        ttk.Button(toolbar, text="Refresh bundles", command=self.refresh_bundles).pack(side=tk.LEFT, padx=3)
         ttk.Button(toolbar, text="Save changes", command=self.save_current).pack(side=tk.LEFT, padx=3)
         ttk.Button(toolbar, text="Add a review item", command=self.add_manual_item).pack(side=tk.LEFT, padx=3)
+        ttk.Button(toolbar, text="Build catalogue update", command=self.build_catalogue_update).pack(side=tk.LEFT, padx=3)
         ttk.Button(toolbar, text="6 · Create implementation brief…", command=self.export_brief).pack(side=tk.LEFT, padx=3)
         ttk.Button(toolbar, text="How this works", command=self.show_help).pack(side=tk.RIGHT, padx=3)
         ttk.Button(toolbar, text="Open private inbox folder", command=self.open_inbox_folder).pack(side=tk.RIGHT, padx=3)
@@ -101,7 +104,7 @@ class ReviewInboxApp(tk.Tk):
             guide,
             text=(
                 "Workflow: 1 Import a ZIP  →  2 choose a bundle  →  3 select a finding  →  "
-                "4 read the evidence and Codex analysis  →  5 choose Next, Later, Needs testing, or Done  →  "
+                "4 read the evidence and Codex analysis  →  5 keep only Next, Later, or Needs testing active  →  "
                 "6 create a brief from Next items"
             ),
             foreground="#444444",
@@ -113,25 +116,26 @@ class ReviewInboxApp(tk.Tk):
         panes = ttk.Panedwindow(self, orient=tk.HORIZONTAL)
         panes.pack(fill=tk.BOTH, expand=True, padx=8, pady=(0, 8))
 
-        bundle_frame = ttk.LabelFrame(panes, text="2 · Bundles", padding=6)
-        panes.add(bundle_frame, weight=1)
-        self.bundle_list = tk.Listbox(bundle_frame, exportselection=False, width=27)
-        bundle_scroll = ttk.Scrollbar(bundle_frame, orient=tk.VERTICAL, command=self.bundle_list.yview)
+        self.bundle_frame = ttk.LabelFrame(panes, text="2 · Bundles", padding=6)
+        panes.add(self.bundle_frame, weight=1)
+        self.bundle_list = tk.Listbox(self.bundle_frame, exportselection=False, width=27, height=5)
+        bundle_scroll = ttk.Scrollbar(self.bundle_frame, orient=tk.VERTICAL, command=self.bundle_list.yview)
         self.bundle_list.configure(yscrollcommand=bundle_scroll.set)
         self.bundle_list.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
         bundle_scroll.pack(side=tk.RIGHT, fill=tk.Y)
         self.bundle_list.bind("<<ListboxSelect>>", self.select_bundle)
+        self.bind("<F5>", lambda _event: self.refresh_bundles())
 
         item_frame = ttk.LabelFrame(panes, text="3 · Findings", padding=6)
         panes.add(item_frame, weight=3)
         filter_row = ttk.Frame(item_frame)
         filter_row.pack(fill=tk.X, pady=(0, 5))
         ttk.Label(filter_row, text="Show:").pack(side=tk.LEFT)
-        self.filter_value = tk.StringVar(value="All")
+        self.filter_value = tk.StringVar(value="Active")
         filter_box = ttk.Combobox(
             filter_row,
             textvariable=self.filter_value,
-            values=["All", "Not decided", "Next", "Later", "Needs testing", "Done"],
+            values=["Active", "Not decided", "Next", "Later", "Needs testing"],
             state="readonly",
             width=18,
         )
@@ -341,19 +345,25 @@ class ReviewInboxApp(tk.Tk):
             "1. Import a review ZIP from a phone.\n\n"
             "2. Select its bundle, then select one finding.\n\n"
             "3. Read Original evidence and Codex analysis. The analysis is advice, not an automatic decision.\n\n"
-            "4. Choose Not decided, Next, Later, Needs testing, or Done. Add one note if useful.\n\n"
-            "5. Next items are included in the implementation brief automatically. Other decisions stay in the local inbox.\n\n"
-            "6. Save changes, then create a local implementation brief when the Next list is ready. Less-used metadata is under Advanced.",
+            "4. Choose Next, Later, Needs testing, or Done. Done findings are archived and hidden from the active view.\n\n"
+            "5. Importing a newer review package marks implemented testing items Done when they were not reported again, and moves Later items forward to Next.\n\n"
+            "6. Build catalogue update validates collected foods and opted-in recipes, promotes clean records, and records suspicious or flagged items in a quarantine report.\n\n"
+            "7. Save changes, then create a local implementation brief when the Next list is ready. Less-used metadata is under Advanced.",
         )
 
     def reload_reviews(self, select_hash: str | None = None):
-        self.reviews = self.store.list_reviews()
+        self.reviews = [
+            review for review in self.store.list_reviews()
+            if any(item.get("decision") != "RESOLVED" for item in review.get("items", []))
+        ]
+        self.bundle_frame.configure(text=f"2 · Bundles ({len(self.reviews)})")
         self.bundle_list.delete(0, tk.END)
         selection = None
         for index, review in enumerate(self.reviews):
             build = review.get("build") or {}
             version = build.get("versionName") or "unknown build"
-            label = f"{version} · {len(review.get('items', []))} findings · {review.get('bundleHash', '')[:8]}"
+            active_count = sum(item.get("decision") != "RESOLVED" for item in review.get("items", []))
+            label = f"{version} · {active_count} active · {review.get('bundleHash', '')[:8]}"
             self.bundle_list.insert(tk.END, label)
             if review.get("bundleHash") == select_hash:
                 selection = index
@@ -365,6 +375,12 @@ class ReviewInboxApp(tk.Tk):
         else:
             self.review = None
             self.refresh_items()
+
+    def refresh_bundles(self):
+        selected_hash = (self.review or {}).get("bundleHash")
+        self.save_current(silent=True)
+        self.reload_reviews(selected_hash)
+        self.status_text.set(f"Refreshed · {len(self.reviews)} bundle(s) found in {self.store.root}")
 
     def import_bundle(self):
         path = filedialog.askopenfilename(title="Import Calorie Quick review ZIP", filetypes=[("ZIP archives", "*.zip")])
@@ -404,13 +420,14 @@ class ReviewInboxApp(tk.Tk):
     def _visible_items(self) -> list[dict]:
         items = list((self.review or {}).get("items", []))
         selected_filter = self.filter_value.get()
+        if selected_filter == "Active":
+            return [item for item in items if item.get("decision") != "RESOLVED"]
         if selected_filter == "Not decided":
             return [item for item in items if item.get("decision") == "UNDECIDED"]
         selected_decision = {
             "Next": "ACCEPT_NEXT",
             "Later": "ACCEPT_BACKLOG",
             "Needs testing": "NEEDS_REPRODUCTION",
-            "Done": "RESOLVED",
         }.get(selected_filter)
         if selected_decision:
             return [item for item in items if item.get("decision") == selected_decision]
@@ -547,7 +564,7 @@ class ReviewInboxApp(tk.Tk):
             return
         self.save_current(silent=True)
         item = self.store.add_manual_item(self.review)
-        self.filter_value.set("All")
+        self.filter_value.set("Active")
         self.refresh_items(item["id"])
 
     def open_attachment(self):
@@ -559,6 +576,25 @@ class ReviewInboxApp(tk.Tk):
             messagebox.showerror("Attachment missing", str(path))
             return
         os.startfile(path)
+
+    def build_catalogue_update(self):
+        self.save_current(silent=True)
+        output = Path(__file__).parents[1] / "app/src/main/assets/catalogue/promoted_catalogue_v1.json"
+        report_path = self.store.root / "promotion-report.json"
+        try:
+            report = promote_catalogue_update(self.store.root, output, report_path)
+            self.status_text.set(
+                f"Catalogue update: {report['promotedCount']} foods ({report.get('promotedRecipeCount', 0)} recipes) · {report['quarantinedCount']} quarantined",
+            )
+            messagebox.showinfo(
+                "Catalogue update created",
+                f"Promoted {report['promotedCount']} validated foods, including {report.get('promotedRecipeCount', 0)} recipes.\n"
+                f"Quarantined {report['quarantinedCount']} suspicious or flagged records.\n\n"
+                f"Catalogue: {output}\nReport: {report_path}",
+            )
+        except Exception as exc:
+            self.status_text.set("Catalogue promotion failed")
+            messagebox.showerror("Cannot build catalogue update", str(exc))
 
     def open_inbox_folder(self):
         self.store.root.mkdir(parents=True, exist_ok=True)

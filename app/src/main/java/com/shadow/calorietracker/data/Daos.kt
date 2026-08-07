@@ -13,7 +13,14 @@ import kotlinx.coroutines.flow.Flow
 @Dao
 interface FoodDao {
     @Transaction
-    @Query("SELECT * FROM foods WHERE archived = 0 ORDER BY nameEn")
+    @Query(
+        "SELECT * FROM foods WHERE archived = 0 AND (sourceType != 'OPEN_FOOD_FACTS' OR isPersonal = 1 " +
+            "OR id IN (SELECT foodId FROM diary_entries) " +
+            "OR id IN (SELECT foodId FROM recipe_ingredients) " +
+            "OR id IN (SELECT foodId FROM serving_usage) " +
+            "OR id IN (SELECT foodId FROM quantity_usage) " +
+            "OR id IN (SELECT foodId FROM preparation_usage)) ORDER BY nameEn",
+    )
     fun observeFoods(): Flow<List<FoodWithServings>>
 
     @Query("SELECT COUNT(*) FROM foods")
@@ -117,10 +124,16 @@ interface RecipeDao {
     @Query("SELECT * FROM recipes WHERE foodId = :foodId LIMIT 1")
     suspend fun findRecipe(foodId: String): RecipeEntity?
 
-    @Query("SELECT * FROM recipes WHERE reviewStatus = 'READY_FOR_REVIEW'")
+    @Query(
+        "SELECT recipes.* FROM recipes INNER JOIN foods ON foods.id = recipes.foodId " +
+            "WHERE recipes.reviewStatus = 'READY_FOR_REVIEW' AND foods.archived = 0",
+    )
     suspend fun listReviewableRecipes(): List<RecipeEntity>
 
-    @Query("SELECT * FROM recipes WHERE foodId IN (:foodIds)")
+    @Query(
+        "SELECT recipes.* FROM recipes INNER JOIN foods ON foods.id = recipes.foodId " +
+            "WHERE recipes.foodId IN (:foodIds) AND foods.archived = 0",
+    )
     suspend fun listRecipesByIds(foodIds: List<String>): List<RecipeEntity>
 
     @Query("SELECT * FROM recipe_batches WHERE id NOT LIKE 'recipe-template|%'")
@@ -149,6 +162,12 @@ interface RecipeDao {
 
     @Query("UPDATE recipe_batches SET remainingGrams = MIN(cookedYieldGrams, remainingGrams + :grams) WHERE id = :batchId")
     suspend fun restoreBatch(batchId: String, grams: Int)
+
+    @Query(
+        "UPDATE recipe_batches SET remainingGrams = 0 " +
+            "WHERE recipeFoodId = :foodId AND id NOT LIKE 'recipe-template|%'",
+    )
+    suspend fun discardRemainingBatches(foodId: String)
 
     @Upsert
     suspend fun upsertRecipe(recipe: RecipeEntity)

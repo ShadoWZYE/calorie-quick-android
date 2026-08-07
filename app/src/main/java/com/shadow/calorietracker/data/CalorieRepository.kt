@@ -14,6 +14,7 @@ import com.shadow.calorietracker.model.FoodPreparation
 import com.shadow.calorietracker.model.FoodEntry
 import com.shadow.calorietracker.model.FoodProvenance
 import com.shadow.calorietracker.model.FoodSourceType
+import com.shadow.calorietracker.model.CatalogueOrigin
 import com.shadow.calorietracker.model.FormulaSex
 import com.shadow.calorietracker.model.GoalType
 import com.shadow.calorietracker.model.LocalizedText
@@ -127,7 +128,9 @@ class CalorieRepository(
                 activeBatch?.let { ingredientsFor(it.id) }.orEmpty()
             }
             if (activeIngredients.isEmpty()) return@mapNotNull null
-            val batchHistory = batchesByRecipe[recipe.foodId].orEmpty().mapNotNull { recipeBatch ->
+            val batchHistory = batchesByRecipe[recipe.foodId].orEmpty()
+                .filterNot { it.id.startsWith(RECIPE_TEMPLATE_BATCH_PREFIX) }
+                .mapNotNull { recipeBatch ->
                 val batchIngredients = ingredientsFor(recipeBatch.id)
                 if (batchIngredients.isEmpty()) return@mapNotNull null
                 RecipeBatchSummary(
@@ -228,6 +231,7 @@ class CalorieRepository(
                     imageAttribution = draft.image?.attribution,
                     imageLicense = draft.image?.license,
                     reviewStatus = draft.reviewStatus.name,
+                    categoryKey = draft.categoryKey,
                 ),
             )
             database.foodDao().deleteNutrients(foodId)
@@ -523,6 +527,10 @@ class CalorieRepository(
         database.foodDao().archivePersonalFood(foodId, System.currentTimeMillis())
     }
 
+    suspend fun discardRecipeLeftovers(foodId: String) {
+        database.recipeDao().discardRemainingBatches(foodId)
+    }
+
     suspend fun addEntry(
         food: Food,
         amount: Double,
@@ -530,6 +538,9 @@ class CalorieRepository(
         recipeBatchId: String? = null,
         consumedAtEpochMillis: Long = System.currentTimeMillis(),
     ) {
+        if (food.provenance.type == FoodSourceType.OPEN_FOOD_FACTS) {
+            upsertDiscoveredFoods(listOf(food))
+        }
         val grams = (amount * (serving?.grams ?: 1.0)).roundToInt().coerceIn(1, 5_000)
         val interactionAt = System.currentTimeMillis()
         val amountMilliUnits = (amount * 1_000).roundToInt().toLong()
@@ -715,6 +726,15 @@ private fun FoodWithServings.toModel() = Food(
         sourceId = food.sourceId,
         importedAtEpochMillis = food.importedAtEpochMillis,
         locallyModified = food.importedAtEpochMillis?.let { food.updatedAtEpochMillis > it } == true,
+        catalogueOrigin = when {
+            food.sourceId?.contains(":OPT_IN:") == true && food.sourceId.startsWith("cq-") -> CatalogueOrigin.OPT_IN
+            food.sourceId?.contains(":OPEN_FOOD_FACTS:") == true && food.sourceId.startsWith("cq-") -> CatalogueOrigin.OPEN_FOOD_FACTS
+            food.sourceType == FoodSourceType.BUILT_IN.name -> CatalogueOrigin.CALORIE_QUICK
+            food.sourceType == FoodSourceType.OPEN_FOOD_FACTS.name -> CatalogueOrigin.OPEN_FOOD_FACTS
+            else -> null
+        },
+        verified = food.sourceId?.startsWith("cq-verified:") == true ||
+            (food.sourceType == FoodSourceType.BUILT_IN.name && food.sourceId?.startsWith("cq-promoted:") != true),
     ),
     image = food.toImage(),
     reviewStatus = runCatching { ReviewStatus.valueOf(food.reviewStatus) }.getOrDefault(ReviewStatus.PRIVATE),

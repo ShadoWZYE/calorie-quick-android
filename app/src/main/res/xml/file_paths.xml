@@ -3,4 +3,10 @@
     <cache-path
         name="label_images"
         path="label-captures/" />
+    <cache-path
+        name="food_photo_edits"
+        path="food-photo-edits/" />
+    <files-path
+        name="food_images"
+        path="food-images/" />
 </paths>

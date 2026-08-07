@@ -5,12 +5,18 @@ import com.shadow.calorietracker.model.AllergenDeclaration
 import com.shadow.calorietracker.model.FoodSourceType
 import org.json.JSONObject
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class OpenFoodFactsClientTest {
+    @Test
+    fun `pagination follows API totals instead of usable parsed product count`() {
+        assertTrue(OpenFoodFactsClient.hasMoreSearchResults(page = 1, totalCount = 87, rawProductCount = 4))
+        assertEquals(false, OpenFoodFactsClient.hasMoreSearchResults(page = 9, totalCount = 87, rawProductCount = 7))
+        assertTrue(OpenFoodFactsClient.hasMoreSearchResults(page = 1, totalCount = -1, rawProductCount = 10))
+    }
+
     @Test
     fun `complete product is normalized for editor review`() {
         val food = requireNotNull(
@@ -43,6 +49,7 @@ class OpenFoodFactsClientTest {
 
         assertEquals("off-3017620422003", food.id)
         assertEquals("Cremă de alune", food.names.ro)
+        assertEquals("Example Brand · 400 g", food.details.en)
         assertEquals(539, food.nutritionPer100g.calories)
         assertEquals(3.4, food.nutritionPer100g.fiberGrams!!, 0.001)
         assertTrue(food.isPackaged)
@@ -58,14 +65,16 @@ class OpenFoodFactsClientTest {
     }
 
     @Test
-    fun `millilitre package is not silently converted to grams`() {
+    fun `millilitre package gets practical bottle and volume measures`() {
         val food = requireNotNull(
             OpenFoodFactsClient.parseProduct(
                 JSONObject(
                     """
                     {
                       "code": "12345678",
-                      "product_name": "Drink",
+                      "product_name": "Schweppes 0.5",
+                      "brands": "Schweppes",
+                      "quantity": "330 ml",
                       "product_quantity": 330,
                       "product_quantity_unit": "ml",
                       "serving_quantity": 100,
@@ -82,8 +91,13 @@ class OpenFoodFactsClientTest {
             ),
         )
 
-        assertFalse(food.isPackaged)
-        assertTrue(food.servings.isEmpty())
+        assertTrue(food.isPackaged)
+        assertEquals(330.0, food.servings.first { it.isPackage }.grams, 0.001)
+        assertEquals("1 bottle", food.servings.first { it.isPackage }.label.en)
+        assertEquals("Schweppes · 330 ml", food.details.en)
+        assertEquals(1.0, food.servings.first { it.label.en == "1 ml" }.grams, 0.001)
+        assertEquals(listOf(100.0, 250.0), food.servings.first { it.label.en == "1 ml" }.suggestedAmounts)
+        assertEquals("beverages", food.categoryKey)
     }
 
     @Test

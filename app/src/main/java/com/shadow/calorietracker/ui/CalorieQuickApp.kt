@@ -1,13 +1,17 @@
 package com.shadow.calorietracker.ui
 
 import android.app.Activity
+import android.content.Intent
 import android.net.Uri
+import android.os.SystemClock
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
+import android.graphics.Matrix
 import android.content.Context
 import android.util.LruCache
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatDelegate
+import androidx.exifinterface.media.ExifInterface
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.LocalActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -40,7 +44,12 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.text.KeyboardActions
@@ -68,8 +77,10 @@ import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.RestaurantMenu
 import androidx.compose.material.icons.filled.ChatBubbleOutline
+import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.ReportProblem
 import androidx.compose.material3.Button
+import androidx.compose.material3.BottomSheetDefaults
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -97,16 +108,25 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.drawscope.clipRect
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.input.pointer.PointerEventPass
+import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.layout.boundsInRoot
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalLocale
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.painterResource
@@ -115,6 +135,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -133,9 +154,12 @@ import com.shadow.calorietracker.model.BodyLengthUnit
 import com.shadow.calorietracker.model.Allergen
 import com.shadow.calorietracker.model.AllergenDeclaration
 import com.shadow.calorietracker.model.CommonMeasure
+import com.shadow.calorietracker.model.CatalogueOrigin
 import com.shadow.calorietracker.model.EnergyEstimator
 import com.shadow.calorietracker.model.Food
 import com.shadow.calorietracker.model.FoodEntry
+import com.shadow.calorietracker.model.FoodImage
+import com.shadow.calorietracker.model.FoodImageSource
 import com.shadow.calorietracker.model.FoodPreparation
 import com.shadow.calorietracker.model.FoodProvenance
 import com.shadow.calorietracker.model.FoodSourceType
@@ -160,6 +184,8 @@ import com.shadow.calorietracker.model.TargetMode
 import com.shadow.calorietracker.model.UnitUsage
 import com.shadow.calorietracker.model.UserProfile
 import com.shadow.calorietracker.model.projectedMacroOverages
+import com.shadow.calorietracker.model.isGloballyIdentifyingBarcode
+import com.shadow.calorietracker.model.normalizedFoodIdentity
 import com.shadow.calorietracker.model.toRecipeIngredient
 import com.shadow.calorietracker.data.GRAMS_UNIT_KEY
 import com.shadow.calorietracker.data.NutritionLabelPrefill
@@ -168,6 +194,7 @@ import com.shadow.calorietracker.data.NutritionLabelWarning
 import com.shadow.calorietracker.data.BodyScalePrefill
 import com.shadow.calorietracker.data.BodyScaleWarning
 import com.shadow.calorietracker.data.FeedbackMessage
+import com.shadow.calorietracker.data.UiPerformanceContext
 import com.google.mlkit.vision.barcode.common.Barcode
 import com.google.mlkit.vision.codescanner.GmsBarcodeScannerOptions
 import com.google.mlkit.vision.codescanner.GmsBarcodeScanning
@@ -177,7 +204,9 @@ import com.google.mlkit.vision.documentscanner.GmsDocumentScanningResult
 import java.text.DateFormat
 import java.text.NumberFormat
 import java.io.File
+import java.net.URI
 import java.util.Locale
+import java.util.concurrent.Semaphore
 import java.util.Date
 import java.time.Instant
 import java.time.LocalDate
@@ -191,6 +220,7 @@ import kotlin.math.roundToInt
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.launch
 
 enum class AppScreen {
     TODAY, HISTORY, PROGRESS, SETTINGS, FEEDBACK, WHATS_NEW, FOOD_EDITOR, RECIPE_EDITOR,
@@ -206,6 +236,7 @@ fun appBackDestination(screen: AppScreen): AppScreen? = when (screen) {
 
 private const val RELEASE_NOTES_PREFERENCES = "release-notes"
 private const val LAST_SEEN_RELEASE_VERSION_CODE = "last-seen-version-code"
+private const val SEARCH_PAGE_SIZE = 10
 
 private data class ExportSelection(
     val foodIds: Set<String>,
@@ -219,6 +250,7 @@ private data class ExportSelection(
 @Composable
 fun CalorieQuickApp(viewModel: CalorieViewModel = viewModel()) {
     val context = LocalContext.current
+    val activity = LocalActivity.current
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val lookupState by viewModel.foodLookupState.collectAsStateWithLifecycle()
     val nutritionLabelScanState by viewModel.nutritionLabelScanState.collectAsStateWithLifecycle()
@@ -229,6 +261,9 @@ fun CalorieQuickApp(viewModel: CalorieViewModel = viewModel()) {
     val feedbackMessages by viewModel.feedbackMessages.collectAsStateWithLifecycle()
     val profile = state.profile
     var screenName by rememberSaveable { mutableStateOf(AppScreen.TODAY.name) }
+    LaunchedEffect(screenName) {
+        UiPerformanceContext.currentScreen = screenName
+    }
     var editingFood by remember { mutableStateOf<Food?>(null) }
     var creatingFoodVariant by rememberSaveable { mutableStateOf(false) }
     var newFoodName by rememberSaveable { mutableStateOf("") }
@@ -238,9 +273,13 @@ fun CalorieQuickApp(viewModel: CalorieViewModel = viewModel()) {
     var recipeSeedFood by remember { mutableStateOf<Food?>(null) }
     var recipeEditorMode by rememberSaveable { mutableStateOf(RecipeEditorMode.EDIT_TEMPLATE.name) }
     var showReleaseSummary by rememberSaveable { mutableStateOf(false) }
+    var nutritionScanStartedFromEditor by rememberSaveable { mutableStateOf(false) }
+    var todayBackPressCount by remember { mutableStateOf(0) }
+    var lastTodayBackPressAt by remember { mutableStateOf(0L) }
 
     LaunchedEffect(state.loaded, profile?.onboardingComplete) {
         if (!state.loaded) return@LaunchedEffect
+        if (BuildConfig.BUILD_CHANNEL != "stable") return@LaunchedEffect
         val preferences = context.getSharedPreferences(RELEASE_NOTES_PREFERENCES, Context.MODE_PRIVATE)
         val lastSeen = preferences.getInt(LAST_SEEN_RELEASE_VERSION_CODE, -1)
         if (lastSeen < 0) {
@@ -277,6 +316,7 @@ fun CalorieQuickApp(viewModel: CalorieViewModel = viewModel()) {
                 viewModel.clearNutritionLabelScan()
                 editingFood = null
                 nutritionLabelPrefill = null
+                nutritionScanStartedFromEditor = false
             }
             AppScreen.RECIPE_EDITOR -> {
                 editingRecipe = null
@@ -286,14 +326,27 @@ fun CalorieQuickApp(viewModel: CalorieViewModel = viewModel()) {
         }
         appBackDestination(currentScreen)?.let { screenName = it.name }
     }
+    BackHandler(enabled = screenName == AppScreen.TODAY.name && profile?.onboardingComplete == true) {
+        val now = SystemClock.elapsedRealtime()
+        todayBackPressCount = if (now - lastTodayBackPressAt <= 2_000L) todayBackPressCount + 1 else 1
+        lastTodayBackPressAt = now
+        when (todayBackPressCount) {
+            1 -> Toast.makeText(context, R.string.back_twice_more_to_exit, Toast.LENGTH_SHORT).show()
+            2 -> Toast.makeText(context, R.string.back_once_more_to_exit, Toast.LENGTH_SHORT).show()
+            else -> activity?.finish()
+        }
+    }
 
     LaunchedEffect(nutritionLabelScanState.status, nutritionLabelScanState.prefill) {
         if (nutritionLabelScanState.status == NutritionLabelScanStatus.SUCCESS) {
             nutritionLabelScanState.prefill?.let { prefill ->
-                editingFood = null
                 nutritionLabelPrefill = prefill
-                newFoodName = prefill.suggestedName
-                newFoodBarcode = prefill.barcode.orEmpty()
+                if (!nutritionScanStartedFromEditor) {
+                    editingFood = null
+                    newFoodName = prefill.suggestedName
+                    newFoodBarcode = prefill.barcode.orEmpty()
+                }
+                nutritionScanStartedFromEditor = false
                 screenName = AppScreen.FOOD_EDITOR.name
             }
         }
@@ -369,6 +422,7 @@ fun CalorieQuickApp(viewModel: CalorieViewModel = viewModel()) {
             existingFoods = state.foods,
             onBack = {
                 viewModel.clearNutritionLabelScan()
+                nutritionScanStartedFromEditor = false
                 screenName = AppScreen.TODAY.name
             },
             onSave = {
@@ -382,6 +436,10 @@ fun CalorieQuickApp(viewModel: CalorieViewModel = viewModel()) {
                 screenName = AppScreen.TODAY.name
             },
             onFlagScan = viewModel::flagNutritionLabelScanForSupport,
+            onScanNutritionLabel = { uri, suggestedName ->
+                nutritionScanStartedFromEditor = true
+                viewModel.scanNutritionLabel(uri, suggestedName)
+            },
             onOpenExistingFood = {
                 viewModel.clearNutritionLabelScan()
                 editingFood = it
@@ -395,6 +453,7 @@ fun CalorieQuickApp(viewModel: CalorieViewModel = viewModel()) {
             initial = editingRecipe,
             initialFood = editingRecipe?.let { recipe -> state.foods.firstOrNull { it.id == recipe.foodId } },
             seedFood = recipeSeedFood,
+            seedRecipe = recipeSeedFood?.let { state.recipes[it.id] },
             mode = RecipeEditorMode.valueOf(recipeEditorMode),
             foods = state.foods,
             ingredientUsage = state.ingredientUsage,
@@ -427,6 +486,7 @@ fun CalorieQuickApp(viewModel: CalorieViewModel = viewModel()) {
             },
             onDelete = viewModel::deleteEntry,
             onUpdate = viewModel::updateEntry,
+            onDiscardRecipeLeftovers = viewModel::discardRecipeLeftovers,
             onCreateFood = {
                 editingFood = null
                 creatingFoodVariant = false
@@ -482,6 +542,7 @@ fun CalorieQuickApp(viewModel: CalorieViewModel = viewModel()) {
             lookupState = lookupState,
             nutritionLabelScanState = nutritionLabelScanState,
             onSearchGlobal = viewModel::searchOpenFoodFacts,
+            onLoadMoreGlobal = viewModel::loadMoreOpenFoodFacts,
             onLookupBarcode = viewModel::lookupBarcode,
             onClearLookup = viewModel::clearFoodLookup,
             onScanNutritionLabel = viewModel::scanNutritionLabel,
@@ -602,9 +663,10 @@ private fun SettingsScreen(
         onOpenWhatsNew = onOpenWhatsNew,
     )
     if (showExportReview) {
+        val activeFoodIds = foods.mapTo(mutableSetOf(), Food::id)
         ExportReviewDialog(
             foods = foods.filter { it.isPersonal && it.provenance.type != FoodSourceType.RECIPE },
-            recipes = recipes,
+            recipes = recipes.filter { it.foodId in activeFoodIds },
             recipeFoods = foods.associateBy(Food::id),
             diagnosticCount = supportExportState.savedDiagnosticCount + supportExportState.savedPerformanceCount +
                 supportExportState.savedProductIssueCount,
@@ -977,42 +1039,48 @@ private fun PersonalFoodEditorScreen(
     onSave: (PersonalFoodDraft) -> Unit,
     onArchive: (String) -> Unit,
     onFlagScan: () -> Unit,
+    onScanNutritionLabel: (Uri, String) -> Unit,
     onOpenExistingFood: (Food) -> Unit,
 ) {
     val context = LocalContext.current
     val activity = LocalActivity.current
+    val focusManager = LocalFocusManager.current
     val locale = LocalLocale.current.platformLocale
     val variantName = initial?.let { stringResource(R.string.personal_variant_name, it.name(locale)) }.orEmpty()
+    val inheritedImage = remember(initial?.id) { initial?.inheritableImage(context) }
     val initialPackageMeasure = initial?.takeIf(Food::isPackaged)?.servings?.firstOrNull(Serving::isPackage)
-    var name by rememberSaveable(initial?.id, isTemplateCopy, initialName, nutritionLabelPrefill) {
+    var name by rememberSaveable(initial?.id, isTemplateCopy, initialName) {
         mutableStateOf(
             if (isTemplateCopy) variantName
             else initial?.name(locale) ?: nutritionLabelPrefill?.suggestedName ?: initialName,
         )
     }
     var brand by rememberSaveable(initial?.id) { mutableStateOf(initial?.brand.orEmpty()) }
-    var barcode by rememberSaveable(initial?.id, isTemplateCopy, initialBarcode, nutritionLabelPrefill) {
+    var barcode by rememberSaveable(initial?.id, isTemplateCopy, initialBarcode) {
         mutableStateOf(if (isTemplateCopy) "" else initial?.barcode ?: nutritionLabelPrefill?.barcode ?: initialBarcode)
     }
-    var calories by rememberSaveable(initial?.id, nutritionLabelPrefill) {
+    var calories by rememberSaveable(initial?.id) {
         mutableStateOf(initial?.nutritionPer100g?.calories?.toString() ?: nutritionLabelPrefill?.caloriesPer100g?.toString().orEmpty())
     }
-    var protein by rememberSaveable(initial?.id, nutritionLabelPrefill) {
+    var protein by rememberSaveable(initial?.id) {
         mutableStateOf(initial?.nutritionPer100g?.proteinGrams?.editableValue() ?: nutritionLabelPrefill?.proteinPer100g?.editableValue().orEmpty())
     }
-    var carbs by rememberSaveable(initial?.id, nutritionLabelPrefill) {
+    var carbs by rememberSaveable(initial?.id) {
         mutableStateOf(initial?.nutritionPer100g?.carbsGrams?.editableValue() ?: nutritionLabelPrefill?.carbsPer100g?.editableValue().orEmpty())
     }
-    var fat by rememberSaveable(initial?.id, nutritionLabelPrefill) {
+    var fat by rememberSaveable(initial?.id) {
         mutableStateOf(initial?.nutritionPer100g?.fatGrams?.editableValue() ?: nutritionLabelPrefill?.fatPer100g?.editableValue().orEmpty())
     }
-    var fiber by rememberSaveable(initial?.id, nutritionLabelPrefill) {
+    var fiber by rememberSaveable(initial?.id) {
         mutableStateOf(initial?.nutritionPer100g?.fiberGrams?.editableValue() ?: nutritionLabelPrefill?.fiberPer100g?.editableValue().orEmpty())
     }
-    var allergens by remember(initial?.id, nutritionLabelPrefill) {
+    var categoryKey by rememberSaveable(initial?.id, isTemplateCopy) {
+        mutableStateOf(initial?.categoryKey)
+    }
+    var allergens by remember(initial?.id) {
         mutableStateOf(initial?.allergens ?: nutritionLabelPrefill?.allergens.orEmpty())
     }
-    var measures by remember(initial?.id, nutritionLabelPrefill) {
+    var measures by remember(initial?.id) {
         val existingMeasures =
             initial?.servings.orEmpty().filterNot { it.id == initialPackageMeasure?.id }.map {
                 PersonalMeasure(it.id.takeUnless { isTemplateCopy }, it.label, it.grams.roundToInt(), it.suggestedAmounts)
@@ -1031,17 +1099,17 @@ private fun PersonalFoodEditorScreen(
             },
         )
     }
-    var isPackaged by rememberSaveable(initial?.id, nutritionLabelPrefill) {
+    var isPackaged by rememberSaveable(initial?.id) {
         mutableStateOf(initial?.isPackaged == true || nutritionLabelPrefill?.packageGrams != null)
     }
-    var packageLabel by rememberSaveable(initial?.id, nutritionLabelPrefill) {
+    var packageLabel by rememberSaveable(initial?.id) {
         mutableStateOf(
             initialPackageMeasure?.label?.en?.removePrefix("1 ")
                 ?: if (nutritionLabelPrefill?.basisUnit == NutritionBasisUnit.MILLILITERS) "bottle" else "package",
         )
     }
-    var packageWeight by rememberSaveable(initial?.id, nutritionLabelPrefill) {
-        mutableStateOf(initialPackageMeasure?.grams?.toString() ?: nutritionLabelPrefill?.packageGrams?.toString().orEmpty())
+    var packageWeight by rememberSaveable(initial?.id) {
+        mutableStateOf(initialPackageMeasure?.grams?.editableValue() ?: nutritionLabelPrefill?.packageGrams?.toString().orEmpty())
     }
     var packageFractions by remember(initial?.id) {
         mutableStateOf(initialPackageMeasure?.suggestedAmounts?.toSet() ?: setOf(0.5, 0.25))
@@ -1052,9 +1120,41 @@ private fun PersonalFoodEditorScreen(
     var confirmArchive by remember { mutableStateOf(false) }
     var pendingImageUri by rememberSaveable(initial?.id) { mutableStateOf<String?>(null) }
     var pendingFoodCameraUri by rememberSaveable(initial?.id) { mutableStateOf<String?>(null) }
+    var cropImageSource by rememberSaveable(initial?.id) { mutableStateOf<String?>(null) }
+    var pendingNutritionCameraUri by rememberSaveable(initial?.id) { mutableStateOf<String?>(null) }
+    var showNutritionLabelSource by rememberSaveable(initial?.id) { mutableStateOf(false) }
     var keepExistingImage by rememberSaveable(initial?.id) { mutableStateOf(true) }
     var shareForReview by rememberSaveable(initial?.id) {
         mutableStateOf(initial?.reviewStatus == ReviewStatus.READY_FOR_REVIEW)
+    }
+    LaunchedEffect(nutritionLabelPrefill) {
+        nutritionLabelPrefill?.let { prefill ->
+            if (name.isBlank() && prefill.suggestedName.isNotBlank()) name = prefill.suggestedName
+            if (barcode.isBlank() && !prefill.barcode.isNullOrBlank()) barcode = prefill.barcode
+            prefill.caloriesPer100g?.let { calories = it.toString() }
+            prefill.proteinPer100g?.let { protein = it.editableValue() }
+            prefill.carbsPer100g?.let { carbs = it.editableValue() }
+            prefill.fatPer100g?.let { fat = it.editableValue() }
+            prefill.fiberPer100g?.let { fiber = it.editableValue() }
+            allergens = allergens + prefill.allergens
+            if (
+                prefill.basisUnit == NutritionBasisUnit.MILLILITERS &&
+                measures.none { it.label.en.removePrefix("1 ").equals("ml", ignoreCase = true) }
+            ) {
+                measures = measures + PersonalMeasure(
+                    label = LocalizedText("ml", "ml"),
+                    grams = 1,
+                    suggestedAmounts = listOf(100.0, 250.0),
+                )
+            }
+            prefill.packageGrams?.let { packageAmount ->
+                isPackaged = true
+                packageWeight = packageAmount.toString()
+                if (packageLabel.isBlank() || packageLabel in setOf("package", "ambalaj")) {
+                    packageLabel = if (prefill.basisUnit == NutritionBasisUnit.MILLILITERS) "bottle" else "package"
+                }
+            }
+        }
     }
     val imagePicker = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
         if (uri != null) {
@@ -1067,6 +1167,19 @@ private fun PersonalFoodEditorScreen(
             pendingImageUri = uri.toString()
             keepExistingImage = true
         }
+    }
+    val nutritionLabelPhotoPicker = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
+        uri?.let { onScanNutritionLabel(it, name.trim()) }
+    }
+    val nutritionLabelFilePicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        uri?.let { onScanNutritionLabel(it, name.trim()) }
+    }
+    val nutritionLabelCamera = rememberLauncherForActivityResult(ActivityResultContracts.TakePicture()) { captured ->
+        pendingNutritionCameraUri?.let(Uri::parse)?.let { uri ->
+            if (captured) onScanNutritionLabel(uri, name.trim())
+            else runCatching { context.contentResolver.delete(uri, null, null) }
+        }
+        pendingNutritionCameraUri = null
     }
     val foodCamera = rememberLauncherForActivityResult(ActivityResultContracts.TakePicture()) { captured ->
         pendingFoodCameraUri?.let(Uri::parse)?.let { uri ->
@@ -1093,6 +1206,17 @@ private fun PersonalFoodEditorScreen(
                 }
         }
     }
+    val preparedNutritionLabelLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.StartIntentSenderForResult(),
+    ) { activityResult ->
+        if (activityResult.resultCode == Activity.RESULT_OK) {
+            GmsDocumentScanningResult.fromActivityResultIntent(activityResult.data)
+                ?.pages
+                ?.firstOrNull()
+                ?.imageUri
+                ?.let { onScanNutritionLabel(it, name.trim()) }
+        }
+    }
     val foodPhotoScanner = remember {
         val options = GmsDocumentScannerOptions.Builder()
             .setGalleryImportAllowed(true)
@@ -1102,7 +1226,37 @@ private fun PersonalFoodEditorScreen(
             .build()
         GmsDocumentScanning.getClient(options)
     }
+    val nutritionLabelDocumentScanner = remember {
+        val options = GmsDocumentScannerOptions.Builder()
+            .setGalleryImportAllowed(true)
+            .setPageLimit(1)
+            .setResultFormats(GmsDocumentScannerOptions.RESULT_FORMAT_JPEG)
+            .setScannerMode(GmsDocumentScannerOptions.SCANNER_MODE_FULL)
+            .build()
+        GmsDocumentScanning.getClient(options)
+    }
+    fun launchPreparedNutritionLabelScanner() {
+        val host = activity
+        if (host == null) {
+            Toast.makeText(context, R.string.label_preparation_unavailable, Toast.LENGTH_LONG).show()
+            return
+        }
+        nutritionLabelDocumentScanner.getStartScanIntent(host)
+            .addOnSuccessListener { sender ->
+                preparedNutritionLabelLauncher.launch(IntentSenderRequest.Builder(sender).build())
+            }
+            .addOnFailureListener {
+                Toast.makeText(context, R.string.label_preparation_unavailable, Toast.LENGTH_LONG).show()
+            }
+    }
     fun launchFoodPhotoPreparation() {
+        val editableSource = pendingImageUri
+            ?: inheritedImage?.localPath?.takeIf { keepExistingImage }
+            ?: inheritedImage?.remoteUrl?.takeIf { keepExistingImage }
+        if (editableSource != null) {
+            cropImageSource = editableSource
+            return
+        }
         val host = activity
         if (host == null) {
             Toast.makeText(context, R.string.label_preparation_unavailable, Toast.LENGTH_LONG).show()
@@ -1116,13 +1270,15 @@ private fun PersonalFoodEditorScreen(
                 Toast.makeText(context, R.string.label_preparation_unavailable, Toast.LENGTH_LONG).show()
             }
     }
-    val shownImage = pendingImageUri ?: initial?.image?.localPath?.takeIf { keepExistingImage }
+    val shownImage = pendingImageUri ?: inheritedImage?.localPath?.takeIf { keepExistingImage }
     val caloriesValue = calories.toIntOrNull()
     val proteinValue = protein.localizedDoubleOrNull()
     val carbsValue = carbs.localizedDoubleOrNull()
     val fatValue = fat.localizedDoubleOrNull()
     val fiberValue = fiber.localizedDoubleOrNull()
-    val packageWeightValue = packageWeight.toIntOrNull()
+    val packageWeightValue = packageWeight.localizedDoubleOrNull()
+        ?.takeIf { it.isFinite() }
+        ?.roundToInt()
     val provenance = if (isTemplateCopy) {
         FoodProvenance(FoodSourceType.PERSONAL, sourceId = initial?.let { "variant-of:${it.id}" })
     } else {
@@ -1145,9 +1301,28 @@ private fun PersonalFoodEditorScreen(
         (fiber.isBlank() || fiberValue != null && fiberValue in 0.0..100.0) &&
         (!isPackaged || packageLabel.isNotBlank() && packageWeightValue in 1..50_000) &&
         barcodeConflict == null
+    val validationIssues = buildList {
+        if (name.isBlank()) add(stringResource(R.string.food_name_required))
+        if (caloriesValue !in 0..5_000) add(stringResource(R.string.calories_invalid))
+        if (
+            proteinValue == null || proteinValue !in 0.0..100.0 ||
+            carbsValue == null || carbsValue !in 0.0..100.0 ||
+            fatValue == null || fatValue !in 0.0..100.0 ||
+            fiber.isNotBlank() && (fiberValue == null || fiberValue !in 0.0..100.0)
+        ) add(stringResource(R.string.nutrition_values_invalid))
+        if (isPackaged && (packageLabel.isBlank() || packageWeightValue !in 1..50_000)) {
+            add(stringResource(R.string.package_details_invalid))
+        }
+        if (barcodeConflict != null) add(stringResource(R.string.barcode_must_be_unique))
+    }
 
     LazyColumn(
-        modifier = Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding().padding(horizontal = 20.dp),
+        modifier = Modifier
+            .fillMaxSize()
+            .pointerInput(Unit) { detectTapGestures { focusManager.clearFocus() } }
+            .statusBarsPadding()
+            .navigationBarsPadding()
+            .padding(horizontal = 20.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
         item {
@@ -1341,7 +1516,46 @@ private fun PersonalFoodEditorScreen(
                 }
             }
         }
+        if (barcode.length >= 2 && barcode.take(2).toIntOrNull() in 20..29) {
+            item {
+                Text(
+                    stringResource(R.string.restricted_barcode_notice),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    fontSize = 12.sp,
+                )
+            }
+        }
+        item { SectionTitle(R.string.food_category, horizontalPadding = 0.dp) }
+        item {
+            FlowRow(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(4.dp),
+            ) {
+                personalFoodCategoryKeys.forEach { category ->
+                    FilterChip(
+                        selected = categoryKey == category,
+                        onClick = { categoryKey = category.takeUnless { it == categoryKey } },
+                        label = { Text(stringResource(category.labelResource())) },
+                    )
+                }
+            }
+        }
         item { SectionTitle(R.string.nutrition_per_100g, horizontalPadding = 0.dp) }
+        item {
+            OutlinedButton(
+                onClick = { showNutritionLabelSource = true },
+                enabled = nutritionLabelScanState.status != NutritionLabelScanStatus.PROCESSING,
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                if (nutritionLabelScanState.status == NutritionLabelScanStatus.PROCESSING) {
+                    CircularProgressIndicator(Modifier.height(18.dp), strokeWidth = 2.dp)
+                } else {
+                    Icon(Icons.Default.DocumentScanner, null)
+                }
+                Text(stringResource(R.string.scan_nutrition_label), Modifier.padding(start = 8.dp))
+            }
+        }
         item {
             NumericField(calories, { calories = it }, R.string.calories, Modifier.fillMaxWidth())
         }
@@ -1368,6 +1582,23 @@ private fun PersonalFoodEditorScreen(
                 Text(stringResource(R.string.prepackaged_explanation), color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             item {
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Text(stringResource(R.string.package_suggestions), fontWeight = FontWeight.SemiBold)
+                    FlowRow(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalArrangement = Arrangement.spacedBy(4.dp),
+                    ) {
+                        packageUnitSuggestions.forEach { suggestion ->
+                            FilterChip(
+                                selected = packageLabel.equals(suggestion.forLocale(locale), ignoreCase = true),
+                                onClick = { packageLabel = suggestion.forLocale(locale) },
+                                label = { Text(suggestion.forLocale(locale)) },
+                            )
+                        }
+                    }
+                }
+            }
+            item {
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                     OutlinedTextField(
                         value = packageLabel,
@@ -1382,6 +1613,7 @@ private fun PersonalFoodEditorScreen(
                         { packageWeight = it },
                         R.string.total_package_weight,
                         Modifier.weight(1f),
+                        decimal = true,
                     )
                 }
             }
@@ -1429,7 +1661,7 @@ private fun PersonalFoodEditorScreen(
                 }
             }
         }
-        items(measures, key = { it.id ?: it.label }) { measure ->
+        items(measures, key = { it.id ?: "${it.label.en}\u0000${it.label.ro}" }) { measure ->
             Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
                 Row(
                     modifier = Modifier.fillMaxWidth().padding(start = 16.dp, top = 8.dp, bottom = 8.dp, end = 6.dp),
@@ -1528,6 +1760,16 @@ private fun PersonalFoodEditorScreen(
                 Text(stringResource(R.string.review_export_opt_in_hint), color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
+        if (validationIssues.isNotEmpty()) {
+            item {
+                Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer)) {
+                    Column(Modifier.fillMaxWidth().padding(12.dp), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                        Text(stringResource(R.string.cannot_save_yet), fontWeight = FontWeight.SemiBold)
+                        validationIssues.forEach { Text("• $it", fontSize = 13.sp) }
+                    }
+                }
+            }
+        }
         item {
             Button(
                 enabled = valid,
@@ -1561,9 +1803,10 @@ private fun PersonalFoodEditorScreen(
                             },
                             isPackaged = isPackaged,
                             provenance = provenance,
-                            image = initial?.image?.takeIf { keepExistingImage },
+                            image = inheritedImage?.takeIf { keepExistingImage },
                             pendingImageUri = pendingImageUri,
                             reviewStatus = if (shareForReview) ReviewStatus.READY_FOR_REVIEW else ReviewStatus.PRIVATE,
+                            categoryKey = categoryKey,
                         ),
                     )
                 },
@@ -1578,6 +1821,48 @@ private fun PersonalFoodEditorScreen(
             }
         }
         item { Spacer(Modifier.height(24.dp)) }
+    }
+
+    if (showNutritionLabelSource) {
+        ImageSourceDialog(
+            title = stringResource(R.string.scan_nutrition_label),
+            explanation = stringResource(R.string.scan_label_explanation),
+            onDismiss = { showNutritionLabelSource = false },
+            onPrepare = {
+                showNutritionLabelSource = false
+                launchPreparedNutritionLabelScanner()
+            },
+            onCamera = {
+                showNutritionLabelSource = false
+                val directory = File(context.cacheDir, "label-captures").apply { mkdirs() }
+                val file = File.createTempFile("nutrition-label-", ".jpg", directory)
+                val uri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
+                pendingNutritionCameraUri = uri.toString()
+                nutritionLabelCamera.launch(uri)
+            },
+            onPhotos = {
+                showNutritionLabelSource = false
+                nutritionLabelPhotoPicker.launch(
+                    PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly),
+                )
+            },
+            onFiles = {
+                showNutritionLabelSource = false
+                nutritionLabelFilePicker.launch(arrayOf("image/*"))
+            },
+        )
+    }
+
+    cropImageSource?.let { source ->
+        FoodPhotoCropDialog(
+            source = source,
+            onDismiss = { cropImageSource = null },
+            onSave = { croppedUri ->
+                pendingImageUri = croppedUri
+                keepExistingImage = true
+                cropImageSource = null
+            },
+        )
     }
 
     if (confirmArchive && initial != null) {
@@ -1599,6 +1884,36 @@ private data class RecipeMethodDefinition(
     val key: String,
     val names: LocalizedText,
     val symbol: String,
+)
+
+private val packageUnitSuggestions = listOf(
+    LocalizedText("package", "ambalaj"),
+    LocalizedText("bottle", "sticlă"),
+    LocalizedText("can", "doză"),
+    LocalizedText("jar", "borcan"),
+    LocalizedText("bag", "pungă"),
+    LocalizedText("box", "cutie"),
+    LocalizedText("bar", "baton"),
+    LocalizedText("packet", "pachet"),
+)
+
+private val personalFoodCategoryKeys = listOf(
+    "fruit",
+    "vegetables",
+    "grains",
+    "bakery",
+    "meat",
+    "fish",
+    "eggs",
+    "legumes",
+    "plant-protein",
+    "dairy",
+    "fats",
+    "pantry",
+    "nuts-seeds",
+    "prepared-meals",
+    "beverages",
+    "other",
 )
 
 private val commonRecipeMethods = listOf(
@@ -1631,7 +1946,18 @@ private fun preferredPreparation(food: Food, usage: List<PreparationUsage>): Foo
     val preparationId = usage.maxWithOrNull(
         compareBy<PreparationUsage> { it.useCount }.thenBy { it.lastUsedAtEpochMillis },
     )?.preparationId ?: food.defaultPreparationId ?: food.preparations.firstOrNull()?.id
+        ?: "recipe-method|raw"
     return options.firstOrNull { it.id == preparationId }
+}
+
+private fun Food.recipeIngredientSearchRank(query: String): Int {
+    val candidate = query.trim()
+    return when {
+        hasExactName(candidate) -> 4
+        names.all().any { it.startsWith(candidate, ignoreCase = true) } -> 3
+        aliases.any { it.startsWith(candidate, ignoreCase = true) } -> 2
+        else -> 1
+    }
 }
 
 @Composable
@@ -1639,6 +1965,7 @@ private fun RecipeEditorScreen(
     initial: RecipeTemplate?,
     initialFood: Food?,
     seedFood: Food?,
+    seedRecipe: RecipeTemplate?,
     mode: RecipeEditorMode,
     foods: List<Food>,
     ingredientUsage: Map<String, Int>,
@@ -1649,6 +1976,7 @@ private fun RecipeEditorScreen(
     onArchive: (String) -> Unit,
 ) {
     val context = LocalContext.current
+    val focusManager = LocalFocusManager.current
     val locale = LocalLocale.current.platformLocale
     val isCooking = mode == RecipeEditorMode.COOK_BATCH
     val seedGrams = (seedFood?.servings?.firstOrNull()?.grams ?: 100.0).roundToInt()
@@ -1657,6 +1985,7 @@ private fun RecipeEditorScreen(
         mutableStateOf(initial?.name ?: seedRecipeName)
     }
     var ingredientQuery by rememberSaveable(initial?.foodId, seedFood?.id, mode) { mutableStateOf("") }
+    var ingredientResultLimit by rememberSaveable(ingredientQuery) { mutableStateOf(SEARCH_PAGE_SIZE) }
     var ingredients by remember(initial?.foodId, seedFood?.id, mode) {
         mutableStateOf(
             initial?.ingredients.orEmpty().map { snapshot ->
@@ -1672,20 +2001,32 @@ private fun RecipeEditorScreen(
                     }
                 } ?: snapshot
             }.ifEmpty {
-                listOfNotNull(seedFood?.let { food ->
-                    food.toRecipeIngredient(
-                        seedGrams,
-                        preferredPreparation(food, preparationUsage[food.id].orEmpty()),
+                when {
+                    seedRecipe != null -> RecipeCalculator.scaleIngredients(
+                        ingredients = seedRecipe.ingredients,
+                        sourceYieldGrams = seedRecipe.cookedYieldGrams,
+                        targetYieldGrams = seedGrams,
                     )
-                })
+                    seedFood != null -> listOf(
+                        seedFood.toRecipeIngredient(
+                            seedGrams,
+                            preferredPreparation(seedFood, preparationUsage[seedFood.id].orEmpty()),
+                        ),
+                    )
+                    else -> emptyList()
+                }
             },
         )
     }
+    val templateIngredients = remember(initial?.foodId, seedFood?.id, mode) { ingredients }
     var cookedYield by rememberSaveable(initial?.foodId, seedFood?.id, mode) {
         mutableStateOf(initial?.cookedYieldGrams?.toString() ?: seedFood?.let { seedGrams.toString() }.orEmpty())
     }
     var portionCount by rememberSaveable(initial?.foodId, seedFood?.id, mode) {
         mutableStateOf(initial?.portionCount?.toString() ?: if (seedFood != null) "1" else "4")
+    }
+    var ingredientsExpanded by rememberSaveable(initial?.foodId, seedFood?.id, mode) {
+        mutableStateOf(!isCooking)
     }
     var yieldManuallyEdited by rememberSaveable(initial?.foodId, mode) { mutableStateOf(initial != null) }
     var confirmArchive by remember { mutableStateOf(false) }
@@ -1718,9 +2059,10 @@ private fun RecipeEditorScreen(
         }
         pendingCameraUri = null
     }
+    val inheritedRecipeImage = initialFood?.image ?: seedFood?.inheritableImage(context)
     val shownRecipeImage = pendingImageUri
-        ?: initialFood?.image?.localPath?.takeIf { keepExistingImage }
-        ?: initialFood?.image?.remoteUrl?.takeIf { keepExistingImage }
+        ?: inheritedRecipeImage?.localPath?.takeIf { keepExistingImage }
+        ?: inheritedRecipeImage?.remoteUrl?.takeIf { keepExistingImage }
     val cookedYieldValue = cookedYield.toIntOrNull()
     val portionCountValue = portionCount.toIntOrNull()
     val rawIngredientWeight = ingredients.sumOf(RecipeIngredientDraft::grams)
@@ -1742,7 +2084,11 @@ private fun RecipeEditorScreen(
             .toList()
     } else {
         ingredientCandidates.filter { it.matches(ingredientQuery) }
-            .sortedWith(compareByDescending<Food> { ingredientUsage[it.id].orZero() }.thenBy { it.names.en })
+            .sortedWith(
+                compareByDescending<Food> { it.recipeIngredientSearchRank(ingredientQuery) }
+                    .thenByDescending { ingredientUsage[it.id].orZero() }
+                    .thenBy { it.names.en },
+            )
             .take(6)
             .toList()
     }
@@ -1756,7 +2102,12 @@ private fun RecipeEditorScreen(
     }
 
     LazyColumn(
-        modifier = Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding().padding(horizontal = 20.dp),
+        modifier = Modifier
+            .fillMaxSize()
+            .pointerInput(focusManager) { detectTapGestures { focusManager.clearFocus() } }
+            .statusBarsPadding()
+            .navigationBarsPadding()
+            .padding(horizontal = 20.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp),
     ) {
         item {
@@ -1806,9 +2157,17 @@ private fun RecipeEditorScreen(
                                 )
                             }
                         }
-                        shownRecipeImage?.let { source ->
-                            FoodImagePreview(
-                                source = source,
+                        when {
+                            shownRecipeImage != null -> FoodImagePreview(
+                                source = shownRecipeImage,
+                                modifier = Modifier.fillMaxWidth().height(180.dp).clip(RoundedCornerShape(14.dp)),
+                            )
+                            keepExistingImage && initialFood != null -> FoodVisual(
+                                food = initialFood,
+                                modifier = Modifier.fillMaxWidth().height(180.dp).clip(RoundedCornerShape(14.dp)),
+                            )
+                            keepExistingImage && seedFood != null -> FoodVisual(
+                                food = seedFood,
                                 modifier = Modifier.fillMaxWidth().height(180.dp).clip(RoundedCornerShape(14.dp)),
                             )
                         }
@@ -1835,7 +2194,7 @@ private fun RecipeEditorScreen(
                                 Text(stringResource(R.string.browse_image_files))
                             }
                         }
-                        if (shownRecipeImage != null) {
+                        if (shownRecipeImage != null || keepExistingImage && (initialFood != null || seedFood != null)) {
                             TextButton(onClick = {
                                 pendingImageUri = null
                                 keepExistingImage = false
@@ -1855,11 +2214,48 @@ private fun RecipeEditorScreen(
                 enabled = !isCooking,
             )
         }
-        item { SectionTitle(R.string.ingredients, horizontalPadding = 0.dp) }
         item {
+            if (isCooking) {
+                OutlinedButton(
+                    onClick = { ingredientsExpanded = !ingredientsExpanded },
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Text(
+                        stringResource(
+                            if (ingredientsExpanded) R.string.collapse_batch_ingredients
+                            else R.string.expand_batch_ingredients,
+                        ),
+                        Modifier.weight(1f),
+                    )
+                    Icon(
+                        if (ingredientsExpanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
+                        stringResource(
+                            if (ingredientsExpanded) R.string.collapse_batch_ingredients
+                            else R.string.expand_batch_ingredients,
+                        ),
+                    )
+                }
+            } else {
+                SectionTitle(R.string.ingredients, horizontalPadding = 0.dp)
+            }
+        }
+        if (isCooking && !ingredientsExpanded) item {
+            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                ingredients.forEach { ingredient ->
+                    Text(
+                        "• ${ingredient.foodName.forLocale(locale)} · ${ingredient.grams} ${stringResource(R.string.grams_short)}",
+                        fontSize = 13.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
+            }
+        }
+        if (ingredientsExpanded) item {
             Text(stringResource(R.string.recipe_ingredient_hint), color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
-        item {
+        if (ingredientsExpanded) item {
             OutlinedTextField(
                 value = ingredientQuery,
                 onValueChange = { ingredientQuery = it },
@@ -1878,7 +2274,7 @@ private fun RecipeEditorScreen(
                 singleLine = true,
             )
         }
-        if (ingredientQuery.isBlank() && searchResults.isNotEmpty()) {
+        if (ingredientsExpanded && ingredientQuery.isBlank() && searchResults.isNotEmpty()) {
             item {
                 Text(
                     stringResource(R.string.frequent_ingredients),
@@ -1887,20 +2283,24 @@ private fun RecipeEditorScreen(
                 )
             }
         }
-        items(searchResults, key = { "recipe-search-${it.id}" }) { food ->
+        if (ingredientsExpanded) items(searchResults.take(ingredientResultLimit), key = { "recipe-search-${it.id}" }) { food ->
             Card(
                 onClick = {
-                    val selectedPreparation = preferredPreparation(
-                        food,
-                        preparationUsage[food.id].orEmpty(),
-                    )
-                    updateIngredients(
-                        ingredients + food.toRecipeIngredient(
-                            (food.servings.firstOrNull()?.grams ?: 100.0).roundToInt(),
-                            selectedPreparation,
-                        ),
-                    )
-                    ingredientQuery = ""
+                    // A fast typist can tap while Compose is replacing results from the
+                    // previous query. Ignore that stale card instead of adding the wrong food.
+                    if (ingredientQuery.isBlank() || food.matches(ingredientQuery)) {
+                        val selectedPreparation = preferredPreparation(
+                            food,
+                            preparationUsage[food.id].orEmpty(),
+                        )
+                        updateIngredients(
+                            ingredients + food.toRecipeIngredient(
+                                (food.servings.firstOrNull()?.grams ?: 100.0).roundToInt(),
+                                selectedPreparation,
+                            ),
+                        )
+                        ingredientQuery = ""
+                    }
                 },
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer),
             ) {
@@ -1932,10 +2332,10 @@ private fun RecipeEditorScreen(
                 }
             }
         }
-        if (ingredientQuery.isNotBlank() && searchResults.isEmpty()) {
+        if (ingredientsExpanded && ingredientQuery.isNotBlank() && searchResults.isEmpty()) {
             item { Text(stringResource(R.string.no_saved_ingredient), color = MaterialTheme.colorScheme.onSurfaceVariant) }
         }
-        items(ingredients, key = { "recipe-ingredient-${it.foodId}" }) { ingredient ->
+        if (ingredientsExpanded) items(ingredients, key = { "recipe-ingredient-${it.foodId}" }) { ingredient ->
             val ingredientFood = foods.firstOrNull { it.id == ingredient.foodId }
             RecipeIngredientRow(
                 ingredient = ingredient,
@@ -1964,12 +2364,19 @@ private fun RecipeEditorScreen(
                 onRemove = { updateIngredients(ingredients - ingredient) },
             )
         }
-        if (ingredients.isEmpty()) {
+        if (ingredientsExpanded && ingredients.isEmpty()) {
             item { Text(stringResource(R.string.no_recipe_ingredients), color = MaterialTheme.colorScheme.onSurfaceVariant) }
         }
         item { SectionTitle(R.string.batch_yield, horizontalPadding = 0.dp) }
         item {
             Text(stringResource(R.string.batch_yield_explanation), color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+        if (isCooking) item {
+            Text(
+                stringResource(R.string.batch_yield_recalculation_hint),
+                color = MaterialTheme.colorScheme.primary,
+                fontSize = 13.sp,
+            )
         }
         item {
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -1978,6 +2385,15 @@ private fun RecipeEditorScreen(
                     {
                         cookedYield = it
                         yieldManuallyEdited = true
+                        val targetYield = it.toIntOrNull()
+                        val sourceYield = initial?.cookedYieldGrams
+                        if (isCooking && targetYield != null && targetYield > 0 && sourceYield != null && sourceYield > 0) {
+                            ingredients = RecipeCalculator.scaleIngredients(
+                                templateIngredients,
+                                sourceYieldGrams = sourceYield,
+                                targetYieldGrams = targetYield,
+                            )
+                        }
                     },
                     R.string.finished_weight_g,
                     Modifier.weight(1f),
@@ -2045,6 +2461,14 @@ private fun RecipeEditorScreen(
                 }
             }
         }
+        if (ingredientsExpanded && searchResults.size > ingredientResultLimit) {
+            item {
+                OutlinedButton(
+                    onClick = { ingredientResultLimit += SEARCH_PAGE_SIZE },
+                    modifier = Modifier.fillMaxWidth(),
+                ) { Text(stringResource(R.string.load_more)) }
+            }
+        }
         item {
             Button(
                 enabled = valid,
@@ -2055,7 +2479,7 @@ private fun RecipeEditorScreen(
                         ingredients = ingredients,
                         cookedYieldGrams = requireNotNull(cookedYieldValue),
                         portionCount = requireNotNull(portionCountValue),
-                        image = initialFood?.image?.takeIf { keepExistingImage },
+                        image = inheritedRecipeImage?.takeIf { keepExistingImage },
                         pendingImageUri = pendingImageUri,
                         reviewStatus = if (shareForReview) ReviewStatus.READY_FOR_REVIEW else ReviewStatus.PRIVATE,
                     )
@@ -2102,8 +2526,20 @@ private fun RecipeEditorScreen(
         }
         if (!isCooking && initial != null) {
             item {
-                OutlinedButton(onClick = { confirmArchive = true }, modifier = Modifier.fillMaxWidth()) {
+                val hasLeftovers = initial.batches.any { it.remainingGrams > 0 }
+                OutlinedButton(
+                    onClick = { confirmArchive = true },
+                    enabled = !hasLeftovers,
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
                     Text(stringResource(R.string.archive_recipe), color = MaterialTheme.colorScheme.error)
+                }
+                if (hasLeftovers) {
+                    Text(
+                        stringResource(R.string.archive_recipe_leftovers_blocked),
+                        color = MaterialTheme.colorScheme.error,
+                        fontSize = 12.sp,
+                    )
                 }
             }
         }
@@ -2161,59 +2597,42 @@ private fun RecipeIngredientRow(
 
     Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
         Column(
-            Modifier.fillMaxWidth().padding(12.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp),
+            Modifier.fillMaxWidth().padding(10.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             Row(
                 Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
             ) {
                 displayFood?.let {
                     FoodVisual(
                         it,
-                        Modifier.width(60.dp).height(60.dp).clip(RoundedCornerShape(12.dp)),
+                        Modifier.width(52.dp).height(52.dp).clip(RoundedCornerShape(11.dp)),
                     )
                 }
                 Column(Modifier.weight(1f)) {
-                    Text(ingredient.foodName.forLocale(locale), fontWeight = FontWeight.SemiBold, maxLines = 3)
+                    Text(ingredient.foodName.forLocale(locale), fontWeight = FontWeight.SemiBold, maxLines = 2)
                     Text(
                         "${ingredient.nutritionPer100g.calories} ${stringResource(R.string.kcal)} · ${stringResource(R.string.per_100g)}",
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         fontSize = 12.sp,
                     )
-                    ingredient.preparationName?.let { preparationName ->
-                        Text(
-                            stringResource(R.string.recipe_ingredient_method, preparationName.forLocale(locale)),
-                            color = MaterialTheme.colorScheme.primary,
-                            fontSize = 12.sp,
-                        )
-                    }
-                }
-            }
-            Text(
-                stringResource(
-                    R.string.recipe_ingredient_amount_summary,
-                    ingredient.nutritionPer100g.forGrams(ingredient.grams).calories,
-                    ingredient.grams,
-                ),
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                fontSize = 12.sp,
-            )
-            if (food != null) {
-                OutlinedButton(onClick = { methodPickerOpen = true }) {
-                    Icon(Icons.Default.RestaurantMenu, null)
                     Text(
-                        ingredient.preparationName?.forLocale(locale)
-                            ?: stringResource(R.string.choose_cooking_method),
-                        Modifier.padding(start = 8.dp),
+                        stringResource(
+                            R.string.recipe_ingredient_amount_summary,
+                            ingredient.nutritionPer100g.forGrams(ingredient.grams).calories,
+                            ingredient.grams,
+                        ),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        fontSize = 12.sp,
                     )
                 }
             }
-            FlowRow(
+            Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically,
             ) {
                 OutlinedTextField(
                     value = amountText,
@@ -2227,13 +2646,13 @@ private fun RecipeIngredientRow(
                     },
                     label = { Text(stringResource(R.string.amount)) },
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                    modifier = Modifier.width(110.dp),
+                    modifier = Modifier.weight(0.9f),
                     singleLine = true,
                 )
-                Box {
+                Box(Modifier.weight(1f)) {
                     OutlinedButton(
                         onClick = { unitMenuOpen = true },
-                        modifier = Modifier.heightIn(min = 56.dp).widthIn(min = 120.dp),
+                        modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp),
                     ) { Text(selected.label, maxLines = 2) }
                     DropdownMenu(expanded = unitMenuOpen, onDismissRequest = { unitMenuOpen = false }) {
                         choices.forEach { choice ->
@@ -2252,6 +2671,21 @@ private fun RecipeIngredientRow(
                 }
                 IconButton(onClick = onRemove, modifier = Modifier.heightIn(min = 56.dp)) {
                     Icon(Icons.Default.Delete, stringResource(R.string.remove_ingredient))
+                }
+            }
+            if (food != null) {
+                OutlinedButton(
+                    onClick = { methodPickerOpen = true },
+                    modifier = Modifier.fillMaxWidth().heightIn(min = 44.dp),
+                ) {
+                    Icon(Icons.Default.RestaurantMenu, null)
+                    Text(
+                        ingredient.preparationName?.forLocale(locale)
+                            ?: stringResource(R.string.choose_cooking_method),
+                        Modifier.padding(start = 8.dp),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
                 }
             }
         }
@@ -2285,10 +2719,37 @@ private fun PreparationPickerDialog(
 ) {
     val preparations = recipePreparationOptions(food)
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    val methodScrollState = rememberScrollState()
+    val dismissDragThreshold = with(LocalDensity.current) { 64.dp.toPx() }
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState,
         modifier = Modifier.fillMaxSize(),
+        sheetGesturesEnabled = false,
+        dragHandle = {
+            Box(
+                Modifier
+                    .fillMaxWidth()
+                    .pointerInput(onDismiss, dismissDragThreshold) {
+                        var handleDragDistance = 0f
+                        detectVerticalDragGestures(
+                            onDragStart = { handleDragDistance = 0f },
+                            onVerticalDrag = { change, dragAmount ->
+                                change.consume()
+                                handleDragDistance = (handleDragDistance + dragAmount).coerceAtLeast(0f)
+                            },
+                            onDragEnd = {
+                                if (handleDragDistance >= dismissDragThreshold) onDismiss()
+                                handleDragDistance = 0f
+                            },
+                            onDragCancel = { handleDragDistance = 0f },
+                        )
+                    },
+                contentAlignment = Alignment.Center,
+            ) {
+                BottomSheetDefaults.DragHandle()
+            }
+        },
     ) {
         Column(
             Modifier.fillMaxSize().padding(horizontal = 20.dp),
@@ -2309,25 +2770,57 @@ private fun PreparationPickerDialog(
                 fontWeight = FontWeight.SemiBold,
             )
             Column(
-                Modifier.fillMaxWidth().weight(1f).verticalScroll(rememberScrollState()),
+                Modifier
+                    .fillMaxWidth()
+                    .weight(1f)
+                    .pointerInput(methodScrollState, dismissDragThreshold, onDismiss) {
+                        awaitEachGesture {
+                            awaitFirstDown(pass = PointerEventPass.Initial)
+                            var eligibleForDismiss = methodScrollState.value == 0
+                            var downwardDistance = 0f
+                            var gestureActive = true
+                            while (gestureActive) {
+                                val event = awaitPointerEvent(pass = PointerEventPass.Initial)
+                                event.changes.forEach { change ->
+                                    val verticalChange = change.position.y - change.previousPosition.y
+                                    if (eligibleForDismiss) {
+                                        if (downwardDistance == 0f && verticalChange < 0f) {
+                                            eligibleForDismiss = false
+                                        } else {
+                                            downwardDistance =
+                                                (downwardDistance + verticalChange).coerceAtLeast(0f)
+                                            if (verticalChange > 0f || downwardDistance > 0f) change.consume()
+                                        }
+                                    }
+                                }
+                                gestureActive = event.changes.any { it.pressed }
+                            }
+                            if (eligibleForDismiss && downwardDistance >= dismissDragThreshold) {
+                                onDismiss()
+                            }
+                        }
+                    }
+                    .verticalScroll(methodScrollState),
             ) {
-                FlowRow(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(10.dp),
-                    verticalArrangement = Arrangement.spacedBy(10.dp),
-                    maxItemsInEachRow = 2,
-                ) {
-                    preparations.forEach { preparation ->
-                        PreparationChoiceCard(
-                            food = food,
-                            preparation = preparation,
-                            selected = preparation.id == selectedPreparationId,
-                            preferred = preparation.id == preferredPreparationId,
-                            preferredFromUsage = preferredFromUsage,
-                            locale = locale,
-                            onClick = { onSelect(preparation) },
-                            modifier = Modifier.width(128.dp),
-                        )
+                preparations.chunked(2).forEach { rowPreparations ->
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(bottom = 10.dp),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    ) {
+                        if (rowPreparations.size == 1) Spacer(Modifier.weight(0.5f))
+                        rowPreparations.forEach { preparation ->
+                            PreparationChoiceCard(
+                                food = food,
+                                preparation = preparation,
+                                selected = preparation.id == selectedPreparationId,
+                                preferred = preparation.id == preferredPreparationId,
+                                preferredFromUsage = preferredFromUsage,
+                                locale = locale,
+                                onClick = { onSelect(preparation) },
+                                modifier = Modifier.weight(1f),
+                            )
+                        }
+                        if (rowPreparations.size == 1) Spacer(Modifier.weight(0.5f))
                     }
                 }
                 Spacer(Modifier.height(16.dp))
@@ -2384,6 +2877,7 @@ private fun PreparationChoiceCard(
                 preparation.names.forLocale(locale),
                 fontWeight = FontWeight.SemiBold,
                 maxLines = 2,
+                textAlign = TextAlign.Center,
             )
             if (preferred) {
                 Text(
@@ -2438,6 +2932,7 @@ private fun ProfileForm(
     onChooseFullBackup: (() -> Unit)? = null,
     onOpenWhatsNew: (() -> Unit)? = null,
 ) {
+    val focusManager = LocalFocusManager.current
     var displayName by rememberSaveable { mutableStateOf(initial?.displayName.orEmpty()) }
     var age by rememberSaveable { mutableStateOf((initial?.age ?: 30).toString()) }
     var height by rememberSaveable { mutableStateOf((initial?.heightCm ?: 175).toString()) }
@@ -2576,6 +3071,7 @@ private fun ProfileForm(
     LazyColumn(
         modifier = Modifier
             .fillMaxSize()
+            .pointerInput(focusManager) { detectTapGestures { focusManager.clearFocus() } }
             .statusBarsPadding()
             .navigationBarsPadding()
             .padding(horizontal = 20.dp),
@@ -3635,6 +4131,7 @@ private fun BodyMeasurementEditorSheet(
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val context = LocalContext.current
+    val focusManager = LocalFocusManager.current
     val zoneId = ZoneId.systemDefault()
     val initialDateTime = Instant.ofEpochMilli(initial.measuredAtEpochMillis).atZone(zoneId)
     var dateEpochDay by remember(initial.id, initial.measuredAtEpochMillis) {
@@ -3714,7 +4211,12 @@ private fun BodyMeasurementEditorSheet(
 
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheetState) {
         Column(
-            Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).navigationBarsPadding().padding(horizontal = 24.dp),
+            Modifier
+                .fillMaxWidth()
+                .pointerInput(focusManager) { detectTapGestures { focusManager.clearFocus() } }
+                .verticalScroll(rememberScrollState())
+                .navigationBarsPadding()
+                .padding(horizontal = 24.dp),
             verticalArrangement = Arrangement.spacedBy(14.dp),
         ) {
             Text(
@@ -4143,6 +4645,7 @@ private fun HistoryScreen(
     if (showFoodPicker) {
         HistoryFoodPickerSheet(
             foods = state.foods,
+            recipes = state.recipes,
             usage = state.unitUsage,
             query = foodPickerQuery,
             locale = locale,
@@ -4197,6 +4700,7 @@ private fun FeedbackScreen(
     onSend: (String, Uri?) -> Unit,
     onDelete: (String) -> Unit,
 ) {
+    val focusManager = LocalFocusManager.current
     var draft by rememberSaveable { mutableStateOf("") }
     var draftImageUri by rememberSaveable { mutableStateOf<String?>(null) }
     var showFeedbackImageSource by rememberSaveable { mutableStateOf(false) }
@@ -4266,6 +4770,7 @@ private fun FeedbackScreen(
         LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
+                .pointerInput(focusManager) { detectTapGestures { focusManager.clearFocus() } }
                 .padding(contentPadding)
                 .statusBarsPadding()
                 .padding(horizontal = 20.dp),
@@ -4358,6 +4863,7 @@ private fun TodayScreen(
     onAdd: (Food, Double, Serving?, String?, Long) -> Unit,
     onDelete: (FoodEntry) -> Unit,
     onUpdate: (FoodEntry, Double, Long) -> Unit,
+    onDiscardRecipeLeftovers: (String) -> Unit,
     onCreateFood: (Pair<String, String?>) -> Unit,
     onCreateRecipe: () -> Unit,
     onCookRecipe: (Food) -> Unit,
@@ -4365,6 +4871,7 @@ private fun TodayScreen(
     onCreateVariant: (Food) -> Unit,
     onCreateRecipeFromFood: (Food) -> Unit,
     onSearchGlobal: (String, String) -> Unit,
+    onLoadMoreGlobal: (String, String) -> Unit,
     onLookupBarcode: (String, String) -> Unit,
     onClearLookup: () -> Unit,
     onScanNutritionLabel: (Uri, String) -> Unit,
@@ -4374,10 +4881,14 @@ private fun TodayScreen(
 ) {
     val context = LocalContext.current
     val activity = LocalActivity.current
+    val focusManager = LocalFocusManager.current
     val locale = LocalLocale.current.platformLocale
     var pendingCameraUri by rememberSaveable { mutableStateOf<String?>(null) }
     var showLabelSourceDialog by rememberSaveable { mutableStateOf(false) }
     var query by rememberSaveable { mutableStateOf("") }
+    var searchFocused by remember { mutableStateOf(false) }
+    var searchBoundsInRoot by remember { mutableStateOf<Rect?>(null) }
+    var todayOriginInRoot by remember { mutableStateOf(Offset.Zero) }
     var selectedCatalogueCategory by rememberSaveable { mutableStateOf<String?>(null) }
     var showFoodFilters by rememberSaveable { mutableStateOf(false) }
     val zoneId = ZoneId.systemDefault()
@@ -4455,6 +4966,10 @@ private fun TodayScreen(
     var customizingFood by remember { mutableStateOf<Food?>(null) }
     var editingEntry by remember { mutableStateOf<FoodEntry?>(null) }
     var showMacroDetails by rememberSaveable { mutableStateOf(false) }
+    var showRecipeBrowser by rememberSaveable { mutableStateOf(false) }
+    var recipeQuery by rememberSaveable { mutableStateOf("") }
+    var localResultLimit by rememberSaveable(query, selectedCatalogueCategory) { mutableStateOf(SEARCH_PAGE_SIZE) }
+    var recipeResultLimit by rememberSaveable(recipeQuery) { mutableStateOf(SEARCH_PAGE_SIZE) }
     val profile = requireNotNull(state.profile)
     val frequencyByFoodId = state.unitUsage.mapValues { (_, usages) -> usages.sumOf(UnitUsage::useCount) }
     val recipesWithLeftovers = state.recipes.values
@@ -4462,7 +4977,9 @@ private fun TodayScreen(
         .sortedBy { it.name }
     val catalogueCategories = state.foods.mapNotNull(Food::categoryKey).distinct().sorted()
     val isBrowsingCatalogue = selectedCatalogueCategory != null
-    val allLocalQueryMatches = if (query.isBlank()) emptyList() else state.foods.filter { it.matches(query) }
+    val allLocalQueryMatches = if (query.isBlank()) emptyList() else state.foods.filter { food ->
+        food.matches(query) || state.recipes[food.id]?.hasIngredientMatching(query) == true
+    }
     val categoryQueryMatches = allLocalQueryMatches.filter { it.matchesCatalogueCategory(selectedCatalogueCategory) }
     val expandedSearchBeyondCategory = query.isNotBlank() && selectedCatalogueCategory != null &&
         categoryQueryMatches.isEmpty() && allLocalQueryMatches.isNotEmpty()
@@ -4474,8 +4991,32 @@ private fun TodayScreen(
         else -> FoodRecommender.rankPreviouslyUsed(state.foods, selectedTotals, profile, frequencyByFoodId)
     }
     val currentLookup = lookupState.takeIf { it.query.equals(query.trim(), ignoreCase = true) }
-    val remoteResults = currentLookup?.results.orEmpty().filterNot { remote ->
-        state.foods.any { local -> local.hasSameCatalogueIdentity(remote) }
+    val lookupIsBusy = currentLookup?.status == FoodLookupStatus.SEARCHING ||
+        currentLookup?.publishingResults == true
+    val localCatalogueBarcodes = remember(state.foods) {
+        state.foods.asSequence()
+            .filter { it.provenance.type != FoodSourceType.RECIPE }
+            .mapNotNull(Food::barcode)
+            .filter(String::isGloballyIdentifyingBarcode)
+            .toSet()
+    }
+    val localCatalogueIdentities = remember(state.foods) {
+        state.foods.asSequence()
+            .filter { it.provenance.type != FoodSourceType.RECIPE }
+            .flatMap { food ->
+                sequenceOf(
+                    normalizedFoodIdentity(food.names.en, food.brand),
+                    normalizedFoodIdentity(food.names.ro, food.brand),
+                )
+            }
+            .toSet()
+    }
+    val remoteResults = remember(currentLookup?.results, localCatalogueBarcodes, localCatalogueIdentities) {
+        currentLookup?.results.orEmpty().filterNot { remote ->
+            remote.barcode?.takeIf(String::isGloballyIdentifyingBarcode) in localCatalogueBarcodes ||
+                normalizedFoodIdentity(remote.names.en, remote.brand) in localCatalogueIdentities ||
+                normalizedFoodIdentity(remote.names.ro, remote.brand) in localCatalogueIdentities
+        }
     }
     fun runGlobalSearch() {
         val normalized = query.trim()
@@ -4490,6 +5031,23 @@ private fun TodayScreen(
         LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
+                .onGloballyPositioned { todayOriginInRoot = it.boundsInRoot().topLeft }
+                .pointerInput(focusManager, searchFocused, searchBoundsInRoot, todayOriginInRoot) {
+                    awaitEachGesture {
+                        val down = awaitFirstDown(pass = PointerEventPass.Initial)
+                        val rootPosition = down.position + todayOriginInRoot
+                        val tappedOutsideSearch = searchFocused &&
+                            searchBoundsInRoot?.contains(rootPosition) == false
+                        if (tappedOutsideSearch) {
+                            focusManager.clearFocus()
+                            down.consume()
+                            do {
+                                val event = awaitPointerEvent(pass = PointerEventPass.Initial)
+                                event.changes.forEach { it.consume() }
+                            } while (event.changes.any { it.pressed })
+                        }
+                    }
+                }
                 .padding(contentPadding)
                 .statusBarsPadding()
                 .navigationBarsPadding(),
@@ -4571,9 +5129,15 @@ private fun TodayScreen(
                     ) {
                         items(recipesWithLeftovers, key = { it.foodId }) { recipe ->
                             val recipeFood = state.foods.firstOrNull { it.id == recipe.foodId }
-                            LeftoverCard(recipe, recipeFood, locale) {
-                                state.foods.firstOrNull { it.id == recipe.foodId }?.let { selectedFood = it }
-                            }
+                            LeftoverCard(
+                                recipe = recipe,
+                                food = recipeFood,
+                                locale = locale,
+                                onAdd = {
+                                    state.foods.firstOrNull { it.id == recipe.foodId }?.let { selectedFood = it }
+                                },
+                                onDiscard = { onDiscardRecipeLeftovers(recipe.foodId) },
+                            )
                         }
                     }
                 }
@@ -4585,7 +5149,11 @@ private fun TodayScreen(
                         query = it
                         onClearLookup()
                     },
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 20.dp)
+                        .onFocusChanged { searchFocused = it.isFocused }
+                        .onGloballyPositioned { searchBoundsInRoot = it.boundsInRoot() },
                     placeholder = {
                         Text(stringResource(R.string.search_hint), maxLines = 1, overflow = TextOverflow.Ellipsis)
                     },
@@ -4774,39 +5342,48 @@ private fun TodayScreen(
             }
             if (query.isBlank()) {
                 item {
-                    Row(
+                    OutlinedButton(
+                        onClick = { showRecipeBrowser = true },
                         modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp),
-                        horizontalArrangement = Arrangement.spacedBy(10.dp),
                     ) {
-                        OutlinedButton(
-                            onClick = {
-                                selectedCatalogueCategory = CATALOGUE_CATEGORY_RECIPES
-                                showFoodFilters = false
-                            },
-                            modifier = Modifier.weight(1f),
-                        ) {
-                            Icon(Icons.Default.RestaurantMenu, null)
-                            Text(stringResource(R.string.cook_saved_recipe), Modifier.padding(start = 6.dp))
-                        }
-                        OutlinedButton(onClick = onCreateRecipe, modifier = Modifier.weight(1f)) {
-                            Icon(Icons.Default.Add, null)
-                            Text(stringResource(R.string.add_new_recipe), Modifier.padding(start = 6.dp))
-                        }
+                        Icon(Icons.Default.RestaurantMenu, null)
+                        Text(stringResource(R.string.recipes), Modifier.padding(start = 8.dp))
                     }
                 }
             }
-            if (query.isNotBlank()) {
+            if (query.isNotBlank() && lookupIsBusy) {
+                item {
+                    Card(
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+                    ) {
+                        Column(
+                            Modifier.fillMaxWidth().padding(14.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp),
+                        ) {
+                            Text(
+                                stringResource(R.string.searching_open_food_facts),
+                                fontWeight = FontWeight.SemiBold,
+                            )
+                            LinearProgressIndicator(
+                                modifier = Modifier.fillMaxWidth().progressSemantics(),
+                            )
+                            Text(
+                                stringResource(R.string.searching_open_food_facts_hint),
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                fontSize = 13.sp,
+                            )
+                        }
+                    }
+                }
+            } else if (query.isNotBlank()) {
                 item {
                     OutlinedButton(
-                        enabled = query.trim().length >= 2 && currentLookup?.status != FoodLookupStatus.SEARCHING,
+                        enabled = query.trim().length >= 2,
                         onClick = { runGlobalSearch() },
                         modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp),
                     ) {
-                        if (currentLookup?.status == FoodLookupStatus.SEARCHING) {
-                            CircularProgressIndicator(Modifier.height(18.dp), strokeWidth = 2.dp)
-                        } else {
-                            Icon(Icons.Default.Search, null)
-                        }
+                        Icon(Icons.Default.Search, null)
                         Text(
                             stringResource(
                                 if (query.trim().all(Char::isDigit) && query.trim().length in 8..14) {
@@ -4836,7 +5413,7 @@ private fun TodayScreen(
                     )
                 }
             }
-            else items(displayedFoods, key = { it.id }) {
+            else items(displayedFoods.take(localResultLimit), key = { it.id }) {
                 FoodRow(
                     food = it,
                     recipe = state.recipes[it.id],
@@ -4849,10 +5426,45 @@ private fun TodayScreen(
                     onEdit = { onEditFood(it) },
                 )
             }
-            if (currentLookup?.status == FoodLookupStatus.SUCCESS && remoteResults.isNotEmpty()) {
+            if (displayedFoods.size > localResultLimit) {
+                item {
+                    OutlinedButton(
+                        onClick = { localResultLimit += SEARCH_PAGE_SIZE },
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp),
+                    ) { Text(stringResource(R.string.load_more)) }
+                }
+            }
+            if (currentLookup?.status == FoodLookupStatus.SUCCESS &&
+                (remoteResults.isNotEmpty() || currentLookup.hasMore)
+            ) {
                 item { SectionTitle(R.string.open_food_facts_results) }
                 items(remoteResults, key = { it.id }) { food ->
                     OpenFoodFactsRow(food, locale) { selectedFood = food }
+                }
+                if (currentLookup.hasMore) {
+                    item {
+                        OutlinedButton(
+                            onClick = { onLoadMoreGlobal(query.trim(), locale.language) },
+                            enabled = !currentLookup.loadingMore,
+                            modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp),
+                        ) {
+                            if (currentLookup.loadingMore) {
+                                CircularProgressIndicator(Modifier.width(18.dp).height(18.dp), strokeWidth = 2.dp)
+                                Spacer(Modifier.width(8.dp))
+                            }
+                            Text(stringResource(R.string.load_more_results))
+                        }
+                    }
+                } else if (!currentLookup.publishingResults) {
+                    item {
+                        Text(
+                            stringResource(R.string.all_available_results_shown),
+                            Modifier.fillMaxWidth().padding(horizontal = 20.dp),
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            fontSize = 13.sp,
+                            textAlign = TextAlign.Center,
+                        )
+                    }
                 }
             }
             if (currentLookup?.status in setOf(
@@ -4875,28 +5487,37 @@ private fun TodayScreen(
                     )
                 }
             }
-            if (query.isNotBlank()) {
+            if (query.isNotBlank() && currentLookup?.status == FoodLookupStatus.SUCCESS &&
+                !currentLookup.publishingResults
+            ) {
                 item {
-                    OutlinedButton(
-                        onClick = {
-                            if (query.trim().all(Char::isDigit) && query.trim().length in 8..14) {
-                                onCreateFood("" to query.trim())
-                            } else {
-                                onCreateFood(query.trim() to null)
-                            }
-                        },
-                        modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp),
+                    Column(
+                        Modifier.fillMaxWidth().padding(horizontal = 20.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(2.dp),
                     ) {
+                        HorizontalDivider(Modifier.padding(bottom = 6.dp))
                         Text(
-                            stringResource(
-                                if (query.trim().all(Char::isDigit) && query.trim().length in 8..14) {
-                                    R.string.add_missing_barcode_food
-                                } else {
-                                    R.string.add_missing_personal_food
-                                },
-                                query.trim(),
-                            ),
+                            stringResource(R.string.add_personal_food_after_search_hint, query.trim()),
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            fontSize = 12.sp,
+                            textAlign = TextAlign.Center,
                         )
+                        TextButton(
+                            onClick = {
+                                if (query.trim().all(Char::isDigit) && query.trim().length in 8..14) {
+                                    onCreateFood("" to query.trim())
+                                } else {
+                                    onCreateFood(query.trim() to null)
+                                }
+                            },
+                        ) {
+                            Icon(Icons.Default.Add, null)
+                            Text(
+                                stringResource(R.string.add_personal_food_after_search),
+                                Modifier.padding(start = 6.dp),
+                            )
+                        }
                     }
                 }
             }
@@ -4906,6 +5527,168 @@ private fun TodayScreen(
                 EntryRow(it, locale, onRemove = { onDelete(it) }, onEdit = { editingEntry = it })
             }
             item { Spacer(Modifier.height(24.dp)) }
+        }
+    }
+
+    if (showRecipeBrowser) {
+        val recipeSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+        val recipeListState = rememberLazyListState()
+        val recipeDismissDragThreshold = with(LocalDensity.current) { 64.dp.toPx() }
+        val dismissRecipeBrowser = {
+            showRecipeBrowser = false
+            recipeQuery = ""
+        }
+        val recipeFoods = state.foods
+            .filter { it.provenance.type == FoodSourceType.RECIPE }
+            .filter { food ->
+                recipeQuery.isBlank() || food.matches(recipeQuery) ||
+                    state.recipes[food.id]?.hasIngredientMatching(recipeQuery) == true
+            }
+            .sortedBy { it.name(locale) }
+        ModalBottomSheet(
+            onDismissRequest = dismissRecipeBrowser,
+            sheetState = recipeSheetState,
+            modifier = Modifier.fillMaxSize(),
+            sheetGesturesEnabled = false,
+            dragHandle = {
+                Box(
+                    Modifier
+                        .fillMaxWidth()
+                        .pointerInput(dismissRecipeBrowser, recipeDismissDragThreshold) {
+                            var handleDragDistance = 0f
+                            detectVerticalDragGestures(
+                                onDragStart = { handleDragDistance = 0f },
+                                onVerticalDrag = { change, dragAmount ->
+                                    change.consume()
+                                    handleDragDistance = (handleDragDistance + dragAmount).coerceAtLeast(0f)
+                                },
+                                onDragEnd = {
+                                    if (handleDragDistance >= recipeDismissDragThreshold) dismissRecipeBrowser()
+                                    handleDragDistance = 0f
+                                },
+                                onDragCancel = { handleDragDistance = 0f },
+                            )
+                        },
+                    contentAlignment = Alignment.Center,
+                ) {
+                    BottomSheetDefaults.DragHandle()
+                }
+            },
+        ) {
+            Column(
+                Modifier
+                    .fillMaxSize()
+                    .pointerInput(focusManager) { detectTapGestures { focusManager.clearFocus() } }
+                    .navigationBarsPadding()
+                    .padding(horizontal = 20.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        stringResource(R.string.recipes),
+                        modifier = Modifier.weight(1f),
+                        fontSize = 26.sp,
+                        fontWeight = FontWeight.Bold,
+                    )
+                    TextButton(onClick = {
+                        showRecipeBrowser = false
+                        recipeQuery = ""
+                        onCreateRecipe()
+                    }) {
+                        Icon(Icons.Default.Add, null)
+                        Text(stringResource(R.string.add_new), Modifier.padding(start = 4.dp))
+                    }
+                }
+                OutlinedTextField(
+                    value = recipeQuery,
+                    onValueChange = { recipeQuery = it },
+                    modifier = Modifier.fillMaxWidth(),
+                    label = { Text(stringResource(R.string.search_recipes)) },
+                    leadingIcon = { Icon(Icons.Default.Search, null) },
+                    trailingIcon = if (recipeQuery.isNotBlank()) {
+                        {
+                            IconButton(onClick = { recipeQuery = "" }) {
+                                Icon(Icons.Default.Close, stringResource(R.string.clear_search))
+                            }
+                        }
+                    } else null,
+                    singleLine = true,
+                )
+                Box(Modifier.fillMaxWidth().weight(1f)) {
+                    if (recipeFoods.isEmpty()) {
+                        EmptyText(if (recipeQuery.isBlank()) R.string.no_saved_recipes else R.string.no_results)
+                    } else {
+                    LazyColumn(
+                        state = recipeListState,
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .pointerInput(recipeListState, recipeDismissDragThreshold, dismissRecipeBrowser) {
+                                awaitEachGesture {
+                                    awaitFirstDown(pass = PointerEventPass.Initial)
+                                    var eligibleForDismiss = recipeListState.firstVisibleItemIndex == 0 &&
+                                        recipeListState.firstVisibleItemScrollOffset == 0
+                                    var downwardDistance = 0f
+                                    var gestureActive = true
+                                    while (gestureActive) {
+                                        val event = awaitPointerEvent(pass = PointerEventPass.Initial)
+                                        event.changes.forEach { change ->
+                                            val verticalChange = change.position.y - change.previousPosition.y
+                                            if (eligibleForDismiss) {
+                                                if (downwardDistance == 0f && verticalChange < 0f) {
+                                                    eligibleForDismiss = false
+                                                } else {
+                                                    downwardDistance =
+                                                        (downwardDistance + verticalChange).coerceAtLeast(0f)
+                                                    if (verticalChange > 0f || downwardDistance > 0f) change.consume()
+                                                }
+                                            }
+                                        }
+                                        gestureActive = event.changes.any { it.pressed }
+                                    }
+                                    if (eligibleForDismiss && downwardDistance >= recipeDismissDragThreshold) {
+                                        dismissRecipeBrowser()
+                                    }
+                                }
+                            },
+                        verticalArrangement = Arrangement.spacedBy(10.dp),
+                    ) {
+                        items(recipeFoods.take(recipeResultLimit), key = { it.id }) { food ->
+                            FoodRow(
+                                food = food,
+                                recipe = state.recipes[food.id],
+                                locale = locale,
+                                currentTotals = selectedTotals,
+                                profile = profile,
+                                standaloneUses = frequencyByFoodId[food.id] ?: 0,
+                                ingredientUses = state.ingredientUsage[food.id] ?: 0,
+                                onAdd = {
+                                    showRecipeBrowser = false
+                                    recipeQuery = ""
+                                    selectedFood = food
+                                },
+                                onEdit = {
+                                    showRecipeBrowser = false
+                                    recipeQuery = ""
+                                    onEditFood(food)
+                                },
+                            )
+                        }
+                        if (recipeFoods.size > recipeResultLimit) {
+                            item {
+                                OutlinedButton(
+                                    onClick = { recipeResultLimit += SEARCH_PAGE_SIZE },
+                                    modifier = Modifier.fillMaxWidth(),
+                                ) { Text(stringResource(R.string.load_more)) }
+                            }
+                        }
+                        item { Spacer(Modifier.height(8.dp)) }
+                    }
+                    }
+                }
+            }
         }
     }
 
@@ -4928,7 +5711,9 @@ private fun TodayScreen(
                     onCookRecipe(food)
                 }
             },
-            onReportIssue = if (food.provenance.type == FoodSourceType.OPEN_FOOD_FACTS) {
+            onReportIssue = if (
+                food.provenance.type in setOf(FoodSourceType.OPEN_FOOD_FACTS, FoodSourceType.BUILT_IN)
+            ) {
                 { reportingFood = food }
             } else null,
         ) { loggedFood, amount, serving, batchId ->
@@ -5126,7 +5911,14 @@ private fun SeamlessProgressBar(progress: Float, modifier: Modifier = Modifier) 
 }
 
 @Composable
-private fun LeftoverCard(recipe: RecipeTemplate, food: Food?, locale: Locale, onAdd: () -> Unit) {
+private fun LeftoverCard(
+    recipe: RecipeTemplate,
+    food: Food?,
+    locale: Locale,
+    onAdd: () -> Unit,
+    onDiscard: () -> Unit,
+) {
+    var confirmDiscard by remember { mutableStateOf(false) }
     val availableBatches = recipe.batches.filter { it.remainingGrams > 0 }
     val remainingGrams = availableBatches.sumOf { it.remainingGrams }
     val remainingPortions = availableBatches.sumOf { it.remainingPortions }
@@ -5146,26 +5938,45 @@ private fun LeftoverCard(recipe: RecipeTemplate, food: Food?, locale: Locale, on
                     Modifier.width(62.dp).height(62.dp).clip(RoundedCornerShape(14.dp)),
                 )
             }
-            Column(Modifier.padding(start = 12.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
-            Text(recipe.name, fontWeight = FontWeight.Bold)
-            Text(
-                stringResource(
-                    R.string.batch_remaining,
-                    remainingGrams,
-                    formatAmount(remainingPortions, locale),
-                ),
-                color = MaterialTheme.colorScheme.primary,
-            )
-            Text(
-                stringResource(
-                    R.string.prepared_on,
-                    DateFormat.getDateInstance(DateFormat.MEDIUM, locale).format(Date(representativeBatch.cookedAtEpochMillis)),
-                ),
-                fontSize = 12.sp,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
+            Column(Modifier.padding(start = 12.dp).weight(1f), verticalArrangement = Arrangement.spacedBy(5.dp)) {
+                Text(recipe.name, fontWeight = FontWeight.Bold)
+                Text(
+                    stringResource(
+                        R.string.batch_remaining,
+                        remainingGrams,
+                        formatAmount(remainingPortions, locale),
+                    ),
+                    color = MaterialTheme.colorScheme.primary,
+                )
+                Text(
+                    stringResource(
+                        R.string.prepared_on,
+                        DateFormat.getDateInstance(DateFormat.MEDIUM, locale)
+                            .format(Date(representativeBatch.cookedAtEpochMillis)),
+                    ),
+                    fontSize = 12.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            IconButton(onClick = { confirmDiscard = true }) {
+                Icon(Icons.Default.Delete, stringResource(R.string.discard_leftovers))
             }
         }
+    }
+    if (confirmDiscard) {
+        AlertDialog(
+            onDismissRequest = { confirmDiscard = false },
+            title = { Text(stringResource(R.string.discard_leftovers)) },
+            text = { Text(stringResource(R.string.discard_leftovers_confirmation, remainingGrams, recipe.name)) },
+            confirmButton = {
+                TextButton(onClick = { confirmDiscard = false; onDiscard() }) {
+                    Text(stringResource(R.string.discard))
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { confirmDiscard = false }) { Text(stringResource(R.string.cancel)) }
+            },
+        )
     }
 }
 
@@ -5338,7 +6149,7 @@ private fun FoodRow(
 ) {
     val warnings = food.projectedMacroOverages(currentTotals, profile)
     val kcalLabel = stringResource(R.string.kcal)
-    val per100gLabel = stringResource(R.string.per_100g)
+    val per100gLabel = stringResource(if (food.usesVolumeMeasure()) R.string.per_100ml else R.string.per_100g)
     val fiberLabel = stringResource(R.string.fiber).lowercase(locale)
     val detailText = buildString {
         append("${food.nutritionPer100g.calories} $kcalLabel $per100gLabel")
@@ -5378,16 +6189,7 @@ private fun FoodRow(
                 }
             }
             Column(Modifier.padding(top = 10.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                if (food.provenance.type != FoodSourceType.BUILT_IN) {
-                    Text(
-                        buildString {
-                            append(stringResource(food.provenance.type.labelResource()))
-                            if (food.provenance.locallyModified) append(" · ${stringResource(R.string.edited_locally)}")
-                        },
-                        fontSize = 12.sp,
-                        color = MaterialTheme.colorScheme.primary,
-                    )
-                }
+                FoodProvenanceLabel(food)
                 Text(
                     detailText,
                     fontSize = 13.sp,
@@ -5516,6 +6318,11 @@ private fun FoodVisual(food: Food, modifier: Modifier = Modifier) {
     }
     when {
         food.image?.localPath != null -> FoodImagePreview(requireNotNull(food.image.localPath), modifier)
+        food.image?.remoteUrl != null -> RemoteFoodImage(
+            source = requireNotNull(food.image.remoteUrl),
+            fallbackCategory = food.categoryKey,
+            modifier = modifier,
+        )
         bundledResource != 0 -> BundledFoodImage(
             resourceId = bundledResource,
             contentDescription = food.name(locale),
@@ -5525,20 +6332,115 @@ private fun FoodVisual(food: Food, modifier: Modifier = Modifier) {
     }
 }
 
+@Composable
+private fun FoodProvenanceLabel(food: Food) {
+    val originLabel = when (food.provenance.catalogueOrigin) {
+        CatalogueOrigin.CALORIE_QUICK -> stringResource(R.string.provenance_calorie_quick)
+        CatalogueOrigin.OPT_IN -> stringResource(R.string.provenance_opt_in)
+        CatalogueOrigin.OPEN_FOOD_FACTS -> stringResource(R.string.source_open_food_facts)
+        null -> stringResource(food.provenance.type.labelResource())
+    }
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(5.dp),
+    ) {
+        if (food.provenance.verified) {
+            VerifiedFoodBadge()
+        }
+        Text(
+            buildString {
+                if (food.provenance.verified) append("${stringResource(R.string.verified_food)} · ")
+                append(originLabel)
+                if (food.provenance.locallyModified) append(" · ${stringResource(R.string.edited_locally)}")
+            },
+            fontSize = 12.sp,
+            color = MaterialTheme.colorScheme.primary,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
+    }
+}
+
+@Composable
+private fun VerifiedFoodBadge() {
+    Box(Modifier.width(24.dp).height(22.dp)) {
+        Image(
+            painter = painterResource(R.drawable.ic_launcher_foreground),
+            contentDescription = null,
+            modifier = Modifier.width(21.dp).height(21.dp).align(Alignment.CenterStart),
+        )
+        Icon(
+            Icons.Default.CheckCircle,
+            contentDescription = stringResource(R.string.verified_food),
+            tint = MaterialTheme.colorScheme.primary,
+            modifier = Modifier.width(11.dp).height(11.dp).align(Alignment.BottomEnd),
+        )
+    }
+}
+
+private fun Food.usesVolumeMeasure(): Boolean = servings.any { serving ->
+    serving.label.all().any { label -> label.removePrefix("1 ").trim().equals("ml", ignoreCase = true) }
+}
+
+@Composable
+private fun RemoteFoodImage(source: String, fallbackCategory: String?, modifier: Modifier = Modifier) {
+    val context = LocalContext.current.applicationContext
+    var loading by remember(source) {
+        mutableStateOf(PreviewBitmapCache.get(PreviewBitmapCache.sourceKey(source)) == null)
+    }
+    val bitmap by produceState<Bitmap?>(PreviewBitmapCache.get(PreviewBitmapCache.sourceKey(source)), source) {
+        if (value == null) value = withContext(Dispatchers.IO) { PreviewBitmapCache.loadRemote(context, source) }
+        loading = false
+    }
+    Box(modifier) {
+        if (bitmap != null) {
+            Image(
+                bitmap = requireNotNull(bitmap).asImageBitmap(),
+                contentDescription = stringResource(R.string.food_photo),
+                contentScale = ContentScale.Fit,
+                modifier = Modifier.fillMaxSize(),
+            )
+        } else if (loading) {
+            CircularProgressIndicator(
+                modifier = Modifier.width(20.dp).height(20.dp).align(Alignment.Center),
+                strokeWidth = 2.dp,
+            )
+        } else {
+            CategoryFoodImage(fallbackCategory, Modifier.fillMaxSize())
+        }
+    }
+}
+
+private fun Food.inheritableImage(context: Context): FoodImage? {
+    image?.let { return it }
+    val drawableName = "food_item_${id.replace('-', '_')}"
+    val resourceId = context.resources.getIdentifier(drawableName, "drawable", context.packageName)
+    return resourceId.takeIf { it != 0 }?.let {
+        FoodImage(
+            source = FoodImageSource.BUNDLED,
+            localPath = "android.resource://${context.packageName}/drawable/$drawableName",
+        )
+    }
+}
+
 private const val PREVIEW_CACHE_KILOBYTES = 24 * 1024
 private const val MAX_LOCAL_PREVIEW_DIMENSION = 768
 
-private object PreviewBitmapCache {
+internal object PreviewBitmapCache {
+    // Decode and publish one network thumbnail at a time. Multiple completed downloads used to
+    // upload several bitmaps to the renderer in the same frame, visibly freezing result lists.
+    private val remoteLoadPermits = Semaphore(1, true)
     private val cache = object : LruCache<String, Bitmap>(PREVIEW_CACHE_KILOBYTES) {
         override fun sizeOf(key: String, value: Bitmap): Int = value.allocationByteCount / 1024
     }
 
     fun resourceKey(resourceId: Int) = "resource:$resourceId"
 
-    fun sourceKey(source: String): String = if (source.startsWith("content:")) {
-        "content:$source"
-    } else {
-        "file:$source:${File(source).lastModified()}"
+    fun sourceKey(source: String): String = when {
+        source.startsWith("https://") -> "remote:$source"
+        source.startsWith("content:") -> "content:$source"
+        source.startsWith("android.resource:") -> "resource-uri:$source"
+        else -> "file:$source:${File(source).lastModified()}"
     }
 
     fun get(key: String): Bitmap? = cache.get(key)
@@ -5560,20 +6462,78 @@ private object PreviewBitmapCache {
             inPreferredConfig = Bitmap.Config.ARGB_8888
         }
         val decoded = decodeSource(context, source, options) ?: return null
-        val maximum = max(decoded.width, decoded.height)
+        val rotationDegrees = runCatching {
+            if (source.startsWith("content:")) {
+                requireNotNull(context.contentResolver.openInputStream(Uri.parse(source))).use {
+                    ExifInterface(it).rotationDegrees
+                }
+            } else if (!source.startsWith("android.resource:")) {
+                ExifInterface(File(source)).rotationDegrees
+            } else {
+                0
+            }
+        }.getOrDefault(0)
+        val oriented = if (rotationDegrees == 0) decoded else Bitmap.createBitmap(
+            decoded,
+            0,
+            0,
+            decoded.width,
+            decoded.height,
+            Matrix().apply { postRotate(rotationDegrees.toFloat()) },
+            true,
+        ).also { decoded.recycle() }
+        val maximum = max(oriented.width, oriented.height)
         val preview = if (maximum > MAX_LOCAL_PREVIEW_DIMENSION) {
             val scale = MAX_LOCAL_PREVIEW_DIMENSION.toFloat() / maximum
             Bitmap.createScaledBitmap(
-                decoded,
-                (decoded.width * scale).roundToInt().coerceAtLeast(1),
-                (decoded.height * scale).roundToInt().coerceAtLeast(1),
+                oriented,
+                (oriented.width * scale).roundToInt().coerceAtLeast(1),
+                (oriented.height * scale).roundToInt().coerceAtLeast(1),
                 true,
-            ).also { if (it !== decoded) decoded.recycle() }
+            ).also { if (it !== oriented) oriented.recycle() }
         } else {
-            decoded
+            oriented
         }
         cache.put(key, preview)
         return preview
+    }
+
+    fun loadRemote(context: Context, source: String): Bitmap? {
+        val key = sourceKey(source)
+        cache.get(key)?.let { return it }
+        return runCatching {
+            remoteLoadPermits.acquire()
+            try {
+                cache.get(key)?.let { return@runCatching it }
+                val directory = File(context.cacheDir, "food-image-previews").apply { mkdirs() }
+                val fileName = java.security.MessageDigest.getInstance("SHA-256")
+                    .digest(source.toByteArray())
+                    .joinToString("") { "%02x".format(it) }
+                val cachedFile = File(directory, "$fileName.img")
+                if (!cachedFile.isFile || cachedFile.length() == 0L) {
+                    val temporary = File.createTempFile("download-", ".tmp", directory)
+                    try {
+                        val connection = URI(source).toURL().openConnection().apply {
+                            connectTimeout = 10_000
+                            readTimeout = 15_000
+                            useCaches = true
+                            setRequestProperty("User-Agent", "CalorieQuick/${BuildConfig.VERSION_NAME}")
+                        }
+                        connection.getInputStream().use { input -> temporary.outputStream().use(input::copyTo) }
+                        if (!temporary.renameTo(cachedFile)) {
+                            temporary.copyTo(cachedFile, overwrite = true)
+                        }
+                    } finally {
+                        temporary.delete()
+                    }
+                }
+                cachedFile.setLastModified(System.currentTimeMillis())
+                directory.listFiles().orEmpty().sortedByDescending(File::lastModified).drop(160).forEach(File::delete)
+                loadSource(context, cachedFile.absolutePath)?.also { cache.put(key, it) }
+            } finally {
+                remoteLoadPermits.release()
+            }
+        }.getOrNull()
     }
 
     private fun previewSampleSize(width: Int, height: Int): Int {
@@ -5584,7 +6544,7 @@ private object PreviewBitmapCache {
 
     private fun decodeSource(context: Context, source: String, options: BitmapFactory.Options): Bitmap? =
         runCatching {
-            if (source.startsWith("content:")) {
+            if (source.startsWith("content:") || source.startsWith("android.resource:")) {
                 context.contentResolver.openInputStream(Uri.parse(source)).use {
                     BitmapFactory.decodeStream(it, null, options)
                 }
@@ -5608,7 +6568,7 @@ private fun BundledFoodImage(resourceId: Int, contentDescription: String, modifi
             Image(
                 bitmap = it.asImageBitmap(),
                 contentDescription = contentDescription,
-                contentScale = ContentScale.Crop,
+                contentScale = ContentScale.Fit,
                 modifier = Modifier.fillMaxSize(),
             )
         }
@@ -5629,7 +6589,7 @@ private fun FoodImagePreview(source: String, modifier: Modifier = Modifier) {
             Image(
                 bitmap = it.asImageBitmap(),
                 contentDescription = stringResource(R.string.food_photo),
-                contentScale = ContentScale.Crop,
+                contentScale = ContentScale.Fit,
                 modifier = Modifier.fillMaxSize(),
             )
         }
@@ -5645,13 +6605,18 @@ private fun OpenFoodFactsRow(food: Food, locale: Locale, onReview: () -> Unit) {
         shape = RoundedCornerShape(18.dp),
     ) {
         Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+            FoodVisual(
+                food,
+                Modifier.width(56.dp).height(56.dp).clip(RoundedCornerShape(12.dp)),
+            )
+            Spacer(Modifier.width(12.dp))
             Column(Modifier.weight(1f)) {
                 Text(food.name(locale), fontWeight = FontWeight.SemiBold, maxLines = 2, overflow = TextOverflow.Ellipsis)
                 Text(
                     buildString {
                         food.brand?.let { append("$it · ") }
                         append("${food.nutritionPer100g.calories} ${stringResource(R.string.kcal)} · ")
-                        append(stringResource(R.string.per_100g))
+                        append(stringResource(if (food.usesVolumeMeasure()) R.string.per_100ml else R.string.per_100g))
                     },
                     fontSize = 13.sp,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -5694,6 +6659,7 @@ private fun FoodSourceType.labelResource() = when (this) {
 @Composable
 private fun HistoryFoodPickerSheet(
     foods: List<Food>,
+    recipes: Map<String, RecipeTemplate>,
     usage: Map<String, List<UnitUsage>>,
     query: String,
     locale: Locale,
@@ -5701,17 +6667,25 @@ private fun HistoryFoodPickerSheet(
     onDismiss: () -> Unit,
     onSelect: (Food) -> Unit,
 ) {
-    val results = foods.asSequence()
-        .filter { query.isBlank() || it.matches(query) }
+    val focusManager = LocalFocusManager.current
+    var resultLimit by rememberSaveable(query) { mutableStateOf(SEARCH_PAGE_SIZE) }
+    val allResults = foods.asSequence()
+        .filter { food ->
+            query.isBlank() || food.matches(query) || recipes[food.id]?.hasIngredientMatching(query) == true
+        }
         .sortedWith(
             compareByDescending<Food> { food -> usage[food.id].orEmpty().sumOf(UnitUsage::useCount) }
                 .thenBy { it.name(locale) },
         )
-        .take(30)
         .toList()
+    val results = allResults.take(resultLimit)
     ModalBottomSheet(onDismissRequest = onDismiss) {
         Column(
-            Modifier.fillMaxWidth().navigationBarsPadding().padding(horizontal = 20.dp),
+            Modifier
+                .fillMaxWidth()
+                .pointerInput(focusManager) { detectTapGestures { focusManager.clearFocus() } }
+                .navigationBarsPadding()
+                .padding(horizontal = 20.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             Text(stringResource(R.string.add_food_to_day), fontSize = 24.sp, fontWeight = FontWeight.Bold)
@@ -5743,6 +6717,14 @@ private fun HistoryFoodPickerSheet(
                         }
                     }
                 }
+                if (allResults.size > resultLimit) {
+                    item {
+                        OutlinedButton(
+                            onClick = { resultLimit += SEARCH_PAGE_SIZE },
+                            modifier = Modifier.fillMaxWidth(),
+                        ) { Text(stringResource(R.string.load_more)) }
+                    }
+                }
                 item { Spacer(Modifier.height(8.dp)) }
             }
         }
@@ -5760,6 +6742,7 @@ private fun EntryEditorSheet(
     onSave: (Double, Long) -> Unit,
 ) {
     val context = LocalContext.current
+    val focusManager = LocalFocusManager.current
     val initialDateTime = Instant.ofEpochMilli(entry.consumedAtEpochMillis).atZone(zoneId)
     var amountText by remember(entry.id) { mutableStateOf(formatEditableAmount(entry.enteredAmount)) }
     var dateEpochDay by remember(entry.id) { mutableStateOf(initialDateTime.toLocalDate().toEpochDay()) }
@@ -5774,7 +6757,12 @@ private fun EntryEditorSheet(
         (maximumRecipeGrams == null || grams <= maximumRecipeGrams) && candidateTimestamp <= System.currentTimeMillis()
     ModalBottomSheet(onDismissRequest = onDismiss) {
         Column(
-            Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).navigationBarsPadding().padding(horizontal = 24.dp),
+            Modifier
+                .fillMaxWidth()
+                .pointerInput(focusManager) { detectTapGestures { focusManager.clearFocus() } }
+                .verticalScroll(rememberScrollState())
+                .navigationBarsPadding()
+                .padding(horizontal = 24.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
             Text(stringResource(R.string.edit_diary_entry), fontSize = 24.sp, fontWeight = FontWeight.Bold)
@@ -5883,6 +6871,7 @@ private fun ProductIssueDialog(
     onDismiss: () -> Unit,
     onSubmit: (Set<String>, String) -> Unit,
 ) {
+    val focusManager = LocalFocusManager.current
     val reasons = listOf(
         "NUTRITION" to R.string.product_issue_nutrition,
         "NAME_BRAND" to R.string.product_issue_name_brand,
@@ -5899,7 +6888,11 @@ private fun ProductIssueDialog(
         title = { Text(stringResource(R.string.report_incorrect_product)) },
         text = {
             Column(
-                Modifier.fillMaxWidth().heightIn(max = 520.dp).verticalScroll(rememberScrollState()),
+                Modifier
+                    .fillMaxWidth()
+                    .pointerInput(focusManager) { detectTapGestures { focusManager.clearFocus() } }
+                    .heightIn(max = 520.dp)
+                    .verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(12.dp),
             ) {
                 Text(food.name(locale), fontWeight = FontWeight.Bold)
@@ -5952,6 +6945,7 @@ private fun QuickAddSheet(
     onAdd: (Food, Double, Serving?, String?) -> Unit,
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    val focusManager = LocalFocusManager.current
     val gramsLabel = stringResource(R.string.grams_short)
     val preferredPreparationId = preparationUsage.maxWithOrNull(
         compareBy<PreparationUsage> { it.useCount }.thenBy { it.lastUsedAtEpochMillis },
@@ -5998,12 +6992,11 @@ private fun QuickAddSheet(
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState,
-        sheetGesturesEnabled = false,
-        dragHandle = null,
     ) {
         Column(
             Modifier
                 .fillMaxWidth()
+                .pointerInput(focusManager) { detectTapGestures { focusManager.clearFocus() } }
                 .verticalScroll(rememberScrollState())
                 .navigationBarsPadding()
                 .padding(horizontal = 24.dp),
@@ -6175,7 +7168,10 @@ private fun QuickAddSheet(
                 }
             }
             if (selected.serving != null && valid) {
-                Text("≈ $grams ${stringResource(R.string.grams_short)}", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(
+                    "≈ $grams ${stringResource(if (effectiveFood.usesVolumeMeasure()) R.string.millilitres_short else R.string.grams_short)}",
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
             }
             if (remainingGrams != null && grams > remainingGrams) {
                 Text(stringResource(R.string.not_enough_batch_remaining), color = MaterialTheme.colorScheme.error)

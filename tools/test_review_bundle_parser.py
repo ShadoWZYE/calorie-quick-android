@@ -120,6 +120,31 @@ class ReviewBundleParserTest(unittest.TestCase):
             self.assertEqual([response_path], candidate["rawPaths"])
             self.assertIn("liquid package and ml measures need normalization", candidate["issues"])
 
+    def test_support_failure_counts_are_visible_in_summary_and_markdown(self):
+        with tempfile.TemporaryDirectory() as folder:
+            archive = Path(folder) / "support.zip"
+            with zipfile.ZipFile(archive, "w") as output:
+                output.writestr("catalogue/catalogue.json", json.dumps({
+                    "schema": "calorie-quick-personal-catalogue", "schemaVersion": 2,
+                    "foods": [], "recipes": [],
+                }))
+                output.writestr("support/support.json", json.dumps({
+                    "schema": "calorie-quick-support-bundle", "schemaVersion": 9,
+                    "feedbackThread": [],
+                    "diagnostics": [{"id": "diagnostic-1"}],
+                    "uiFreezes": [{"id": "freeze-1"}],
+                    "crashes": [{"id": "crash-1"}, {"id": "crash-2"}],
+                }))
+
+            report = PARSER.inspect_bundle(archive)
+            markdown = PARSER.markdown_report(report)
+
+            self.assertEqual(1, report["summary"]["diagnosticCount"])
+            self.assertEqual(1, report["summary"]["uiFreezeCount"])
+            self.assertEqual(2, report["summary"]["crashCount"])
+            self.assertIn("UI freeze reports: 1", markdown)
+            self.assertIn("Crash reports: 2", markdown)
+
 
 if __name__ == "__main__":
     unittest.main()

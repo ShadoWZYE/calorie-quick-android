@@ -7,6 +7,7 @@ import org.junit.Test
 
 class BuiltInCatalogueParserTest {
     private val assetFile = File("src/main/assets/catalogue/built_in_catalogue_v1.json")
+    private val promotedAssetFile = File("src/main/assets/catalogue/promoted_catalogue_v1.json")
 
     @Test
     fun `bundled catalogue passes validation and maintains broad coverage`() {
@@ -31,6 +32,24 @@ class BuiltInCatalogueParserTest {
         assertTrue(catalogue.foods.any { it.id == "salt" && it.servings.any { serving -> serving.id == "salt-teaspoon" } })
         assertTrue(catalogue.foods.any { it.id == "green-olives" && "olives" in it.aliases })
         assertTrue(catalogue.foods.any { it.id == "wheat-flour" && "faina alba" in it.aliases })
+    }
+
+    @Test
+    fun `promoted catalogue retains verification provenance package units and image attribution`() {
+        val catalogue = BuiltInCatalogueParser.parse(promotedAssetFile.readText())
+
+        assertEquals("MIXED-PER-RECORD", catalogue.license)
+        assertTrue(catalogue.foods.isNotEmpty())
+        val promoted = catalogue.foods.first()
+        assertTrue(promoted.sourceId.startsWith("cq-promoted:"))
+        assertTrue(promoted.barcode?.isNotBlank() == true)
+        assertTrue(promoted.servings.any(BuiltInServingRecord::isPackage))
+        assertTrue(promoted.image?.remoteUrl?.startsWith("https://") == true)
+        assertEquals("Open Food Facts contributors", promoted.image?.attribution)
+        assertTrue(catalogue.recipes.isNotEmpty())
+        val recipe = catalogue.recipes.first()
+        assertTrue(catalogue.foods.any { it.id == recipe.foodId })
+        assertTrue(recipe.ingredients.isNotEmpty())
     }
 
     @Test(expected = IllegalArgumentException::class)

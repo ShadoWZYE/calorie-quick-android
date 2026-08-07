@@ -282,18 +282,31 @@ def inspect_bundle(archive_path: Path) -> dict[str, Any]:
         warnings.append(f"{len(images_with_metadata)} legacy image(s) contain EXIF/XMP metadata.")
     feedback_count = 0
     performance_count = 0
+    diagnostic_count = 0
+    freeze_count = 0
+    crash_count = 0
     if support:
-        if support.get("schema") != "calorie-quick-support-bundle" or support.get("schemaVersion") not in (5, 6, 7, 8):
+        if support.get("schema") != "calorie-quick-support-bundle" or support.get("schemaVersion") not in (5, 6, 7, 8, 9):
             errors.append("Unsupported support schema.")
         thread = support.get("feedbackThread", [])
         feedback_count = len(thread) if isinstance(thread, list) else 0
         performance = support.get("performance", [])
         performance_count = len(performance) if isinstance(performance, list) else 0
+        diagnostics = support.get("diagnostics", [])
+        diagnostic_count = len(diagnostics) if isinstance(diagnostics, list) else 0
+        freezes = support.get("uiFreezes", [])
+        freeze_count = len(freezes) if isinstance(freezes, list) else 0
+        crashes = support.get("crashes", [])
+        crash_count = len(crashes) if isinstance(crashes, list) else 0
+        ui_jank = support.get("uiJank", [])
+        ui_jank_count = len(ui_jank) if isinstance(ui_jank, list) else 0
         product_issues = support.get("productDataIssues", [])
         product_issue_count = len(product_issues) if isinstance(product_issues, list) else 0
     else:
         product_issues = []
         product_issue_count = 0
+        ui_jank = []
+        ui_jank_count = 0
 
     return {
         "valid": not errors,
@@ -308,6 +321,10 @@ def inspect_bundle(archive_path: Path) -> dict[str, Any]:
             "recipeCount": len(recipes),
             "feedbackMessageCount": feedback_count,
             "performanceOperationCount": performance_count,
+            "diagnosticCount": diagnostic_count,
+            "uiFreezeCount": freeze_count,
+            "crashCount": crash_count,
+            "uiJankSessionCount": ui_jank_count,
             "productIssueCount": product_issue_count,
             "imageCount": sum("mimeType" in item for item in entry_summary),
             "imagesWithMetadata": len(images_with_metadata),
@@ -322,6 +339,7 @@ def inspect_bundle(archive_path: Path) -> dict[str, Any]:
         "foodFindings": food_findings,
         "openFoodFactsProducts": list(off_candidates_by_code.values()),
         "productDataIssues": product_issues,
+        "uiJank": ui_jank,
         "mediaWithMetadata": images_with_metadata,
         "entries": entry_summary,
     }
@@ -339,6 +357,10 @@ def markdown_report(report: dict[str, Any]) -> str:
         f"- Images containing EXIF/XMP: {summary.get('imagesWithMetadata', 0)}",
         f"- Open Food Facts cache: {summary.get('openFoodFactsResponseCount', 0)} responses, {summary.get('openFoodFactsProductCount', 0)} unique products collected",
         f"- Explicit incorrect-product reports: {summary.get('productIssueCount', 0)}",
+        f"- Scan/lookup diagnostics: {summary.get('diagnosticCount', 0)}",
+        f"- UI freeze reports: {summary.get('uiFreezeCount', 0)}",
+        f"- Crash reports: {summary.get('crashCount', 0)}",
+        f"- UI jank sessions: {summary.get('uiJankSessionCount', 0)}",
     ]
     for heading, key in (("Errors", "errors"), ("Warnings", "warnings")):
         values = report.get(key, [])
@@ -360,6 +382,8 @@ def markdown_report(report: dict[str, Any]) -> str:
 
 
 def main(argv: list[str] | None = None) -> int:
+    if hasattr(sys.stdout, "reconfigure"):
+        sys.stdout.reconfigure(encoding="utf-8")
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("archive", type=Path)
     parser.add_argument("--output-dir", type=Path, help="Directory for JSON and Markdown reports")

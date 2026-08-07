@@ -101,6 +101,19 @@ class ReviewBundleExportTest {
             resultCount = 3,
             queryLength = 6,
         )
+        support.recordUiJankSession(
+            UiJankSessionSummary(
+                startedAtEpochMillis = 1_000,
+                endedAtEpochMillis = 4_000,
+                totalFrames = 180,
+                jankyFrames = 18,
+                severeFrames = 2,
+                maxFrameDurationMillis = 140,
+                screens = listOf(
+                    UiJankScreenSummary("TODAY", 180, 18, 2, 140, 1_100),
+                ),
+            ),
+        )
         openFoodFactsCache.write(
             requestUrl = "https://world.openfoodfacts.org/search?query=private-term",
             locale = "en",
@@ -140,7 +153,7 @@ class ReviewBundleExportTest {
             assertEquals("calorie-quick-review-bundle", root.getString("schema"))
             assertEquals(2, root.getInt("schemaVersion"))
             assertNotNull(root.getJSONObject("app").getString("buildId"))
-            assertEquals(8, root.getJSONArray("components").getJSONObject(1).getInt("schemaVersion"))
+            assertEquals(9, root.getJSONArray("components").getJSONObject(1).getInt("schemaVersion"))
             assertEquals("open-food-facts-cache", root.getJSONArray("components").getJSONObject(2).getString("kind"))
             val media = root.getJSONArray("media").getJSONObject(0)
             val entry = archive.getEntry(media.getString("path"))
@@ -162,7 +175,7 @@ class ReviewBundleExportTest {
             val supportManifest = JSONObject(
                 archive.getInputStream(archive.getEntry("support/support.json")).bufferedReader().readText(),
             )
-            assertEquals(8, supportManifest.getInt("schemaVersion"))
+            assertEquals(9, supportManifest.getInt("schemaVersion"))
             val productIssue = supportManifest.getJSONArray("productDataIssues").getJSONObject(0)
             assertEquals("12345678", productIssue.getString("barcode"))
             assertEquals("Serving is 250 ml, not 100 ml.", productIssue.getString("comment"))
@@ -171,6 +184,10 @@ class ReviewBundleExportTest {
             assertEquals("open-food-facts-search", performance.getString("operation"))
             assertEquals(2_500, performance.getLong("durationMillis"))
             assertFalse(performance.has("query"))
+            val uiJank = supportManifest.getJSONArray("uiJank").getJSONObject(0)
+            assertEquals(180, uiJank.getLong("totalFrames"))
+            assertEquals(18, uiJank.getLong("jankyFrames"))
+            assertEquals("TODAY", uiJank.getJSONArray("screens").getJSONObject(0).getString("screen"))
             val cacheIndex = JSONObject(
                 archive.getInputStream(archive.getEntry("open-food-facts/cache.json")).bufferedReader().readText(),
             )

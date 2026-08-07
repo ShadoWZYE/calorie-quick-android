@@ -2,7 +2,6 @@ package com.shadow.calorietracker.data
 
 import android.content.Context
 import android.net.Uri
-import com.google.mlkit.vision.common.InputImage
 import com.google.mlkit.vision.text.TextRecognition
 import com.google.mlkit.vision.text.latin.TextRecognizerOptions
 import com.google.mlkit.vision.text.Text
@@ -14,6 +13,8 @@ import java.time.ZoneId
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 data class BodyScalePrefill(
     val measurement: BodyMeasurement?,
@@ -24,14 +25,21 @@ enum class BodyScaleWarning { WEIGHT_MISSING, DATE_MISSING, LIMITED_METRICS }
 
 class BodyScaleOcr(context: Context) : AutoCloseable {
     private val applicationContext = context.applicationContext
-    private val recognizer = TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS)
+    private val recognizerDelegate = lazy(LazyThreadSafetyMode.SYNCHRONIZED) {
+        TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS)
+    }
+    private val recognizer by recognizerDelegate
 
     suspend fun scan(uri: Uri, zoneId: ZoneId = ZoneId.systemDefault()): BodyScalePrefill {
-        val image = InputImage.fromFilePath(applicationContext, uri)
-        val recognized = suspendCancellableCoroutine { continuation ->
-            recognizer.process(image)
-                .addOnSuccessListener { text -> if (continuation.isActive) continuation.resume(text) }
-                .addOnFailureListener { error -> if (continuation.isActive) continuation.resumeWithException(error) }
+        val loaded = withContext(Dispatchers.IO) { OcrInputImageLoader.load(applicationContext, uri) }
+        val recognized = try {
+            suspendCancellableCoroutine { continuation ->
+                recognizer.process(loaded.image)
+                    .addOnSuccessListener { text -> if (continuation.isActive) continuation.resume(text) }
+                    .addOnFailureListener { error -> if (continuation.isActive) continuation.resumeWithException(error) }
+            }
+        } finally {
+            loaded.close()
         }
         val reconstructed = recognized.reconstructedRows()
         val structuredResult = BodyScaleParser.parse(reconstructed, zoneId)
@@ -42,7 +50,9 @@ class BodyScaleOcr(context: Context) : AutoCloseable {
         }
     }
 
-    override fun close() = recognizer.close()
+    override fun close() {
+        if (recognizerDelegate.isInitialized()) recognizer.close()
+    }
 }
 
 /**
@@ -50,7 +60,7 @@ class BodyScaleOcr(context: Context) : AutoCloseable {
  * each numeric column). Rebuild visual rows from bounding boxes before parsing so
  * values remain attached to their metric label.
  */
-private fun Text.reconstructedRows(): String {
+internal fun Text.reconstructedRows(): String {
     data class PositionedLine(val text: String, val left: Int, val centerY: Double, val height: Int)
     data class VisualRow(
         val lines: MutableList<PositionedLine>,

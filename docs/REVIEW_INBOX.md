@@ -25,11 +25,13 @@ This directory is outside the Git repository. It can contain feedback text and s
 1. Select **Import review ZIP**. The existing safe parser validates paths, sizes, schemas, hashes, and image privacy before anything is added.
 2. Re-importing the same archive hash opens the existing review and preserves all reviewer edits.
 3. The inbox creates separate items for feedback messages, explicitly reported incorrect products, flagged catalogue findings, failed scans, and sufficiently slow or failed performance operations. Ordinary Open Food Facts products are collected automatically and do not become findings.
-4. Read the original evidence and the separate read-only Codex analysis, then choose **Not decided**, **Next**, **Later**, **Needs testing**, or **Done**. Add a note or correction when useful.
+4. Read the original evidence and the separate read-only Codex analysis, then choose **Not decided**, **Next**, **Later**, **Needs testing**, or **Done**. Add a note or correction when useful. The default **Active** view hides completed findings and bundles that contain no remaining work.
 5. **Next** items are included in the implementation brief automatically. Classification, severity, target/reference, structured corrections, and implementation notes remain available under **Advanced**.
 6. Use **Add a review item** for conclusions that do not map cleanly to one imported record.
 
-Items listed in `tools/review_implementation_status.json` are reconciled whenever the inbox opens. Implemented work moves from **Next** to **Needs testing** automatically; a finding you have already marked **Done** is never moved backward. The linked alpha version is filled in automatically as well.
+Items listed in `tools/review_implementation_status.json` are reconciled whenever the inbox opens. Implemented work moves from **Next** to **Needs testing** automatically; a finding you have already marked **Done** is never moved backward. When a genuinely newer review package is imported, an implemented testing item that was not reported again is marked **Done** automatically. A repeated item remains **Needs testing**. Chronology is checked from the package version, so an older archive cannot confirm a newer fix.
+
+Importing a newer package also moves surviving **Later** findings to **Next**. This makes Later a one-cycle deferral rather than a place where accepted work disappears permanently.
 
 The right-hand review panel scrolls independently with the mouse wheel anywhere under the pointer. Use **Previous** and **Next** at its top to work through the currently filtered findings without returning to the list each time. The numbered header summarizes the intended flow, and **How this works** provides the same guidance inside the tool.
 
@@ -37,9 +39,9 @@ The right-hand review panel scrolls independently with the mouse wheel anywhere 
 
 - **Not decided**: no decision yet.
 - **Next**: include in the next focused implementation brief.
-- **Later**: accepted, but not scheduled now.
+- **Later**: accepted but deferred until the next newer review package, when it moves to **Next** automatically.
 - **Needs testing**: gather clearer reproduction evidence first.
-- **Done**: fixed and verified.
+- **Done**: fixed and verified, or implemented and absent from the next newer review package. Done findings remain archived locally but are hidden from the active view.
 
 ## Create the next implementation brief
 

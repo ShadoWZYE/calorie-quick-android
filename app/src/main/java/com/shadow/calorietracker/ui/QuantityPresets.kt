@@ -10,7 +10,7 @@ import java.util.Locale
 import kotlin.math.abs
 import kotlin.math.roundToInt
 
-data class UnitChoice(val key: String, val label: String, val serving: Serving?) {
+data class UnitChoice(val key: String, val label: String, val serving: Serving?, val isVolume: Boolean = false) {
     val baseAmount: Double get() = if (serving == null) 100.0 else 1.0
 }
 
@@ -28,8 +28,11 @@ fun buildUnitChoices(
     gramsLabel: String,
 ): List<UnitChoice> {
     val usageByKey = usage.associateBy(UnitUsage::unitKey)
+    val foodUsesVolume = food.servings.any { serving ->
+        serving.label.all().any { it.removePrefix("1 ").trim().equals("ml", ignoreCase = true) }
+    }
     return (food.servings.map {
-        UnitChoice(it.id, it.label.forLocale(locale).removePrefix("1 "), it)
+        UnitChoice(it.id, it.label.forLocale(locale).removePrefix("1 "), it, isVolume = foodUsesVolume)
     } + UnitChoice(GRAMS_UNIT_KEY, gramsLabel, null)).sortedWith(
         compareByDescending<UnitChoice> { usageByKey[it.key]?.useCount ?: 0 }
             .thenByDescending { usageByKey[it.key]?.lastUsedAtEpochMillis ?: 0L },
@@ -74,10 +77,9 @@ private fun UnitChoice.toPreset(amount: Double, locale: Locale, gramsLabel: Stri
     }
     val label = when {
         serving == null -> "$formattedAmount $gramsLabel"
-        this.label.equals("ml", ignoreCase = true) && amount != 1.0 ->
-            "$formattedAmount ml · $grams $gramsLabel"
-        amount == 1.0 -> "$label · $grams $gramsLabel"
-        else -> "$formattedAmount × $label · $grams $gramsLabel"
+        this.label.equals("ml", ignoreCase = true) -> "$formattedAmount ml"
+        amount == 1.0 -> "$label · $grams ${if (isVolume) "ml" else gramsLabel}"
+        else -> "$formattedAmount × $label · $grams ${if (isVolume) "ml" else gramsLabel}"
     }
     return QuantityPreset(key, amount, grams, label)
 }

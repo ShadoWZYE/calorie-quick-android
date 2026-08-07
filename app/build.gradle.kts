@@ -13,8 +13,8 @@ fun gitValue(vararg arguments: String): String = runCatching {
 
 val sourceCommit = gitValue("rev-parse", "HEAD").ifBlank { "unknown" }
 val sourceDirty = gitValue("status", "--porcelain").isNotBlank()
-val releaseVersionName = "0.2.0-alpha13"
-val releaseVersionCode = 14
+val releaseVersionName = "0.2.1"
+val releaseVersionCode = 18
 val exactBuildId = "$releaseVersionName+$releaseVersionCode-${sourceCommit.take(12)}${if (sourceDirty) "-dirty" else ""}"
 
 android {
@@ -30,7 +30,6 @@ android {
 
         buildConfigField("String", "SOURCE_COMMIT", "\"$sourceCommit\"")
         buildConfigField("boolean", "SOURCE_DIRTY", sourceDirty.toString())
-        buildConfigField("String", "BUILD_ID", "\"$exactBuildId\"")
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -41,10 +40,29 @@ android {
     }
 
     buildTypes {
+        debug {
+            versionNameSuffix = "-dev"
+            buildConfigField("String", "BUILD_ID", "\"$exactBuildId-debug\"")
+            buildConfigField("String", "BUILD_CHANNEL", "\"debug\"")
+        }
+        create("fieldTest") {
+            initWith(getByName("release"))
+            signingConfig = signingConfigs.getByName("debug")
+            versionNameSuffix = "-test"
+            buildConfigField("String", "BUILD_ID", "\"$exactBuildId-field-test\"")
+            buildConfigField("String", "BUILD_CHANNEL", "\"field-test\"")
+            // Measure the runtime users actually experience, without debugger overhead.
+            isDebuggable = false
+            isMinifyEnabled = false
+            isShrinkResources = false
+            matchingFallbacks += listOf("release")
+        }
         release {
             // Private-alpha release builds deliberately use the same test key as debug builds.
             // This keeps direct installs and preserve-data upgrades possible until production signing exists.
             signingConfig = signingConfigs.getByName("debug")
+            buildConfigField("String", "BUILD_ID", "\"$exactBuildId-release\"")
+            buildConfigField("String", "BUILD_CHANNEL", "\"stable\"")
             // Keep private-alpha field builds unoptimized until the release-only R8
             // startup path has dedicated keep rules and device coverage.
             isMinifyEnabled = false
@@ -84,6 +102,7 @@ dependencies {
     implementation("androidx.compose.ui:ui-tooling-preview")
     implementation("androidx.lifecycle:lifecycle-runtime-compose:2.11.0")
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.11.0")
+    implementation("androidx.metrics:metrics-performance:1.0.0")
     implementation("com.google.android.gms:play-services-code-scanner:16.1.0")
     implementation("com.google.android.gms:play-services-mlkit-document-scanner:16.0.0")
     implementation("com.google.mlkit:text-recognition:16.0.1")

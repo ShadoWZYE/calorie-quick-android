@@ -1,15 +1,17 @@
 # Testing guide
 
-Use the **Calorie Quick Test** Desktop or Start Menu shortcut for emulator sessions. It builds, installs, and opens the latest debug APK without clearing existing app data.
+Use the **Calorie Quick Test** Desktop or Start Menu shortcut for emulator development sessions. It builds, installs, and opens the latest debug APK without clearing existing app data. Use the non-debuggable `fieldTest` APK for physical-device performance testing; debugger overhead can distort jank results.
 
 Never use Gradle's `connectedDebugAndroidTest` against an emulator or phone whose diary matters: the instrumentation workflow can uninstall the package and erase its private data. Use a disposable emulator for connected tests.
 
 ## Release gate
 
-Run:
+Run the variants sequentially so the Kotlin compiler does not retain three large Compose analysis graphs at once:
 
 ```powershell
-./gradlew test lintDebug assembleDebug assembleDebugAndroidTest assembleRelease
+./gradlew testDebugUnitTest assembleDebug assembleDebugAndroidTest --max-workers=2
+./gradlew lintFieldTest assembleFieldTest --max-workers=2
+./gradlew assembleRelease --max-workers=2
 ```
 
 The checked-in catalogue test validates its schema, bilingual names, nutrition bounds, stable IDs, allergens, preparations, aliases, categories, and representative Romanian coverage.
@@ -36,7 +38,7 @@ Run `python -m unittest tools/test_catalogue_images.py` when changing built-in t
 16. Rotate, background, kill, and relaunch the app. Verify profile, foods, recipes, photos, history, and totals remain intact.
 17. Enter coffee, milk, juice, and cooking oil in millilitres; verify the displayed gram equivalents use each food's density and survive relaunch.
 18. Flag a failed scan, add optional feedback, and export the combined review ZIP. Review the independent selections for scans, UI-freeze reports, crash reports, and feedback. Confirm private/non-opted-in foods and unflagged scans are absent. Run `python tools/review_bundle_parser.py <zip>` and confirm schema v2 passes, the exact build is recorded, every image hash matches, and no exported image retains EXIF/XMP metadata.
-19. Install the next versioned `CalorieQuick-<version>-debug.apk` with `adb install -r`; verify schema migration preserves profile, diary, personal foods, recipes, images, and feedback. Follow [UPDATES.md](UPDATES.md).
+19. Install the next versioned `CalorieQuick-<version>-test-fieldTest.apk` with `adb install -r`; verify schema migration preserves profile, diary, personal foods, recipes, images, and feedback. Follow [UPDATES.md](UPDATES.md).
 20. After an upgrade, verify the current What’s new summary appears once, scrolls independently at large font sizes without hiding its actions, opens the full release history, does not repeat after dismissal, and remains available from Settings.
 21. Check the launcher icon on each physical-device launcher; its background must remain white rather than transparent, black, or launcher-tinted.
 22. Browse a long built-in catalogue, scroll several screens down and rapidly back up, and confirm cards re-enter smoothly without visible pauses while their images load.
@@ -47,7 +49,7 @@ Run `python -m unittest tools/test_catalogue_images.py` when changing built-in t
 23. On a narrow phone, confirm the Today/date block and History, Progress, Feedback, and Settings icons share one vertically centered header row.
 24. From Settings, Feedback, History, Progress, food editing, recipe editing, and What’s new, press the Android Back key. Confirm it returns through the expected app screen to Today; Back on Today may use normal Android app-exit behavior.
 25. Open a long quick-add sheet and repeatedly scroll upward and downward. Confirm content scrolls without dragging or jumping the entire sheet.
-26. Run an Open Food Facts search, export opted-in diagnostics, and confirm support schema v8 contains a `performance` entry with duration/outcome/result count/query length but not the search text.
+26. Run an Open Food Facts search, exercise several screens and background the app, then export opted-in diagnostics. Confirm support schema v9 contains a `performance` entry with duration/outcome/result count/query length but not the search text, plus aggregate `uiJank` sessions without per-frame events or interaction text.
 27. Open `tools\Open Calorie Quick Review.cmd`, import the same review ZIP twice, and confirm edits survive deduplication. Add reviewer comments and corrections, then verify only accepted and explicitly promoted items appear in the generated JSON/Markdown implementation brief.
 28. Repeat the same Open Food Facts search twice and confirm the second lookup works from the local cache. Confirm valid results appear in All foods automatically, open quick add directly, and never overwrite a personal food with the same barcode.
 29. Export a review ZIP and verify `open-food-facts/cache.json` and its response files are present. Import it in the Windows tool, confirm a retained `source.zip` is created, and verify each barcode and opted-in shared food appears once in `shared-food-catalogue.json` without creating an ordinary review finding.

@@ -48,6 +48,7 @@ class SupportDiagnosticStore(private val context: Context) {
     private val freezeDirectory = File(context.filesDir, "ui-freeze-diagnostics")
     private val crashDirectory = File(context.filesDir, "crash-diagnostics")
     private val performanceDirectory = File(context.filesDir, "performance-diagnostics")
+    private val jankDirectory = File(context.filesDir, "ui-jank-diagnostics")
     private val feedbackImageDirectory = File(context.filesDir, "feedback-images")
     private val productIssueDirectory = File(context.filesDir, "product-data-issues")
     private val feedbackPreferences = context.getSharedPreferences("support-feedback", Context.MODE_PRIVATE)
@@ -95,6 +96,8 @@ class SupportDiagnosticStore(private val context: Context) {
             .forEach { runCatching { File(it).delete() } }
         saveFeedbackMessages(messages)
     }
+
+    fun clearFeedback() = replaceFeedbackMessages(emptyList())
 
     private fun importFeedbackImage(source: Uri, id: String): String {
         feedbackImageDirectory.mkdirs()
@@ -171,20 +174,40 @@ class SupportDiagnosticStore(private val context: Context) {
     @Synchronized
     fun flagProductIssue(food: Food, reasonCodes: Set<String>, comment: String): Boolean {
         val barcode = food.barcode?.filter(Char::isDigit).orEmpty()
-        if (food.provenance.type.name != "OPEN_FOOD_FACTS" || barcode.isEmpty() || reasonCodes.isEmpty()) return false
+        if (food.provenance.type.name !in setOf("OPEN_FOOD_FACTS", "BUILT_IN") || reasonCodes.isEmpty()) return false
         productIssueDirectory.mkdirs()
         val createdAt = System.currentTimeMillis()
-        val id = "$createdAt-${UUID.randomUUID()}"
-        File(productIssueDirectory, "$id.json").writeText(
+        val existingFile = productIssueDirectory.listFiles { file -> file.extension == "json" }
+            .orEmpty()
+            .firstOrNull { file ->
+                runCatching {
+                    val report = JSONObject(file.readText())
+                    report.optString("foodId") == food.id ||
+                        barcode.isNotBlank() && report.optString("barcode") == barcode
+                }.getOrDefault(false)
+            }
+        val existing = existingFile?.let { file -> runCatching { JSONObject(file.readText()) }.getOrNull() }
+        val id = existing?.optString("id")?.takeIf(String::isNotBlank) ?: "$createdAt-${UUID.randomUUID()}"
+        val mergedReasons = buildSet {
+            existing?.optJSONArray("reasonCodes")?.let { values ->
+                repeat(values.length()) { index -> values.optString(index).takeIf(String::isNotBlank)?.let(::add) }
+            }
+            addAll(reasonCodes)
+        }
+        val normalizedComment = comment.trim().take(2_000)
+        val destination = existingFile ?: File(productIssueDirectory, "$id.json")
+        destination.writeText(
             JSONObject()
                 .put("id", id)
                 .put("foodId", food.id)
                 .put("barcode", barcode)
                 .put("productName", food.names.en.take(300))
                 .put("brand", food.brand?.take(300) ?: JSONObject.NULL)
-                .put("reasonCodes", JSONArray(reasonCodes.sorted()))
-                .put("comment", comment.trim().take(2_000))
-                .put("createdAtEpochMillis", createdAt)
+                .put("sourceType", food.provenance.type.name)
+                .put("reasonCodes", JSONArray(mergedReasons.sorted()))
+                .put("comment", normalizedComment.ifBlank { existing?.optString("comment").orEmpty() })
+                .put("createdAtEpochMillis", existing?.optLong("createdAtEpochMillis") ?: createdAt)
+                .put("updatedAtEpochMillis", createdAt)
                 .toString(2),
         )
         return true
@@ -198,6 +221,7 @@ class SupportDiagnosticStore(private val context: Context) {
         val detectedAt = System.currentTimeMillis()
         val id = "$detectedAt-${UUID.randomUUID()}"
         val report = JSONObject()
+            .putBuildIdentity()
             .put("id", id)
             .put("detectedAtEpochMillis", detectedAt)
             .put("stalledForMillis", stalledForMillis)
@@ -223,6 +247,7 @@ class SupportDiagnosticStore(private val context: Context) {
         val detectedAt = System.currentTimeMillis()
         val id = "$detectedAt-${UUID.randomUUID()}"
         val report = JSONObject()
+            .putBuildIdentity()
             .put("id", id)
             .put("detectedAtEpochMillis", detectedAt)
             .put("threadName", threadName.take(200))
@@ -243,10 +268,53 @@ class SupportDiagnosticStore(private val context: Context) {
         crashDirectory.listFiles()?.forEach(File::delete)
     }
 
-    fun performanceCount(): Int = performanceDirectory.listFiles { file -> file.extension == "json" }?.size ?: 0
+    fun performanceCount(): Int =
+        (performanceDirectory.listFiles { file -> file.extension == "json" }?.size ?: 0) +
+            (jankDirectory.listFiles { file -> file.extension == "json" }?.size ?: 0)
 
     fun clearPerformanceDiagnostics() {
         performanceDirectory.listFiles()?.forEach(File::delete)
+        jankDirectory.listFiles()?.forEach(File::delete)
+    }
+
+    @Synchronized
+    fun recordUiJankSession(summary: UiJankSessionSummary) {
+        if (summary.totalFrames < MIN_JANK_SESSION_FRAMES || summary.jankyFrames == 0L) return
+        jankDirectory.mkdirs()
+        val id = "${summary.endedAtEpochMillis}-${UUID.randomUUID()}"
+        File(jankDirectory, "$id.json").writeText(
+            JSONObject()
+                .putBuildIdentity()
+                .put("id", id)
+                .put("startedAtEpochMillis", summary.startedAtEpochMillis)
+                .put("endedAtEpochMillis", summary.endedAtEpochMillis)
+                .put("durationMillis", (summary.endedAtEpochMillis - summary.startedAtEpochMillis).coerceAtLeast(0))
+                .put("totalFrames", summary.totalFrames)
+                .put("jankyFrames", summary.jankyFrames)
+                .put("jankRate", summary.jankyFrames.toDouble() / summary.totalFrames)
+                .put("severeFrames", summary.severeFrames)
+                .put("maxFrameDurationMillis", summary.maxFrameDurationMillis)
+                .put("screens", JSONArray().apply {
+                    summary.screens.forEach { screen ->
+                        put(
+                            JSONObject()
+                                .put("screen", screen.screen)
+                                .put("totalFrames", screen.totalFrames)
+                                .put("jankyFrames", screen.jankyFrames)
+                                .put("jankRate", screen.jankyFrames.toDouble() / screen.totalFrames.coerceAtLeast(1))
+                                .put("severeFrames", screen.severeFrames)
+                                .put("maxFrameDurationMillis", screen.maxFrameDurationMillis)
+                                .put("totalJankDurationMillis", screen.totalJankDurationMillis),
+                        )
+                    }
+                })
+                .toString(2),
+        )
+        jankDirectory.listFiles { file -> file.extension == "json" }
+            .orEmpty()
+            .sortedByDescending(File::lastModified)
+            .drop(MAX_JANK_REPORTS)
+            .forEach(File::delete)
     }
 
     @Synchronized
@@ -262,6 +330,7 @@ class SupportDiagnosticStore(private val context: Context) {
         val id = "$occurredAt-${UUID.randomUUID()}"
         File(performanceDirectory, "$id.json").writeText(
             JSONObject()
+                .putBuildIdentity()
                 .put("id", id)
                 .put("operation", operation.take(80))
                 .put("occurredAtEpochMillis", occurredAt)
@@ -311,6 +380,11 @@ class SupportDiagnosticStore(private val context: Context) {
             .sortedBy(File::getName)
             .mapNotNull { file -> runCatching { JSONObject(file.readText()) }.getOrNull() }
         else emptyList()
+        val jankReports = if (includeDiagnostics) jankDirectory.listFiles { file -> file.extension == "json" }
+            .orEmpty()
+            .sortedBy(File::getName)
+            .mapNotNull { file -> runCatching { JSONObject(file.readText()) }.getOrNull() }
+        else emptyList()
         val productIssues = if (includeDiagnostics) productIssueDirectory.listFiles { file -> file.extension == "json" }
             .orEmpty()
             .sortedBy(File::getName)
@@ -345,7 +419,7 @@ class SupportDiagnosticStore(private val context: Context) {
         val feedbackMediaByOwner = feedbackMedia.associateBy(ReviewBundleMedia::ownerId)
         val manifest = JSONObject()
             .put("schema", "calorie-quick-support-bundle")
-            .put("schemaVersion", 8)
+            .put("schemaVersion", 9)
             .put("generatedAtEpochMillis", System.currentTimeMillis())
             .put("appVersion", BuildConfig.VERSION_NAME)
             .put("appVersionCode", BuildConfig.VERSION_CODE)
@@ -385,6 +459,7 @@ class SupportDiagnosticStore(private val context: Context) {
             .put("uiFreezes", JSONArray(freezeReports))
             .put("crashes", JSONArray(crashReports))
             .put("performance", JSONArray(performanceReports))
+            .put("uiJank", JSONArray(jankReports))
             .put("productDataIssues", JSONArray(productIssues))
         zip.putNextEntry(ZipEntry("support/support.json"))
         zip.write(manifest.toString(2).toByteArray())
@@ -400,7 +475,7 @@ class SupportDiagnosticStore(private val context: Context) {
             crashCount = crashReports.size,
             hasFeedback = feedbackThread.isNotEmpty(),
             feedbackCount = feedbackThread.size,
-            performanceCount = performanceReports.size,
+            performanceCount = performanceReports.size + jankReports.size,
             productIssueCount = productIssues.size,
             manifest = manifest,
             media = diagnosticMedia + feedbackMedia,
@@ -411,7 +486,16 @@ class SupportDiagnosticStore(private val context: Context) {
         const val MAX_FREEZE_REPORTS = 20
         const val MAX_CRASH_REPORTS = 20
         const val MAX_PERFORMANCE_REPORTS = 50
+        const val MAX_JANK_REPORTS = 20
+        const val MIN_JANK_SESSION_FRAMES = 60L
     }
 }
+
+private fun JSONObject.putBuildIdentity(): JSONObject =
+    put("appVersion", BuildConfig.VERSION_NAME)
+        .put("appVersionCode", BuildConfig.VERSION_CODE)
+        .put("buildId", BuildConfig.BUILD_ID)
+        .put("sourceCommit", BuildConfig.SOURCE_COMMIT)
+        .put("sourceDirty", BuildConfig.SOURCE_DIRTY)
 
 private fun String.safeName(): String = replace(Regex("[^A-Za-z0-9_-]"), "_")

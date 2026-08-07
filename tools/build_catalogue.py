@@ -245,6 +245,7 @@ FOODS += [
     food("mici", "Grilled minced-meat rolls", "Mici", "Generic estimate", "Valoare generică", "prepared-meals", (280, 18.0, 2.0, 22.0, 0.0), aliases=("mititei",), servings=(serving("mici", "piece", "1 piece", "1 mic", 70, (1, 2, 3, 4)),)),
     food("cozonac", "Cozonac", "Cozonac", "Sweet bread, generic estimate", "Pâine dulce, valoare generică", "prepared-meals", (356, 8.0, 52.0, 13.0, 2.0), servings=(serving("cozonac", "slice", "1 slice", "1 felie", 60, (1, 2, 3)),), allergens={"GLUTEN": "CONTAINS", "MILK": "CONTAINS", "EGGS": "CONTAINS", "NUTS": "MAY_CONTAIN"}),
     # Drinks
+    food("water", "Water", "Apă", "Plain drinking water", "Apă potabilă simplă", "beverages", (0, 0.0, 0.0, 0.0, 0.0), aliases=("drinking water", "apa"), servings=(serving("water", "glass", "1 glass", "1 pahar", 250, (.5, 1, 2)), serving("water", "bottle", "1 bottle", "1 sticlă", 500, (.5, 1, 2)))),
     food("black-coffee", "Black coffee", "Cafea neagră", "Brewed, unsweetened", "Preparată, neîndulcită", "beverages", (1, .1, 0.0, 0.0, 0.0), aliases=("coffee", "cafea"), servings=(serving("black-coffee", "cup", "1 cup", "1 cană", 240, (1, 2, 3)),)),
     food("tea", "Tea", "Ceai", "Brewed, unsweetened", "Preparat, neîndulcit", "beverages", (1, 0.0, .3, 0.0, 0.0), servings=(serving("tea", "cup", "1 cup", "1 cană", 240, (1, 2, 3)),)),
     food("orange-juice", "Orange juice", "Suc de portocale", "100% juice", "Suc 100%", "beverages", (45, .7, 10.4, .2, .2), servings=(serving("orange-juice", "glass", "1 glass", "1 pahar", 250, (.5, 1, 2)),)),

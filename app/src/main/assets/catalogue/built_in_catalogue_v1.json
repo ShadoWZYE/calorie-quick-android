@@ -5611,6 +5611,60 @@
       "preparations": []
     },
     {
+      "id": "water",
+      "name": {
+        "en": "Water",
+        "ro": "Apă"
+      },
+      "detail": {
+        "en": "Plain drinking water",
+        "ro": "Apă potabilă simplă"
+      },
+      "category": "beverages",
+      "sourceId": "usda-fdc-cc0:curated-v2:water",
+      "aliases": [
+        "drinking water",
+        "apa"
+      ],
+      "nutritionPer100g": {
+        "calories": 0,
+        "proteinGrams": 0.0,
+        "carbsGrams": 0.0,
+        "fatGrams": 0.0,
+        "fiberGrams": 0.0
+      },
+      "servings": [
+        {
+          "id": "water-glass",
+          "label": {
+            "en": "1 glass",
+            "ro": "1 pahar"
+          },
+          "grams": 250,
+          "suggestedAmounts": [
+            0.5,
+            1,
+            2
+          ]
+        },
+        {
+          "id": "water-bottle",
+          "label": {
+            "en": "1 bottle",
+            "ro": "1 sticlă"
+          },
+          "grams": 500,
+          "suggestedAmounts": [
+            0.5,
+            1,
+            2
+          ]
+        }
+      ],
+      "allergens": {},
+      "preparations": []
+    },
+    {
       "id": "black-coffee",
       "name": {
         "en": "Black coffee",

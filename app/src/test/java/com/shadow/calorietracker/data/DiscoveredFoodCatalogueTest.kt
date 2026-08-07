@@ -16,6 +16,7 @@ import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -41,10 +42,14 @@ class DiscoveredFoodCatalogueTest {
     fun tearDown() = database.close()
 
     @Test
-    fun `valid API result is appended as shared non-personal catalogue food`() = runBlocking {
+    fun `valid API result is collected but joins the active catalogue only after use`() = runBlocking {
         val food = discoveredFood("5941234567890")
 
         assertEquals(1, repository.upsertDiscoveredFoods(listOf(food)))
+        assertEquals("Shared drink", database.foodDao().findFood(food.id)?.nameEn)
+        assertTrue(repository.foods.first().isEmpty())
+
+        repository.addEntry(food, 1.0, food.servings.single())
 
         val stored = repository.foods.first().single()
         assertFalse(stored.isPersonal)

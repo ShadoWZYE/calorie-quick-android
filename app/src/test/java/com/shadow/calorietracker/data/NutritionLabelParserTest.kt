@@ -183,4 +183,48 @@ class NutritionLabelParserTest {
         assertEquals(10.1, result.carbsPer100g!!, 0.001)
         assertEquals(0.0, result.proteinPer100g!!, 0.001)
     }
+
+    @Test
+    fun `curved label zeroes misread as letters are normalized`() {
+        val result = NutritionLabelParser.parse(
+            """
+            Pentru 100 ml 250 ml
+            Valoare energetica 42 kcal 105 kcal
+            Grasimi 0g Dg
+            Glucide 10,1 g 25 g
+            Proteine Og Dg
+            """.trimIndent(),
+        )
+
+        assertEquals(0.0, result.fatPer100g!!, 0.001)
+        assertEquals(0.0, result.proteinPer100g!!, 0.001)
+        assertTrue(result.warnings.isEmpty())
+    }
+
+    @Test
+    fun `spatial fallback reconstructs per 100 ml values from curved two column label`() {
+        val spatial = buildSpatialNutritionRows(
+            listOf(
+                PositionedOcrLine("100 ml", 566, 649, 646, 681),
+                PositionedOcrLine("250 ml %", 704, 641, 856, 681),
+                PositionedOcrLine("toticenergetica:", 254, 743, 478, 778),
+                PositionedOcrLine("42 kcal105 kcal (56)", 571, 724, 866, 770),
+                PositionedOcrLine("siGrasimi:", 308, 779, 448, 813),
+                PositionedOcrLine("0g", 616, 778, 650, 815),
+                PositionedOcrLine("nete si Glucide:", 291, 885, 451, 936),
+                PositionedOcrLine("10,19", 580, 897, 654, 936),
+                PositionedOcrLine("icaProteine:", 320, 960, 463, 1017),
+                PositionedOcrLine("0g", 622, 981, 655, 1016),
+                PositionedOcrLine("25g [10%", 739, 883, 866, 932),
+            ),
+        )
+        val result = NutritionLabelParser.parse(spatial.orEmpty())
+
+        assertEquals(42, result.caloriesPer100g)
+        assertEquals(0.0, result.fatPer100g!!, 0.001)
+        assertEquals(10.1, result.carbsPer100g!!, 0.001)
+        assertEquals(0.0, result.proteinPer100g!!, 0.001)
+        assertEquals(NutritionBasisUnit.MILLILITERS, result.basisUnit)
+        assertTrue(result.warnings.isEmpty())
+    }
 }

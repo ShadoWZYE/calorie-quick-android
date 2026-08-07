@@ -6,6 +6,26 @@ import org.junit.Test
 
 class RecipeCalculatorTest {
     @Test
+    fun `fresh batch scales every ingredient and preserves calories per gram`() {
+        val original = listOf(
+            ingredient("flour", 500, Nutrition(364, 10.0, 76.0, 1.0)),
+            ingredient("water", 300, Nutrition.Zero),
+            ingredient("oil", 20, Nutrition(884, 0.0, 0.0, 100.0)),
+        )
+        val scaled = RecipeCalculator.scaleIngredients(original, sourceYieldGrams = 700, targetYieldGrams = 1_050)
+
+        assertEquals(listOf(750, 450, 30), scaled.map(RecipeIngredientDraft::grams))
+        val originalResult = RecipeCalculator.calculate(original, cookedYieldGrams = 700, portionCount = 7)
+        val scaledResult = RecipeCalculator.calculate(scaled, cookedYieldGrams = 1_050, portionCount = 7)
+        assertEquals(originalResult.nutritionPer100g.calories, scaledResult.nutritionPer100g.calories)
+        assertEquals(
+            originalResult.nutritionPer100g.proteinGrams,
+            scaledResult.nutritionPer100g.proteinGrams,
+            0.001,
+        )
+    }
+
+    @Test
     fun `finished yield determines per 100 gram and portion nutrition`() {
         val result = RecipeCalculator.calculate(
             ingredients = listOf(
@@ -104,6 +124,30 @@ class RecipeCalculatorTest {
         assertEquals(294, result.totalNutrition.calories)
         assertEquals(196, result.nutritionPer100g.calories)
     }
+
+    @Test
+    fun `recipe ingredient search is localized and accent insensitive`() {
+        val recipe = RecipeTemplate(
+            foodId = "recipe-soup",
+            activeBatchId = "template",
+            name = "Soup",
+            ingredients = listOf(
+                ingredient("carrot", 100, Nutrition.Zero).copy(
+                    foodName = LocalizedText("Celery", "Țelină coaptă"),
+                ),
+            ),
+            cookedYieldGrams = 500,
+            portionCount = 2,
+            cookedAtEpochMillis = 0,
+            remainingGrams = 0,
+            batches = emptyList(),
+        )
+
+        assertEquals(true, recipe.hasIngredientMatching("telina"))
+        assertEquals(true, recipe.hasIngredientMatching("coapta"))
+        assertEquals(false, recipe.hasIngredientMatching("cartof"))
+    }
+
     private fun ingredient(
         id: String,
         grams: Int,

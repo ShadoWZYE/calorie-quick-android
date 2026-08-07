@@ -48,6 +48,21 @@ class FoodIdentityTest {
     }
 
     @Test
+    fun `restricted circulation barcode is not treated as global identity`() {
+        val localLabel = food.copy(barcode = "2951989002487")
+        val unrelatedStoreProduct = food.copy(
+            id = "other-store",
+            names = LocalizedText("Different deli roll", "Altă ruladă"),
+            brand = "Other store",
+            barcode = "2951989002487",
+        )
+
+        assertFalse(localLabel.hasSameCatalogueIdentity(unrelatedStoreProduct))
+        assertFalse("2951989002487".isGloballyIdentifyingBarcode())
+        assertTrue("5449000000286".isGloballyIdentifyingBarcode())
+    }
+
+    @Test
     fun `preparation changes nutrition and detail without changing catalogue identity`() {
         val fried = FoodPreparation(
             id = "fried",

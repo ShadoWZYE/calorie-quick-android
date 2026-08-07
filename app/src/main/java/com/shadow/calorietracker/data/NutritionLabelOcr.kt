@@ -2,8 +2,8 @@ package com.shadow.calorietracker.data
 
 import android.content.Context
 import android.net.Uri
-import com.google.mlkit.vision.common.InputImage
 import com.google.mlkit.vision.text.TextRecognition
+import com.google.mlkit.vision.text.Text
 import com.google.mlkit.vision.text.latin.TextRecognizerOptions
 import com.shadow.calorietracker.model.Allergen
 import com.shadow.calorietracker.model.AllergenDeclaration
@@ -11,6 +11,8 @@ import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 import kotlin.math.roundToInt
 import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 data class NutritionLabelPrefill(
     val suggestedName: String,
@@ -37,28 +39,158 @@ enum class NutritionLabelWarning {
 
 class NutritionLabelOcr(context: Context) : AutoCloseable {
     private val applicationContext = context.applicationContext
-    private val recognizer = TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS)
+    private val recognizerDelegate = lazy(LazyThreadSafetyMode.SYNCHRONIZED) {
+        TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS)
+    }
+    private val recognizer by recognizerDelegate
 
     suspend fun scan(uri: Uri, suggestedName: String): NutritionLabelPrefill {
-        val image = InputImage.fromFilePath(applicationContext, uri)
-        val recognized = suspendCancellableCoroutine { continuation ->
-            recognizer.process(image)
-                .addOnSuccessListener { text ->
-                    if (continuation.isActive) continuation.resume(text.text)
-                }
-                .addOnFailureListener { error ->
-                    if (continuation.isActive) continuation.resumeWithException(error)
-                }
+        val loaded = withContext(Dispatchers.IO) { OcrInputImageLoader.load(applicationContext, uri) }
+        val recognized = try {
+            suspendCancellableCoroutine { continuation ->
+                recognizer.process(loaded.image)
+                    .addOnSuccessListener { text ->
+                        if (continuation.isActive) continuation.resume(text)
+                    }
+                    .addOnFailureListener { error ->
+                        if (continuation.isActive) continuation.resumeWithException(error)
+                    }
+            }
+        } finally {
+            loaded.close()
         }
-        return NutritionLabelParser.parse(recognized, suggestedName)
+        val rows = recognized.reconstructedRows()
+        val spatialRows = recognized.spatialNutritionRows()
+        return NutritionLabelParser.parse(
+            rawText = listOfNotNull(spatialRows, rows).joinToString("\n"),
+            suggestedName = suggestedName,
+        )
     }
 
-    override fun close() = recognizer.close()
+    override fun close() {
+        if (recognizerDelegate.isInitialized()) recognizer.close()
+    }
 }
+
+data class PositionedOcrLine(
+    val text: String,
+    val left: Int,
+    val top: Int,
+    val right: Int,
+    val bottom: Int,
+) {
+    val centerX: Int get() = (left + right) / 2
+    val centerY: Int get() = (top + bottom) / 2
+    val height: Int get() = (bottom - top).coerceAtLeast(1)
+}
+
+/**
+ * Builds a clean per-100 column from the geometry of a nutrition table. This is a fallback for
+ * curved/glossy labels where OCR returns both columns in an interleaved order or merges them into
+ * one line. Only confidently matched rows are emitted; the ordinary parser still receives all raw
+ * text afterwards for package size, barcode and allergen extraction.
+ */
+fun buildSpatialNutritionRows(lines: List<PositionedOcrLine>): String? {
+    val headers = lines.mapNotNull { line ->
+        val match = SPATIAL_BASIS.find(line.text.lowercase()) ?: return@mapNotNull null
+        if (match.groupValues[1].toIntOrNull() != 100) return@mapNotNull null
+        line to match.groupValues[2]
+    }
+    val header = headers.minByOrNull { it.first.top } ?: return null
+    val targetX = header.first.centerX
+    val basisUnit = header.second
+
+    fun label(vararg keywords: String): PositionedOcrLine? = lines
+        .filter { line ->
+            val normalized = line.text.lowercase().withoutDiacritics()
+            keywords.any(normalized::contains)
+        }
+        .minByOrNull { it.top }
+
+    fun closestValue(
+        row: PositionedOcrLine,
+        pattern: Regex,
+        allowUnitless: Boolean,
+    ): String? {
+        val maxVerticalDistance = maxOf(72, row.height * 2)
+        return lines.asSequence()
+            .filter { candidate ->
+                kotlin.math.abs(candidate.centerY - row.centerY) <= maxVerticalDistance &&
+                    kotlin.math.abs(candidate.centerX - targetX) <= 145
+            }
+            .mapNotNull { candidate ->
+                val direct = pattern.find(candidate.text)?.groupValues?.getOrNull(1)
+                val fallback = if (direct == null && allowUnitless) {
+                    SPATIAL_NUMBER.find(candidate.text)?.groupValues?.getOrNull(1)
+                } else null
+                val raw = direct ?: fallback ?: return@mapNotNull null
+                val normalized = normalizeSpatialNumber(raw, candidate.text, direct == null)
+                Triple(
+                    kotlin.math.abs(candidate.centerY - row.centerY) * 2 +
+                        kotlin.math.abs(candidate.centerX - targetX),
+                    normalized,
+                    candidate,
+                )
+            }
+            .filter { (_, value) -> value.toDoubleOrNull() != null }
+            .minByOrNull { it.first }
+            ?.second
+    }
+
+    val energy = label("energy", "energie", "energetica")?.let {
+        closestValue(it, SPATIAL_KCAL, allowUnitless = false)
+    }
+    val fat = label("fat", "grasimi", "lipide")?.let {
+        closestValue(it, SPATIAL_GRAMS, allowUnitless = true)
+    }
+    val carbs = label("carbohydrate", "carbohidrati", "glucide")?.let {
+        closestValue(it, SPATIAL_GRAMS, allowUnitless = true)
+    }
+    val protein = label("protein", "proteine")?.let {
+        closestValue(it, SPATIAL_GRAMS, allowUnitless = true)
+    }
+    val fiber = label("fiber", "fibre")?.let {
+        closestValue(it, SPATIAL_GRAMS, allowUnitless = true)
+    }
+    val rows = buildList {
+        add("100 $basisUnit")
+        energy?.let { add("Energy $it kcal") }
+        fat?.let { add("Fat $it g") }
+        carbs?.let { add("Carbohydrate $it g") }
+        protein?.let { add("Protein $it g") }
+        fiber?.let { add("Fiber $it g") }
+    }
+    return rows.takeIf { it.size > 1 }?.joinToString("\n")
+}
+
+private fun Text.spatialNutritionRows(): String? = buildSpatialNutritionRows(
+    textBlocks.flatMap { block -> block.lines }.mapNotNull { line ->
+        val box = line.boundingBox ?: return@mapNotNull null
+        PositionedOcrLine(line.text, box.left, box.top, box.right, box.bottom)
+    },
+)
+
+private fun normalizeSpatialNumber(raw: String, source: String, wasUnitless: Boolean): String {
+    var value = raw.replace(',', '.')
+    if (wasUnitless && !source.contains('g', ignoreCase = true)) {
+        if (value.matches(Regex("0?9"))) return "0"
+        if (value.matches(Regex("[0-9]+\\.[0-9]+9"))) value = value.dropLast(1)
+    }
+    return value
+}
+
+private val SPATIAL_BASIS = Regex("""\b(100)\s*(g|ml)\b""")
+private val SPATIAL_KCAL = Regex("""([0-9]+(?:[.,][0-9]+)?)\s*kcal""", RegexOption.IGNORE_CASE)
+private val SPATIAL_GRAMS = Regex("""([0-9]+(?:[.,][0-9]+)?)\s*[gG]\b""")
+private val SPATIAL_NUMBER = Regex("""\b([0-9]+(?:[.,][0-9]+)?)\b""")
 
 object NutritionLabelParser {
     fun parse(rawText: String, suggestedName: String = ""): NutritionLabelPrefill {
-        val lines = rawText.lineSequence().map(String::trim).filter(String::isNotEmpty).toList()
+        val lines = rawText.lineSequence()
+            .map(String::trim)
+            .filter(String::isNotEmpty)
+            .map(::normalizeOcrArtifacts)
+            .toList()
         val normalizedLines = lines.map { it.lowercase().withoutDiacritics() }
         val normalizedText = normalizedLines.joinToString("\n")
         val firstNutritionRow = normalizedLines.indexOfFirst(::isNutritionRow).takeIf { it >= 0 } ?: lines.size
@@ -120,6 +252,10 @@ object NutritionLabelParser {
         fat = rowValues(lines, FAT_KEYWORDS, GRAM_VALUE, columnIndex, requireMultiple, EXCLUDED_FAT_KEYWORDS),
         fiber = rowValues(lines, FIBER_KEYWORDS, GRAM_VALUE, columnIndex, requireMultiple),
     )
+
+    /** Curved glossy labels commonly turn a zero beside `g` into the similarly shaped D/O glyph. */
+    private fun normalizeOcrArtifacts(line: String): String = line
+        .replace(MISREAD_ZERO_GRAMS, "0 g")
 
     private fun rowValues(
         lines: List<String>,
@@ -232,6 +368,7 @@ object NutritionLabelParser {
     private val BASIS_VALUE = Regex("""([0-9]+(?:[.,][0-9]+)?)\s*(g|ml)\b""")
     private val KCAL_VALUE = Regex("""([0-9]+(?:[.,][0-9]+)?)\s*kcal\b""")
     private val GRAM_VALUE = Regex("""([0-9]+(?:[.,][0-9]+)?)\s*g\b""")
+    private val MISREAD_ZERO_GRAMS = Regex("""(?i)\b[do]\s*g\b""")
     private val MEASURE_VALUE = Regex("""([0-9]+(?:[.,][0-9]+)?)\s*(kg|g|ml|l)\b""")
     private val DECLARED_PACKAGE = Regex("""\b([0-9]+(?:[.,][0-9]+)?)\s*(ml|l|g|kg)\s*(?:=|x\s*[0-9]+)""")
     private val DIGIT_SEQUENCE = Regex("""\d{8,14}""")

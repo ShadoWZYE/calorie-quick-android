@@ -3,13 +3,14 @@
 ## Private field testing
 
 - Give every tester build a higher `versionCode` and a readable pre-release `versionName`.
+- Target the next stable patch with prereleases such as `0.2.2-alpha1`, `0.2.2-alpha2`, and `0.2.2-beta1`, then publish it as plain `0.2.2`. After a stable `0.2.1`, never restart at `0.2.1-alpha1`; prereleases sort before the corresponding stable version.
 - Build and sign every APK with the same key, application ID, and signing lineage.
-- Install updates with `adb install -r app/build/outputs/apk/debug/CalorieQuick-<version>-debug.apk`; never uninstall first.
+- Install physical-device test updates with `adb install -r app/build/outputs/apk/fieldTest/CalorieQuick-<version>-test-fieldTest.apk`; never uninstall first. Reserve debug APKs for development and emulator diagnosis.
 - Run all Room migrations in normal startup and include migration coverage in the release gate. An update must be rejected if it cannot preserve the existing database.
 - Put the versioned `CalorieQuick-<version>-<build-type>.apk`, version, commit, checksum, migration notes, and changelog together in each handoff.
 - Ask testers to create a full backup before a risky schema change. The review bundle is diagnostic/contribution data and is not a diary backup.
 
-Debug and private-alpha release APKs currently use the same local test key and package ID. They can update one another when produced on this trusted machine. Moving to another build machine or distribution service requires retaining that key or installing a separately signed app, which Android treats as a different trust lineage.
+Debug, field-test, and private-alpha release APKs currently use the same local test key and package ID. They can update one another when produced on this trusted machine. The field-test variant is deliberately non-debuggable so performance observations are representative. Moving to another build machine or distribution service requires retaining that key or installing a separately signed app, which Android treats as a different trust lineage.
 
 ## Broader private alpha
 

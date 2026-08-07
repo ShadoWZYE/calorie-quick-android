@@ -48,6 +48,7 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.time.LocalDate
 import java.time.ZoneId
@@ -93,6 +94,10 @@ data class FoodLookupState(
     val status: FoodLookupStatus = FoodLookupStatus.IDLE,
     val results: List<Food> = emptyList(),
     val isBarcodeLookup: Boolean = false,
+    val page: Int = 0,
+    val hasMore: Boolean = false,
+    val loadingMore: Boolean = false,
+    val publishingResults: Boolean = false,
 )
 
 enum class NutritionLabelScanStatus { IDLE, PROCESSING, SUCCESS, ERROR }
@@ -135,6 +140,11 @@ data class FullBackupState(
     val exportResult: FullBackupExportResult? = null,
 )
 
+private data class LookupResultPage(
+    val foods: List<Food>,
+    val hasMore: Boolean,
+)
+
 class CalorieViewModel(application: Application) : AndroidViewModel(application) {
     private val database = AppDatabase.get(application)
     private val repository = CalorieRepository(database, BuiltInCatalogueImporter(application, database))
@@ -164,6 +174,7 @@ class CalorieViewModel(application: Application) : AndroidViewModel(application)
     private val _foodLookupState = MutableStateFlow(FoodLookupState())
     val foodLookupState: StateFlow<FoodLookupState> = _foodLookupState.asStateFlow()
     private var lookupJob: Job? = null
+    private val lookupResultMemory = linkedMapOf<String, LookupResultPage>()
     private val nutritionLabelOcr = NutritionLabelOcr(application)
     private val _nutritionLabelScanState = MutableStateFlow(NutritionLabelScanState())
     val nutritionLabelScanState: StateFlow<NutritionLabelScanState> = _nutritionLabelScanState.asStateFlow()
@@ -306,6 +317,10 @@ class CalorieViewModel(application: Application) : AndroidViewModel(application)
         viewModelScope.launch { repository.archivePersonalFood(foodId) }
     }
 
+    fun discardRecipeLeftovers(foodId: String) {
+        viewModelScope.launch { repository.discardRecipeLeftovers(foodId) }
+    }
+
     fun exportReviewCatalogue(
         uri: Uri,
         selectedFoodIds: Set<String>? = null,
@@ -318,9 +333,7 @@ class CalorieViewModel(application: Application) : AndroidViewModel(application)
         _catalogueExportState.value = CatalogueExportState(CatalogueExportStatus.EXPORTING)
         viewModelScope.launch {
             _catalogueExportState.value = try {
-                CatalogueExportState(
-                    CatalogueExportStatus.SUCCESS,
-                    catalogueExporter.exportTo(
+                val result = catalogueExporter.exportTo(
                         uri,
                         selectedFoodIds = selectedFoodIds,
                         selectedRecipeIds = selectedRecipeIds,
@@ -328,8 +341,19 @@ class CalorieViewModel(application: Application) : AndroidViewModel(application)
                         includeFreezeReports = includeFreezeReports,
                         includeCrashReports = includeCrashReports,
                         includeFeedback = includeFeedback,
-                    ),
-                )
+                    )
+                if (includeDiagnostics) {
+                    supportDiagnostics.clear()
+                    supportDiagnostics.clearPerformanceDiagnostics()
+                }
+                if (includeFreezeReports) supportDiagnostics.clearFreezes()
+                if (includeCrashReports) supportDiagnostics.clearCrashes()
+                if (includeFeedback) {
+                    supportDiagnostics.clearFeedback()
+                    _feedbackMessages.value = emptyList()
+                }
+                refreshSupportState()
+                CatalogueExportState(CatalogueExportStatus.SUCCESS, result)
             } catch (error: Exception) {
                 Log.w("CatalogueExport", "Catalogue export failed", error)
                 CatalogueExportState(CatalogueExportStatus.ERROR)
@@ -427,16 +451,31 @@ class CalorieViewModel(application: Application) : AndroidViewModel(application)
         val normalized = query.trim()
         if (normalized.length < 2) return
         lookupJob?.cancel()
+        val memoryKey = lookupMemoryKey(normalized, locale, 1)
+        lookupResultMemory[memoryKey]?.let { cachedPage ->
+            _foodLookupState.value = FoodLookupState(normalized, FoodLookupStatus.SEARCHING)
+            lookupJob = viewModelScope.launch {
+                publishLookupPage(normalized, page = 1, baseResults = emptyList(), cachedPage)
+            }
+            return
+        }
         _foodLookupState.value = FoodLookupState(normalized, FoodLookupStatus.SEARCHING)
         lookupJob = viewModelScope.launch {
             val startedAt = SystemClock.elapsedRealtime()
             var outcome = "success"
             var resultCount = 0
             try {
-                val results = openFoodFacts.search(normalized, locale)
-                repository.upsertDiscoveredFoods(results)
+                val resultPage = openFoodFacts.searchPage(normalized, locale)
+                val results = resultPage.foods
+                rememberLookupResults(memoryKey, resultPage)
                 resultCount = results.size
-                _foodLookupState.value = FoodLookupState(normalized, FoodLookupStatus.SUCCESS, results)
+                publishLookupPage(
+                    normalized,
+                    page = 1,
+                    baseResults = emptyList(),
+                    resultPage = LookupResultPage(results, resultPage.hasMore),
+                )
+                persistDiscoveredFoods(results)
             } catch (_: OpenFoodFactsException.RateLimited) {
                 outcome = "rate-limited"
                 _foodLookupState.value = FoodLookupState(normalized, FoodLookupStatus.RATE_LIMITED)
@@ -465,6 +504,88 @@ class CalorieViewModel(application: Application) : AndroidViewModel(application)
         }
     }
 
+    fun loadMoreOpenFoodFacts(query: String, locale: String) {
+        val current = _foodLookupState.value
+        val normalized = query.trim()
+        if (!current.query.equals(normalized, ignoreCase = true) || current.status != FoodLookupStatus.SUCCESS ||
+            current.isBarcodeLookup || current.loadingMore || !current.hasMore
+        ) return
+        val nextPage = current.page + 1
+        val memoryKey = lookupMemoryKey(normalized, locale, nextPage)
+        lookupResultMemory[memoryKey]?.let { nextPageResults ->
+            lookupJob = viewModelScope.launch {
+                publishLookupPage(normalized, nextPage, current.results, nextPageResults, isLoadMore = true)
+            }
+            return
+        }
+        _foodLookupState.value = current.copy(loadingMore = true)
+        lookupJob = viewModelScope.launch {
+            val nextResultPage = runCatching { openFoodFacts.searchPage(normalized, locale, nextPage) }
+                .getOrElse {
+                    _foodLookupState.value = _foodLookupState.value.copy(loadingMore = false)
+                    return@launch
+                }
+            val nextResults = nextResultPage.foods
+            rememberLookupResults(memoryKey, nextResultPage)
+            val latest = _foodLookupState.value
+            if (!latest.query.equals(normalized, ignoreCase = true)) return@launch
+            publishLookupPage(
+                normalized,
+                nextPage,
+                latest.results,
+                LookupResultPage(nextResults, nextResultPage.hasMore),
+                isLoadMore = true,
+            )
+            persistDiscoveredFoods(nextResults)
+        }
+    }
+
+    private suspend fun publishLookupPage(
+        query: String,
+        page: Int,
+        baseResults: List<Food>,
+        resultPage: LookupResultPage,
+        isLoadMore: Boolean = false,
+    ) {
+        val staged = baseResults.toMutableList()
+        _foodLookupState.value = FoodLookupState(
+            query = query,
+            status = FoodLookupStatus.SUCCESS,
+            results = staged.toList(),
+            page = page,
+            hasMore = false,
+            loadingMore = isLoadMore,
+            publishingResults = true,
+        )
+        resultPage.foods.forEach { food ->
+            if (!_foodLookupState.value.query.equals(query, ignoreCase = true)) return
+            if (staged.none { existing -> (existing.barcode ?: existing.id) == (food.barcode ?: food.id) }) {
+                staged += food
+                _foodLookupState.value = _foodLookupState.value.copy(results = staged.toList())
+                // Give Compose a full frame to measure and draw the newly-added card before
+                // publishing the next one. A short yield still allowed several cards and their
+                // image placeholders to reach the renderer together on slower devices.
+                delay(90)
+            }
+        }
+        _foodLookupState.value = _foodLookupState.value.copy(
+            page = page,
+            hasMore = resultPage.hasMore,
+            loadingMore = false,
+            publishingResults = false,
+        )
+    }
+
+    private fun lookupMemoryKey(query: String, locale: String, page: Int): String =
+        "${locale.trim().lowercase()}|${query.trim().lowercase()}|${page.coerceAtLeast(1)}"
+
+    private fun rememberLookupResults(key: String, results: com.shadow.calorietracker.data.OpenFoodFactsSearchPage) {
+        lookupResultMemory[key] = LookupResultPage(results.foods, results.hasMore)
+        while (lookupResultMemory.size > 30) {
+            lookupResultMemory.remove(lookupResultMemory.keys.first())
+        }
+    }
+
     fun lookupBarcode(barcode: String, locale: String) {
         val normalized = barcode.filter(Char::isDigit)
         lookupJob?.cancel()
@@ -479,7 +600,6 @@ class CalorieViewModel(application: Application) : AndroidViewModel(application)
             var resultCount = 0
             try {
                 val results = listOfNotNull(openFoodFacts.productByBarcode(normalized, locale))
-                repository.upsertDiscoveredFoods(results)
                 resultCount = results.size
                 _foodLookupState.value = FoodLookupState(
                     normalized,
@@ -487,6 +607,7 @@ class CalorieViewModel(application: Application) : AndroidViewModel(application)
                     results,
                     isBarcodeLookup = true,
                 )
+                persistDiscoveredFoods(results)
             } catch (_: OpenFoodFactsException.RateLimited) {
                 outcome = "rate-limited"
                 _foodLookupState.value = FoodLookupState(normalized, FoodLookupStatus.RATE_LIMITED, isBarcodeLookup = true)
@@ -512,6 +633,14 @@ class CalorieViewModel(application: Application) : AndroidViewModel(application)
                     )
                 }
             }
+        }
+    }
+
+    private fun persistDiscoveredFoods(foods: List<Food>) {
+        if (foods.isEmpty()) return
+        viewModelScope.launch(Dispatchers.IO) {
+            runCatching { repository.upsertDiscoveredFoods(foods) }
+                .onFailure { error -> Log.w("OpenFoodFacts", "Could not save discovered foods", error) }
         }
     }
 

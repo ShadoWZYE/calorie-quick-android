@@ -39,7 +39,7 @@ class UiFreezeMonitor(
     }
 
     private fun checkHeartbeat() {
-        if (!foreground || reportedCurrentStall) return
+        if (!foreground || reportedCurrentStall || processCrashing) return
         val stalledFor = SystemClock.elapsedRealtime() - lastHeartbeat
         if (stalledFor < freezeThresholdMillis) return
         reportedCurrentStall = true
@@ -57,7 +57,13 @@ class UiFreezeMonitor(
         scheduler.shutdownNow()
     }
 
-    private companion object {
+    companion object {
+        @Volatile private var processCrashing = false
+
+        fun suppressForCrash() {
+            processCrashing = true
+        }
+
         const val HEARTBEAT_INTERVAL_MILLIS = 1_000L
     }
 }

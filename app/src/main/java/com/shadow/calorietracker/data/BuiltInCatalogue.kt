@@ -9,7 +9,10 @@ import com.shadow.calorietracker.model.Nutrition
 import org.json.JSONObject
 import kotlin.math.roundToInt
 
-private const val CATALOGUE_ASSET = "catalogue/built_in_catalogue_v1.json"
+private val CATALOGUE_ASSETS = listOf(
+    "catalogue/built_in_catalogue_v1.json",
+    "catalogue/promoted_catalogue_v1.json",
+)
 private const val CATALOGUE_SCHEMA = "calorie-quick-built-in-catalogue"
 
 data class BuiltInCatalogue(
@@ -18,6 +21,26 @@ data class BuiltInCatalogue(
     val sourceUrl: String,
     val license: String,
     val foods: List<BuiltInFoodRecord>,
+    val recipes: List<BuiltInRecipeRecord>,
+)
+
+data class BuiltInRecipeRecord(
+    val foodId: String,
+    val name: String,
+    val cookedYieldGrams: Int,
+    val portionCount: Int,
+    val ingredients: List<BuiltInRecipeIngredientRecord>,
+)
+
+data class BuiltInRecipeIngredientRecord(
+    val id: String,
+    val foodId: String,
+    val names: LocalizedText,
+    val preparationId: String?,
+    val preparationNames: LocalizedText?,
+    val grams: Int,
+    val nutrition: Nutrition,
+    val allergens: Map<Allergen, AllergenDeclaration>,
 )
 
 data class BuiltInFoodRecord(
@@ -26,6 +49,10 @@ data class BuiltInFoodRecord(
     val details: LocalizedText,
     val categoryKey: String,
     val sourceId: String,
+    val brand: String?,
+    val barcode: String?,
+    val isPackaged: Boolean,
+    val image: BuiltInImageRecord?,
     val aliases: List<String>,
     val nutrition: Nutrition,
     val servings: List<BuiltInServingRecord>,
@@ -39,6 +66,13 @@ data class BuiltInServingRecord(
     val labels: LocalizedText,
     val grams: Double,
     val suggestedAmounts: List<Double>,
+    val isPackage: Boolean,
+)
+
+data class BuiltInImageRecord(
+    val remoteUrl: String?,
+    val attribution: String?,
+    val license: String?,
 )
 
 data class BuiltInPreparationRecord(
@@ -58,6 +92,7 @@ object BuiltInCatalogueParser {
             sourceUrl = source.getString("url"),
             license = source.getString("license"),
             foods = root.getJSONArray("foods").objects().map(::food),
+            recipes = root.optJSONArray("recipes")?.objects()?.map(::recipe).orEmpty(),
         )
         validate(catalogue)
         return catalogue
@@ -69,6 +104,16 @@ object BuiltInCatalogueParser {
         details = json.getJSONObject("detail").localizedText(),
         categoryKey = json.getString("category"),
         sourceId = json.getString("sourceId"),
+        brand = json.optString("brand").takeIf(String::isNotBlank),
+        barcode = json.optString("barcode").takeIf(String::isNotBlank),
+        isPackaged = json.optBoolean("isPackaged"),
+        image = json.optJSONObject("image")?.let { image ->
+            BuiltInImageRecord(
+                remoteUrl = image.optString("remoteUrl").takeIf(String::isNotBlank),
+                attribution = image.optString("attribution").takeIf(String::isNotBlank),
+                license = image.optString("license").takeIf(String::isNotBlank),
+            )
+        },
         aliases = json.optJSONArray("aliases")?.strings().orEmpty(),
         nutrition = json.getJSONObject("nutritionPer100g").nutrition(),
         servings = json.optJSONArray("servings")?.objects()?.map { serving ->
@@ -77,6 +122,7 @@ object BuiltInCatalogueParser {
                 labels = serving.getJSONObject("label").localizedText(),
                 grams = serving.getDouble("grams"),
                 suggestedAmounts = serving.optJSONArray("suggestedAmounts")?.doubles().orEmpty(),
+                isPackage = serving.optBoolean("isPackage"),
             )
         }.orEmpty() + json.getString("id").millilitreServing(),
         allergens = json.optJSONObject("allergens")?.let { declarations ->
@@ -94,9 +140,32 @@ object BuiltInCatalogueParser {
         defaultPreparationId = json.optString("defaultPreparationId").takeIf(String::isNotBlank),
     )
 
+    private fun recipe(json: JSONObject) = BuiltInRecipeRecord(
+        foodId = json.getString("foodId"),
+        name = json.getString("name"),
+        cookedYieldGrams = json.getInt("cookedYieldGrams"),
+        portionCount = json.getInt("portionCount"),
+        ingredients = json.getJSONArray("ingredients").objects().map { ingredient ->
+            BuiltInRecipeIngredientRecord(
+                id = ingredient.getString("id"),
+                foodId = ingredient.getString("foodId"),
+                names = ingredient.getJSONObject("name").localizedText(),
+                preparationId = ingredient.optString("preparationId").takeIf(String::isNotBlank),
+                preparationNames = ingredient.optJSONObject("preparationName")?.localizedText(),
+                grams = ingredient.getInt("grams"),
+                nutrition = ingredient.getJSONObject("nutritionPer100g").nutrition(),
+                allergens = ingredient.optJSONObject("allergens")?.let { declarations ->
+                    declarations.keys().asSequence().associate { key ->
+                        Allergen.valueOf(key) to AllergenDeclaration.valueOf(declarations.getString(key))
+                    }
+                }.orEmpty(),
+            )
+        },
+    )
+
     private fun validate(catalogue: BuiltInCatalogue) {
         require(catalogue.version > 0)
-        require(catalogue.license == "CC0-1.0")
+        require(catalogue.license in setOf("CC0-1.0", "MIXED-PER-RECORD"))
         require(catalogue.sourceName.isNotBlank() && catalogue.sourceUrl.startsWith("https://"))
         require(catalogue.foods.isNotEmpty())
         require(catalogue.foods.map(BuiltInFoodRecord::id).distinct().size == catalogue.foods.size)
@@ -122,6 +191,21 @@ object BuiltInCatalogueParser {
             }
             require(food.defaultPreparationId == null || food.preparations.any { it.id == food.defaultPreparationId })
         }
+        require(catalogue.recipes.map(BuiltInRecipeRecord::foodId).distinct().size == catalogue.recipes.size)
+        catalogue.recipes.forEach { recipe ->
+            require(catalogue.foods.any { it.id == recipe.foodId })
+            require(recipe.name.isNotBlank())
+            require(recipe.cookedYieldGrams in 1..100_000)
+            require(recipe.portionCount in 1..1_000)
+            require(recipe.ingredients.isNotEmpty())
+            recipe.ingredients.forEach { ingredient ->
+                require(ingredient.id.startsWith("${recipe.foodId}-ingredient-"))
+                require(ingredient.foodId.isNotBlank())
+                require(ingredient.names.en.isNotBlank() && ingredient.names.ro.isNotBlank())
+                require(ingredient.grams in 1..50_000)
+                validateNutrition(ingredient.id, ingredient.nutrition)
+            }
+        }
     }
 
     private fun validateNutrition(id: String, nutrition: Nutrition) {
@@ -141,11 +225,13 @@ private fun String.millilitreServing(): List<BuiltInServingRecord> {
             labels = LocalizedText("ml", "ml"),
             grams = densityGramsPerMl,
             suggestedAmounts = listOf(100.0, 200.0, 250.0),
+            isPackage = false,
         ),
     )
 }
 
 private val LIQUID_DENSITIES_GRAMS_PER_ML = mapOf(
+    "water" to 1.0,
     "whole-milk" to 1.03,
     "semi-skimmed-milk" to 1.03,
     "skim-milk" to 1.03,
@@ -166,13 +252,23 @@ class BuiltInCatalogueImporter(
     private val database: AppDatabase,
 ) {
     suspend fun import(): Int {
-        val catalogue = context.assets.open(CATALOGUE_ASSET).bufferedReader().use { reader ->
-            BuiltInCatalogueParser.parse(reader.readText())
+        val availableAssets = context.assets.list("catalogue").orEmpty().toSet()
+        val catalogues = CATALOGUE_ASSETS
+            .filter { it.substringAfterLast('/') in availableAssets }
+            .map { asset ->
+                context.assets.open(asset).bufferedReader().use { reader ->
+                    BuiltInCatalogueParser.parse(reader.readText())
+                }
+            }
+        require(catalogues.isNotEmpty()) { "No packaged catalogue assets found" }
+        require(catalogues.flatMap(BuiltInCatalogue::foods).map(BuiltInFoodRecord::id).let { it.distinct().size == it.size }) {
+            "Duplicate food id across packaged catalogues"
         }
+        val recipeIds = catalogues.flatMap(BuiltInCatalogue::recipes).map(BuiltInRecipeRecord::foodId).toSet()
         database.withTransaction {
-            catalogue.foods.forEach { record ->
+            catalogues.forEach { catalogue -> catalogue.foods.forEach { record ->
                 if (database.foodDao().findFood(record.id)?.isPersonal == true) return@forEach
-                database.foodDao().upsertFood(record.toFoodEntity(catalogue.version))
+                database.foodDao().upsertFood(record.toFoodEntity(catalogue.version, record.id in recipeIds))
                 database.foodDao().deleteNutrients(record.id)
                 database.foodDao().upsertNutrients(record.nutrition.toNutrients(record.id))
                 database.foodDao().deleteAllergens(record.id)
@@ -185,13 +281,69 @@ class BuiltInCatalogueImporter(
                 database.foodDao().upsertPreparations(record.toPreparations())
                 database.foodDao().deleteAliases(record.id)
                 database.foodDao().upsertAliases(record.toAliases())
+            } }
+            catalogues.flatMap(BuiltInCatalogue::recipes).forEach { recipe ->
+                if (database.recipeDao().findRecipe(recipe.foodId) != null) return@forEach
+                val batchId = "recipe-template|${recipe.foodId}"
+                database.recipeDao().upsertBatch(
+                    RecipeBatchEntity(
+                        id = batchId,
+                        recipeFoodId = recipe.foodId,
+                        cookedYieldGrams = recipe.cookedYieldGrams,
+                        remainingGrams = 0,
+                        portionCount = recipe.portionCount,
+                        cookedAtEpochMillis = 0,
+                    ),
+                )
+                val ingredients = recipe.ingredients.mapIndexed { index, ingredient ->
+                    RecipeIngredientEntity(
+                        id = "$batchId|$index",
+                        batchId = batchId,
+                        foodId = ingredient.foodId,
+                        foodNameEn = ingredient.names.en,
+                        foodNameRo = ingredient.names.ro,
+                        grams = ingredient.grams,
+                        caloriesPer100g = ingredient.nutrition.calories,
+                        proteinMilligramsPer100g = (ingredient.nutrition.proteinGrams * 1_000).roundToInt(),
+                        carbsMilligramsPer100g = (ingredient.nutrition.carbsGrams * 1_000).roundToInt(),
+                        fatMilligramsPer100g = (ingredient.nutrition.fatGrams * 1_000).roundToInt(),
+                        fiberMilligramsPer100g = ingredient.nutrition.fiberGrams?.let { (it * 1_000).roundToInt() },
+                        sortOrder = index,
+                        preparationId = ingredient.preparationId,
+                        preparationNameEn = ingredient.preparationNames?.en,
+                        preparationNameRo = ingredient.preparationNames?.ro,
+                    )
+                }
+                database.recipeDao().insertIngredients(ingredients)
+                database.recipeDao().insertIngredientAllergens(
+                    recipe.ingredients.zip(ingredients).flatMap { (record, entity) ->
+                        record.allergens.map { (allergen, declaration) ->
+                            RecipeIngredientAllergenEntity(
+                                id = "${entity.id}|${allergen.name}",
+                                recipeIngredientId = entity.id,
+                                allergenKey = allergen.name,
+                                declaration = declaration.name,
+                            )
+                        }
+                    },
+                )
+                database.recipeDao().upsertRecipe(
+                    RecipeEntity(
+                        foodId = recipe.foodId,
+                        name = recipe.name,
+                        activeBatchId = batchId,
+                        createdAtEpochMillis = 0,
+                        updatedAtEpochMillis = 0,
+                        reviewStatus = "PRIVATE",
+                    ),
+                )
             }
         }
-        return catalogue.foods.size
+        return catalogues.sumOf { it.foods.size }
     }
 }
 
-private fun BuiltInFoodRecord.toFoodEntity(version: Int) = FoodEntity(
+private fun BuiltInFoodRecord.toFoodEntity(version: Int, isRecipe: Boolean) = FoodEntity(
     id = id,
     nameEn = names.en,
     nameRo = names.ro,
@@ -202,8 +354,15 @@ private fun BuiltInFoodRecord.toFoodEntity(version: Int) = FoodEntity(
     carbsMilligramsPer100g = (nutrition.carbsGrams * 1_000).roundToInt(),
     fatMilligramsPer100g = (nutrition.fatGrams * 1_000).roundToInt(),
     updatedAtEpochMillis = version.toLong(),
-    sourceType = "BUILT_IN",
+    sourceType = if (isRecipe) "RECIPE" else "BUILT_IN",
     sourceId = sourceId,
+    brand = brand,
+    barcode = barcode,
+    isPackaged = isPackaged,
+    imageRemoteUrl = image?.remoteUrl,
+    imageSource = image?.remoteUrl?.let { "REMOTE" },
+    imageAttribution = image?.attribution,
+    imageLicense = image?.license,
     defaultPreparationId = defaultPreparationId,
     categoryKey = categoryKey,
 )
@@ -219,7 +378,7 @@ private fun Nutrition.toNutrients(foodId: String) = buildList {
 }
 
 private fun BuiltInFoodRecord.toServings() = servings.map {
-    ServingEntity(it.id, id, it.labels.en, it.labels.ro, it.grams)
+    ServingEntity(it.id, id, it.labels.en, it.labels.ro, it.grams, it.isPackage)
 }
 
 private fun BuiltInFoodRecord.toServingPresets() = servings.flatMap { serving ->
