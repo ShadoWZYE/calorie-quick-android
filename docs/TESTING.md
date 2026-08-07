@@ -14,6 +14,14 @@ Run the variants sequentially so the Kotlin compiler does not retain three large
 ./gradlew assembleRelease --max-workers=2
 ```
 
+The final command intentionally includes Android's release `lintVital` analysis and can take several minutes after source or embedded build metadata changes. For a local signed APK iteration after the full gate has already passed, use:
+
+```powershell
+./gradlew assembleRelease -x lintVitalRelease --max-workers=2
+```
+
+This fast path skips only the duplicate release-lint pass; it is not the release gate. Gradle build and configuration caches are enabled, so unchanged repeats and branch-local rebuilds can reuse verified outputs.
+
 The checked-in catalogue test validates its schema, bilingual names, nutrition bounds, stable IDs, allergens, preparations, aliases, categories, and representative Romanian coverage.
 
 Run `python -m unittest tools/test_catalogue_images.py` when changing built-in thumbnails. It validates every food image is 256×256 and rejects the displaced neighboring-tile pattern found in the original mackerel/mussels/pomegranate/sardines/shrimp batch.

@@ -86,6 +86,9 @@ Prerequisites: Android Studio 2026.1.3 or newer, JDK 17, Android SDK 37, and an 
 
 # Local development APK
 .\gradlew.bat assembleDebug
+
+# Fast signed APK iteration after the complete release gate has passed
+.\gradlew.bat assembleRelease -x lintVitalRelease --max-workers=2
 ```
 
 Artifacts:
