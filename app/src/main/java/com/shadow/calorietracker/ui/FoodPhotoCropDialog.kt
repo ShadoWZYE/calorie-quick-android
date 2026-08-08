@@ -214,7 +214,7 @@ fun FoodPhotoCropDialog(
     var saving by remember { mutableStateOf(false) }
     var saveFailed by remember { mutableStateOf(false) }
     val handleHitTarget = with(density) { 32.dp.toPx() }
-    val cropWorkspaceInset = with(density) { 16.dp.toPx() }
+    val cropWorkspaceInset = with(density) { 32.dp.toPx() }
 
     LaunchedEffect(bitmap) { cropBounds = PhotoCropBounds() }
 
@@ -350,7 +350,7 @@ fun FoodPhotoCropDialog(
                             bitmap = image.asImageBitmap(),
                             contentDescription = stringResource(R.string.food_photo),
                             contentScale = ContentScale.Fit,
-                            modifier = Modifier.fillMaxSize().padding(16.dp),
+                            modifier = Modifier.fillMaxSize().padding(32.dp),
                         )
                         Canvas(Modifier.fillMaxSize()) {
                             val imageRect = calculateFitImageRect(

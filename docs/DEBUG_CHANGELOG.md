@@ -6,7 +6,7 @@ The development entries below were consolidated into stable tester release `0.2.
 
 ## 0.2.2-alpha1-dev
 
-- Replaced square-only photo zooming with a rectangular crop whose four edges and four corners have enlarged independent drag targets.
+- Replaced square-only photo zooming with a rectangular crop whose four edges and four corners have enlarged independent drag targets kept clear of Android's system-gesture edges.
 - Consolidated the user-visible `0.2.0` alpha-era history into one stable release entry.
 - Made recipe-browser and quick-add swipe dismissal require a downward gesture that begins at the top of their inner content.
 - Restored manual personal-food creation after localized searches while continuing to hide it during active online lookup processing.

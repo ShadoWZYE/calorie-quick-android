@@ -8,7 +8,7 @@ All notable user-facing changes to Calorie Quick are recorded here. The app is c
 
 ### Changed
 
-- Food-photo cropping now uses large, independently draggable edge and corner targets and saves the exact rectangular selection instead of forcing every crop to remain square.
+- Food-photo cropping now uses large, independently draggable edge and corner targets inside a system-gesture-safe gutter, and saves the exact rectangular selection instead of forcing every crop to remain square.
 - The in-app history consolidates the `0.2.0` alpha era into one user-facing release entry instead of listing internal test builds separately.
 
 ### Fixed
