@@ -11,10 +11,18 @@ import org.junit.Test
 
 class OpenFoodFactsClientTest {
     @Test
-    fun `pagination follows API totals instead of usable parsed product count`() {
-        assertTrue(OpenFoodFactsClient.hasMoreSearchResults(page = 1, totalCount = 87, rawProductCount = 4))
+    fun `pagination stops on short pages even when API total is stale`() {
+        assertEquals(false, OpenFoodFactsClient.hasMoreSearchResults(page = 1, totalCount = 87, rawProductCount = 4))
+        assertTrue(OpenFoodFactsClient.hasMoreSearchResults(page = 1, totalCount = 87, rawProductCount = 10))
         assertEquals(false, OpenFoodFactsClient.hasMoreSearchResults(page = 9, totalCount = 87, rawProductCount = 7))
         assertTrue(OpenFoodFactsClient.hasMoreSearchResults(page = 1, totalCount = -1, rawProductCount = 10))
+    }
+
+    @Test
+    fun `pagination stops when another page contributes no new identities`() {
+        assertEquals(false, OpenFoodFactsClient.hasMoreAfterMerge(true, page = 2, addedUniqueProductCount = 0))
+        assertTrue(OpenFoodFactsClient.hasMoreAfterMerge(true, page = 2, addedUniqueProductCount = 1))
+        assertTrue(OpenFoodFactsClient.hasMoreAfterMerge(true, page = 1, addedUniqueProductCount = 0))
     }
 
     @Test

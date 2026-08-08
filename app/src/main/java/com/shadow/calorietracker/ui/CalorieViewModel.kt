@@ -548,6 +548,7 @@ class CalorieViewModel(application: Application) : AndroidViewModel(application)
         isLoadMore: Boolean = false,
     ) {
         val staged = baseResults.toMutableList()
+        var addedUniqueProductCount = 0
         _foodLookupState.value = FoodLookupState(
             query = query,
             status = FoodLookupStatus.SUCCESS,
@@ -561,6 +562,7 @@ class CalorieViewModel(application: Application) : AndroidViewModel(application)
             if (!_foodLookupState.value.query.equals(query, ignoreCase = true)) return
             if (staged.none { existing -> (existing.barcode ?: existing.id) == (food.barcode ?: food.id) }) {
                 staged += food
+                addedUniqueProductCount += 1
                 _foodLookupState.value = _foodLookupState.value.copy(results = staged.toList())
                 // Give Compose a full frame to measure and draw the newly-added card before
                 // publishing the next one. A short yield still allowed several cards and their
@@ -570,7 +572,11 @@ class CalorieViewModel(application: Application) : AndroidViewModel(application)
         }
         _foodLookupState.value = _foodLookupState.value.copy(
             page = page,
-            hasMore = resultPage.hasMore,
+            hasMore = OpenFoodFactsClient.hasMoreAfterMerge(
+                serverHasMore = resultPage.hasMore,
+                page = page,
+                addedUniqueProductCount = addedUniqueProductCount,
+            ),
             loadingMore = false,
             publishingResults = false,
         )

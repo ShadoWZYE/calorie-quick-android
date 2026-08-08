@@ -276,6 +276,8 @@ fun CalorieQuickApp(viewModel: CalorieViewModel = viewModel()) {
     var nutritionScanStartedFromEditor by rememberSaveable { mutableStateOf(false) }
     var todayBackPressCount by remember { mutableStateOf(0) }
     var lastTodayBackPressAt by remember { mutableStateOf(0L) }
+    var todaySearchQuery by rememberSaveable { mutableStateOf("") }
+    var todayCatalogueCategory by rememberSaveable { mutableStateOf<String?>(null) }
 
     LaunchedEffect(state.loaded, profile?.onboardingComplete) {
         if (!state.loaded) return@LaunchedEffect
@@ -474,6 +476,10 @@ fun CalorieQuickApp(viewModel: CalorieViewModel = viewModel()) {
         )
         else -> TodayScreen(
             state = state,
+            query = todaySearchQuery,
+            onQueryChange = { todaySearchQuery = it },
+            selectedCatalogueCategory = todayCatalogueCategory,
+            onSelectedCatalogueCategoryChange = { todayCatalogueCategory = it },
             onOpenSettings = {
                 viewModel.refreshSupportState()
                 screenName = AppScreen.SETTINGS.name
@@ -4854,6 +4860,10 @@ private fun FeedbackScreen(
 @Composable
 private fun TodayScreen(
     state: AppUiState,
+    query: String,
+    onQueryChange: (String) -> Unit,
+    selectedCatalogueCategory: String?,
+    onSelectedCatalogueCategoryChange: (String?) -> Unit,
     lookupState: FoodLookupState,
     nutritionLabelScanState: NutritionLabelScanState,
     onOpenSettings: () -> Unit,
@@ -4885,11 +4895,9 @@ private fun TodayScreen(
     val locale = LocalLocale.current.platformLocale
     var pendingCameraUri by rememberSaveable { mutableStateOf<String?>(null) }
     var showLabelSourceDialog by rememberSaveable { mutableStateOf(false) }
-    var query by rememberSaveable { mutableStateOf("") }
     var searchFocused by remember { mutableStateOf(false) }
     var searchBoundsInRoot by remember { mutableStateOf<Rect?>(null) }
     var todayOriginInRoot by remember { mutableStateOf(Offset.Zero) }
-    var selectedCatalogueCategory by rememberSaveable { mutableStateOf<String?>(null) }
     var showFoodFilters by rememberSaveable { mutableStateOf(false) }
     val zoneId = ZoneId.systemDefault()
     val today = LocalDate.now(zoneId)
@@ -5146,7 +5154,7 @@ private fun TodayScreen(
                 OutlinedTextField(
                     value = query,
                     onValueChange = {
-                        query = it
+                        onQueryChange(it)
                         onClearLookup()
                     },
                     modifier = Modifier
@@ -5168,7 +5176,7 @@ private fun TodayScreen(
                             }
                             if (query.isNotEmpty()) {
                                 IconButton(onClick = {
-                                    query = ""
+                                    onQueryChange("")
                                     onClearLookup()
                                 }) {
                                     Icon(Icons.Default.Close, stringResource(R.string.close))
@@ -5182,7 +5190,7 @@ private fun TodayScreen(
                                                 if (localFood != null) {
                                                     selectedFood = localFood
                                                 } else {
-                                                    query = code
+                                                    onQueryChange(code)
                                                     onLookupBarcode(code, locale.language)
                                                 }
                                             }
@@ -5239,7 +5247,7 @@ private fun TodayScreen(
                         FilterChip(
                             selected = selectedCatalogueCategory == null,
                             onClick = {
-                                selectedCatalogueCategory = null
+                                onSelectedCatalogueCategoryChange(null)
                                 showFoodFilters = false
                             },
                             label = { Text(stringResource(R.string.recommended_foods)) },
@@ -5247,7 +5255,7 @@ private fun TodayScreen(
                         FilterChip(
                             selected = selectedCatalogueCategory == CATALOGUE_CATEGORY_ALL,
                             onClick = {
-                                selectedCatalogueCategory = CATALOGUE_CATEGORY_ALL
+                                onSelectedCatalogueCategoryChange(CATALOGUE_CATEGORY_ALL)
                                 showFoodFilters = false
                             },
                             label = { Text(stringResource(R.string.all_foods)) },
@@ -5256,7 +5264,7 @@ private fun TodayScreen(
                             FilterChip(
                                 selected = selectedCatalogueCategory == CATALOGUE_CATEGORY_PERSONAL,
                                         onClick = {
-                                            selectedCatalogueCategory = CATALOGUE_CATEGORY_PERSONAL
+                                            onSelectedCatalogueCategoryChange(CATALOGUE_CATEGORY_PERSONAL)
                                             showFoodFilters = false
                                         },
                                 label = { Text(stringResource(R.string.personal_foods)) },
@@ -5266,7 +5274,7 @@ private fun TodayScreen(
                             FilterChip(
                                 selected = selectedCatalogueCategory == CATALOGUE_CATEGORY_RECIPES,
                                         onClick = {
-                                            selectedCatalogueCategory = CATALOGUE_CATEGORY_RECIPES
+                                            onSelectedCatalogueCategoryChange(CATALOGUE_CATEGORY_RECIPES)
                                             showFoodFilters = false
                                         },
                                 label = { Text(stringResource(R.string.recipes)) },
@@ -5276,7 +5284,7 @@ private fun TodayScreen(
                         FilterChip(
                             selected = selectedCatalogueCategory == category,
                                         onClick = {
-                                            selectedCatalogueCategory = category
+                                            onSelectedCatalogueCategoryChange(category)
                                             showFoodFilters = false
                                         },
                             label = { Text(stringResource(category.labelResource())) },
@@ -5487,9 +5495,7 @@ private fun TodayScreen(
                     )
                 }
             }
-            if (query.isNotBlank() && currentLookup?.status == FoodLookupStatus.SUCCESS &&
-                !currentLookup.publishingResults
-            ) {
+            if (query.isNotBlank() && !lookupIsBusy) {
                 item {
                     Column(
                         Modifier.fillMaxWidth().padding(horizontal = 20.dp),
@@ -5533,7 +5539,7 @@ private fun TodayScreen(
     if (showRecipeBrowser) {
         val recipeSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
         val recipeListState = rememberLazyListState()
-        val recipeDismissDragThreshold = with(LocalDensity.current) { 64.dp.toPx() }
+        val recipeDismissDragThreshold = with(LocalDensity.current) { 48.dp.toPx() }
         val dismissRecipeBrowser = {
             showRecipeBrowser = false
             recipeQuery = ""
@@ -5628,8 +5634,7 @@ private fun TodayScreen(
                             .pointerInput(recipeListState, recipeDismissDragThreshold, dismissRecipeBrowser) {
                                 awaitEachGesture {
                                     awaitFirstDown(pass = PointerEventPass.Initial)
-                                    var eligibleForDismiss = recipeListState.firstVisibleItemIndex == 0 &&
-                                        recipeListState.firstVisibleItemScrollOffset == 0
+                                    var eligibleForDismiss = !recipeListState.canScrollBackward
                                     var downwardDistance = 0f
                                     var gestureActive = true
                                     while (gestureActive) {
@@ -5643,13 +5648,14 @@ private fun TodayScreen(
                                                     downwardDistance =
                                                         (downwardDistance + verticalChange).coerceAtLeast(0f)
                                                     if (verticalChange > 0f || downwardDistance > 0f) change.consume()
+                                                    if (downwardDistance >= recipeDismissDragThreshold) {
+                                                        dismissRecipeBrowser()
+                                                        gestureActive = false
+                                                    }
                                                 }
                                             }
                                         }
-                                        gestureActive = event.changes.any { it.pressed }
-                                    }
-                                    if (eligibleForDismiss && downwardDistance >= recipeDismissDragThreshold) {
-                                        dismissRecipeBrowser()
+                                        gestureActive = gestureActive && event.changes.any { it.pressed }
                                     }
                                 }
                             },
@@ -5721,7 +5727,8 @@ private fun TodayScreen(
             val consumedAt = selectedDate.atTime(time).atZone(zoneId).toInstant().toEpochMilli()
             onAdd(loggedFood, amount, serving, batchId, consumedAt)
             selectedFood = null
-            query = ""
+            onQueryChange("")
+            onClearLookup()
         }
     }
     reportingFood?.let { food ->
@@ -6945,6 +6952,8 @@ private fun QuickAddSheet(
     onAdd: (Food, Double, Serving?, String?) -> Unit,
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    val quickAddScrollState = rememberScrollState()
+    val quickAddDismissDragThreshold = with(LocalDensity.current) { 48.dp.toPx() }
     val focusManager = LocalFocusManager.current
     val gramsLabel = stringResource(R.string.grams_short)
     val preferredPreparationId = preparationUsage.maxWithOrNull(
@@ -6992,12 +7001,64 @@ private fun QuickAddSheet(
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState,
+        sheetGesturesEnabled = false,
+        dragHandle = {
+            Box(
+                Modifier
+                    .fillMaxWidth()
+                    .pointerInput(onDismiss, quickAddDismissDragThreshold) {
+                        var handleDragDistance = 0f
+                        detectVerticalDragGestures(
+                            onDragStart = { handleDragDistance = 0f },
+                            onVerticalDrag = { change, dragAmount ->
+                                change.consume()
+                                handleDragDistance = (handleDragDistance + dragAmount).coerceAtLeast(0f)
+                            },
+                            onDragEnd = {
+                                if (handleDragDistance >= quickAddDismissDragThreshold) onDismiss()
+                                handleDragDistance = 0f
+                            },
+                            onDragCancel = { handleDragDistance = 0f },
+                        )
+                    },
+                contentAlignment = Alignment.Center,
+            ) {
+                BottomSheetDefaults.DragHandle()
+            }
+        },
     ) {
         Column(
             Modifier
                 .fillMaxWidth()
                 .pointerInput(focusManager) { detectTapGestures { focusManager.clearFocus() } }
-                .verticalScroll(rememberScrollState())
+                .pointerInput(quickAddScrollState, quickAddDismissDragThreshold, onDismiss) {
+                    awaitEachGesture {
+                        awaitFirstDown(pass = PointerEventPass.Initial)
+                        var eligibleForDismiss = quickAddScrollState.value == 0
+                        var downwardDistance = 0f
+                        var gestureActive = true
+                        while (gestureActive) {
+                            val event = awaitPointerEvent(pass = PointerEventPass.Initial)
+                            event.changes.forEach { change ->
+                                val verticalChange = change.position.y - change.previousPosition.y
+                                if (eligibleForDismiss) {
+                                    if (downwardDistance == 0f && verticalChange < 0f) {
+                                        eligibleForDismiss = false
+                                    } else {
+                                        downwardDistance = (downwardDistance + verticalChange).coerceAtLeast(0f)
+                                        if (verticalChange > 0f || downwardDistance > 0f) change.consume()
+                                        if (downwardDistance >= quickAddDismissDragThreshold) {
+                                            onDismiss()
+                                            gestureActive = false
+                                        }
+                                    }
+                                }
+                            }
+                            gestureActive = gestureActive && event.changes.any { it.pressed }
+                        }
+                    }
+                }
+                .verticalScroll(quickAddScrollState)
                 .navigationBarsPadding()
                 .padding(horizontal = 24.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp),

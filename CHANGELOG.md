@@ -4,6 +4,20 @@ All notable user-facing changes to Calorie Quick are recorded here. The app is c
 
 ## [Unreleased]
 
+## [0.2.2] - 2026-08-08
+
+### Changed
+
+- Food-photo cropping now uses large, independently draggable edge and corner targets and saves the exact rectangular selection instead of forcing every crop to remain square.
+- The in-app history consolidates the `0.2.0` alpha era into one user-facing release entry instead of listing internal test builds separately.
+
+### Fixed
+
+- Recipe-browser and quick-add content dismiss only from downward gestures that begin at the top; their explicit sheet handles remain directly draggable.
+- Manual personal-food creation remains available after localized searches with or without results, while staying hidden during an active Open Food Facts request.
+- Opening a searched food or editor and returning to Today preserves the search query, selected catalogue filter, and online result session.
+- Open Food Facts pagination now ends when the server returns a short page or a requested page contributes no new product identities.
+
 ## [0.2.1] - 2026-08-08
 
 ### Changed
@@ -122,7 +136,8 @@ All notable user-facing changes to Calorie Quick are recorded here. The app is c
 - Macro, fiber, allergen, adaptive-goal, and custom-target support.
 - Personal catalogue images, reviewable exports, Romanian localization, and responsive mobile layouts.
 
-[Unreleased]: https://github.com/ShadoWZYE/calorie-quick-android/compare/v0.2.1...HEAD
+[Unreleased]: https://github.com/ShadoWZYE/calorie-quick-android/compare/v0.2.2...HEAD
+[0.2.2]: https://github.com/ShadoWZYE/calorie-quick-android/compare/v0.2.1...v0.2.2
 [0.2.1]: https://github.com/ShadoWZYE/calorie-quick-android/compare/v0.2.0-alpha06...v0.2.1
 [0.2.0-alpha06]: https://github.com/ShadoWZYE/calorie-quick-android/compare/v0.2.0-alpha05...v0.2.0-alpha06
 [0.2.0-alpha05]: https://github.com/ShadoWZYE/calorie-quick-android/compare/v0.2.0-alpha04...v0.2.0-alpha05

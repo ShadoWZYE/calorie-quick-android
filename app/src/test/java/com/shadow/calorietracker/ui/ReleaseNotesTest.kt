@@ -8,8 +8,9 @@ import org.junit.Test
 class ReleaseNotesTest {
     @Test
     fun `in-app release history stops at the last consolidated stable build`() {
-        assertEquals("0.2.1", ReleaseNotes.current.versionName)
-        assertFalse(ReleaseNotes.all.any { it.versionName.endsWith("-dev") })
+        assertEquals("0.2.2", ReleaseNotes.current.versionName)
+        assertEquals(listOf("0.2.2", "0.2.1", "0.2.0"), ReleaseNotes.all.map { it.versionName })
+        assertFalse(ReleaseNotes.all.any { '-' in it.versionName })
     }
 
     @Test

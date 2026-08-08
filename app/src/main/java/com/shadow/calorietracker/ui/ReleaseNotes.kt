@@ -11,6 +11,16 @@ data class ReleaseNote(
 object ReleaseNotes {
     val all = listOf(
         ReleaseNote(
+            versionName = "0.2.2",
+            titleResource = R.string.release_022_title,
+            itemResources = listOf(
+                R.string.release_022_item_crop,
+                R.string.release_022_item_sheets,
+                R.string.release_022_item_search,
+                R.string.release_022_item_history,
+            ),
+        ),
+        ReleaseNote(
             versionName = "0.2.1",
             titleResource = R.string.release_021_title,
             itemResources = listOf(
@@ -22,40 +32,14 @@ object ReleaseNotes {
             ),
         ),
         ReleaseNote(
-            versionName = "0.2.0-alpha06",
-            titleResource = R.string.release_alpha06_title,
+            versionName = "0.2.0",
+            titleResource = R.string.release_020_title,
             itemResources = listOf(
-                R.string.release_alpha06_item_privacy,
-            ),
-        ),
-        ReleaseNote(
-            versionName = "0.2.0-alpha05",
-            titleResource = R.string.release_alpha05_title,
-            itemResources = listOf(
-                R.string.release_alpha05_item_changelog,
-                R.string.release_alpha05_item_prompt,
-                R.string.release_alpha05_item_previous,
-                R.string.release_alpha05_item_icon,
-                R.string.release_alpha05_item_images,
-                R.string.release_alpha05_item_scrolling,
-            ),
-        ),
-        ReleaseNote(
-            versionName = "0.2.0-alpha04",
-            titleResource = R.string.release_alpha04_title,
-            itemResources = listOf(
-                R.string.release_alpha04_item_backup,
-                R.string.release_alpha04_item_feedback,
-                R.string.release_alpha04_item_header,
-            ),
-        ),
-        ReleaseNote(
-            versionName = "0.2.0-alpha03",
-            titleResource = R.string.release_alpha03_title,
-            itemResources = listOf(
-                R.string.release_alpha03_item_breakdown,
-                R.string.release_alpha03_item_diagnostics,
-                R.string.release_alpha03_item_entry,
+                R.string.release_020_item_tracking,
+                R.string.release_020_item_catalogue,
+                R.string.release_020_item_recipes,
+                R.string.release_020_item_capture,
+                R.string.release_020_item_portability,
             ),
         ),
     )

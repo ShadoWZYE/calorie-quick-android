@@ -109,11 +109,11 @@ class OpenFoodFactsClient(
     companion object {
         const val SEARCH_PAGE_SIZE = 10
         fun hasMoreSearchResults(page: Int, totalCount: Int, rawProductCount: Int): Boolean =
-            if (totalCount >= 0) {
-                page.coerceAtLeast(1) * SEARCH_PAGE_SIZE < totalCount
-            } else {
-                rawProductCount == SEARCH_PAGE_SIZE
-            }
+            rawProductCount == SEARCH_PAGE_SIZE &&
+                (totalCount < 0 || page.coerceAtLeast(1) * SEARCH_PAGE_SIZE < totalCount)
+
+        fun hasMoreAfterMerge(serverHasMore: Boolean, page: Int, addedUniqueProductCount: Int): Boolean =
+            serverHasMore && (page <= 1 || addedUniqueProductCount > 0)
 
         private const val BASE_URL = "https://world.openfoodfacts.org"
         private val USER_AGENT =

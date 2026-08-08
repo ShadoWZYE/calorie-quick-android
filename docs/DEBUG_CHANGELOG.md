@@ -4,6 +4,15 @@ This log identifies small fixes delivered to private test builds. It is not show
 
 The development entries below were consolidated into stable tester release `0.2.1`. New development continues from `0.2.2-alpha1`; prerelease entries remain internal until their target stable version passes the release gate.
 
+## 0.2.2-alpha1-dev
+
+- Replaced square-only photo zooming with a rectangular crop whose four edges and four corners have enlarged independent drag targets.
+- Consolidated the user-visible `0.2.0` alpha-era history into one stable release entry.
+- Made recipe-browser and quick-add swipe dismissal require a downward gesture that begins at the top of their inner content.
+- Restored manual personal-food creation after localized searches while continuing to hide it during active online lookup processing.
+- Stop Open Food Facts pagination when the server returns a short page or a fetched page contributes no new product identities.
+- Preserve Today search text, catalogue filter, and online results while opening a food or editor and returning with Back.
+
 ## 0.2.0-alpha16-dev
 
 - Reworked photo cropping into an edge-to-edge square workspace with precise slider/button zoom, 10× magnification, focal-point pinch behavior, and visible save failures.
