@@ -5,6 +5,17 @@ import org.junit.Test
 
 class UiJankMonitorTest {
     @Test
+    fun performanceContextIncludesTheActiveInteractionWithoutUserData() {
+        UiPerformanceContext.currentScreen = "TODAY"
+        UiPerformanceContext.currentInteraction = "LOCAL_SEARCH"
+
+        assertEquals("TODAY:LOCAL_SEARCH", UiPerformanceContext.frameLabel())
+
+        UiPerformanceContext.currentInteraction = ""
+        assertEquals("TODAY", UiPerformanceContext.frameLabel())
+    }
+
+    @Test
     fun sessionAggregatesFramesByScreenWithoutRetainingFrameDetails() {
         val session = JankSessionAccumulator(startedAtEpochMillis = 1_000)
 

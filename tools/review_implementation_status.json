@@ -24,9 +24,12 @@
       "confirmedAt": "2026-08-07T22:59:18.615473+00:00"
     },
     "diagnostic:1786045685110-ff22ecaa-41db-48a7-8c26-c367b250bcec": {
-      "state": "TESTING",
+      "state": "DONE",
       "reference": "0.2.0-alpha09",
-      "lastRepeatedIn": "0.2.0-alpha11"
+      "lastRepeatedIn": "0.2.0-alpha11",
+      "confirmedByVersion": "0.2.2",
+      "resolution": "Not reported again in the next newer review package.",
+      "confirmedAt": "2026-08-08T00:39:26.782091+00:00"
     },
     "manual:1": {
       "state": "DONE",
@@ -48,52 +51,85 @@
       "reference": "0.2.0-alpha13"
     },
     "feedback:3efda5ff-3475-44e8-8267-0a16333b0f90": {
-      "state": "TESTING",
-      "reference": "0.2.0-alpha14"
+      "state": "DONE",
+      "reference": "0.2.0-alpha14",
+      "confirmedByVersion": "0.2.2",
+      "resolution": "Not reported again in the next newer review package.",
+      "confirmedAt": "2026-08-08T00:39:26.782102+00:00"
     },
     "data:off-59492603": {
-      "state": "TESTING",
-      "reference": "0.2.0-alpha14"
+      "state": "DONE",
+      "reference": "0.2.0-alpha14",
+      "confirmedByVersion": "0.2.2",
+      "resolution": "Not reported again in the next newer review package.",
+      "confirmedAt": "2026-08-08T00:39:26.782108+00:00"
     },
     "feedback:064986b0-6ea5-4754-a4c2-2c4c81bb703a": {
-      "state": "TESTING",
-      "reference": "0.2.0-alpha14"
+      "state": "DONE",
+      "reference": "0.2.0-alpha14",
+      "confirmedByVersion": "0.2.2",
+      "resolution": "Not reported again in the next newer review package.",
+      "confirmedAt": "2026-08-08T00:39:26.782114+00:00"
     },
     "feedback:1c96bc0d-8825-411b-ad36-d2fe917fd5d1": {
-      "state": "TESTING",
-      "reference": "0.2.0-alpha14"
+      "state": "DONE",
+      "reference": "0.2.0-alpha14",
+      "confirmedByVersion": "0.2.2",
+      "resolution": "Not reported again in the next newer review package.",
+      "confirmedAt": "2026-08-08T00:39:26.782118+00:00"
     },
     "feedback:3bd5a96f-9654-45a6-b698-3888df9c84a1": {
-      "state": "TESTING",
-      "reference": "0.2.0-alpha14"
+      "state": "DONE",
+      "reference": "0.2.0-alpha14",
+      "confirmedByVersion": "0.2.2",
+      "resolution": "Not reported again in the next newer review package.",
+      "confirmedAt": "2026-08-08T00:39:26.782122+00:00"
     },
     "feedback:96e3ffdd-ca69-47ed-84f5-3e474e0c932e": {
       "state": "DONE",
       "reference": "0.2.0-alpha14"
     },
     "feedback:cf856c5f-2f9a-4d62-82c4-6b1d3d7d8ee3": {
-      "state": "TESTING",
-      "reference": "0.2.0-alpha14"
+      "state": "DONE",
+      "reference": "0.2.0-alpha14",
+      "confirmedByVersion": "0.2.2",
+      "resolution": "Not reported again in the next newer review package.",
+      "confirmedAt": "2026-08-08T00:39:26.782126+00:00"
     },
     "feedback:b3c1c4be-11ab-4dab-9939-63daf5fd0eff": {
-      "state": "TESTING",
-      "reference": "0.2.0-alpha14"
+      "state": "DONE",
+      "reference": "0.2.0-alpha14",
+      "confirmedByVersion": "0.2.2",
+      "resolution": "Not reported again in the next newer review package.",
+      "confirmedAt": "2026-08-08T00:39:26.782131+00:00"
     },
     "feedback:8dcab878-b5d4-411a-8773-477f23440ea5": {
-      "state": "TESTING",
-      "reference": "0.2.0-alpha14"
+      "state": "DONE",
+      "reference": "0.2.0-alpha14",
+      "confirmedByVersion": "0.2.2",
+      "resolution": "Not reported again in the next newer review package.",
+      "confirmedAt": "2026-08-08T00:39:26.782135+00:00"
     },
     "feedback:f0dfb86f-16eb-4284-9cd7-3f8c9870f3e6": {
-      "state": "TESTING",
-      "reference": "0.2.0-alpha14"
+      "state": "DONE",
+      "reference": "0.2.0-alpha14",
+      "confirmedByVersion": "0.2.2",
+      "resolution": "Not reported again in the next newer review package.",
+      "confirmedAt": "2026-08-08T00:39:26.782139+00:00"
     },
     "feedback:433e62a5-45dd-4fc9-8215-3897d536d909": {
-      "state": "TESTING",
-      "reference": "0.2.0-alpha14"
+      "state": "DONE",
+      "reference": "0.2.0-alpha14",
+      "confirmedByVersion": "0.2.2",
+      "resolution": "Not reported again in the next newer review package.",
+      "confirmedAt": "2026-08-08T00:39:26.782143+00:00"
     },
     "feedback:f68ce12a-21eb-477b-8651-22a33b2a4d43": {
-      "state": "TESTING",
-      "reference": "0.2.0-alpha14"
+      "state": "DONE",
+      "reference": "0.2.0-alpha14",
+      "confirmedByVersion": "0.2.2",
+      "resolution": "Not reported again in the next newer review package.",
+      "confirmedAt": "2026-08-08T00:39:26.782147+00:00"
     },
     "feedback:e067a759-ffc6-4877-8e30-cefa3fb28e44": {
       "state": "DONE",
@@ -104,24 +140,55 @@
       "reference": "0.2.0-alpha14"
     },
     "product-issue:1786062427299-5ebd6d80-e200-4286-9053-fe818cebb2df": {
-      "state": "TESTING",
-      "reference": "0.2.0-alpha14"
+      "state": "DONE",
+      "reference": "0.2.0-alpha14",
+      "confirmedByVersion": "0.2.2",
+      "resolution": "Not reported again in the next newer review package.",
+      "confirmedAt": "2026-08-08T00:39:26.782152+00:00"
     },
     "product-issue:1786062450269-e1b43a63-e404-4556-8b32-38a9486a7302": {
-      "state": "TESTING",
-      "reference": "0.2.0-alpha14"
+      "state": "DONE",
+      "reference": "0.2.0-alpha14",
+      "confirmedByVersion": "0.2.2",
+      "resolution": "Not reported again in the next newer review package.",
+      "confirmedAt": "2026-08-08T00:39:26.782156+00:00"
     },
     "diagnostic:1786106227448-3572f363-6db9-45c2-91f6-474980187fb5": {
-      "state": "TESTING",
-      "reference": "0.2.0-alpha14"
+      "state": "DONE",
+      "reference": "0.2.0-alpha14",
+      "confirmedByVersion": "0.2.2",
+      "resolution": "Not reported again in the next newer review package.",
+      "confirmedAt": "2026-08-08T00:39:26.782159+00:00"
     },
     "feedback:4f1e1a80-b048-421c-bdeb-8e6831b2fc30": {
-      "state": "TESTING",
-      "reference": "0.2.0-alpha14"
+      "state": "DONE",
+      "reference": "0.2.0-alpha14",
+      "confirmedByVersion": "0.2.2",
+      "resolution": "Not reported again in the next newer review package.",
+      "confirmedAt": "2026-08-08T00:39:26.782163+00:00"
     },
     "performance:1786061884972-c4a17cf4-7194-4c9d-b314-c98921c99b12": {
+      "state": "DONE",
+      "reference": "0.2.0-alpha14",
+      "confirmedByVersion": "0.2.2",
+      "resolution": "Not reported again in the next newer review package.",
+      "confirmedAt": "2026-08-08T00:39:26.782167+00:00"
+    },
+    "feedback:7803dd68-f784-4681-b721-11961be78fdf": {
       "state": "TESTING",
-      "reference": "0.2.0-alpha14"
+      "reference": "0.2.3-alpha1"
+    },
+    "feedback:3749f635-9514-456c-a0e9-7972ba66d719": {
+      "state": "TESTING",
+      "reference": "0.2.3-alpha1"
+    },
+    "feedback:286f5140-a1b4-4ccc-b4c4-f6c54ca0c7e5": {
+      "state": "TESTING",
+      "reference": "0.2.3-alpha1"
+    },
+    "feedback:f40c1f15-d209-4a04-8569-d2e9bbd6afa0": {
+      "state": "TESTING",
+      "reference": "0.2.3-alpha1"
     }
   }
 }

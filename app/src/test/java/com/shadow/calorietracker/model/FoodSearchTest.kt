@@ -2,6 +2,7 @@ package com.shadow.calorietracker.model
 
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
+import org.junit.Assert.assertEquals
 import org.junit.Test
 
 class FoodSearchTest {
@@ -38,5 +39,41 @@ class FoodSearchTest {
     @Test
     fun `unrelated category term does not match`() {
         assertFalse(salmon.matches("bakery"))
+    }
+
+    @Test
+    fun `search index preserves localized category and ingredient matching`() {
+        val soup = Food(
+            id = "soup",
+            names = LocalizedText("House soup", "Supă de casă"),
+            details = LocalizedText("Cooked", "Gătită"),
+            nutritionPer100g = Nutrition.Zero,
+            servings = emptyList(),
+            categoryKey = "prepared-meals",
+        )
+        val recipe = RecipeTemplate(
+            foodId = soup.id,
+            activeBatchId = "",
+            name = soup.names.en,
+            ingredients = listOf(
+                RecipeIngredientDraft(
+                    foodId = "celeriac",
+                    foodName = LocalizedText("Celeriac", "Țelină"),
+                    nutritionPer100g = Nutrition.Zero,
+                    allergens = emptyMap(),
+                    grams = 100,
+                ),
+            ),
+            cookedYieldGrams = 500,
+            portionCount = 4,
+            cookedAtEpochMillis = 0,
+            remainingGrams = 0,
+            batches = emptyList(),
+        )
+        val index = FoodSearchIndex.build(listOf(salmon, soup), mapOf(soup.id to recipe))
+
+        assertEquals(listOf(salmon), index.matchingFoods(listOf(salmon, soup), "pește"))
+        assertEquals(listOf(soup), index.matchingFoods(listOf(salmon, soup), "telina"))
+        assertEquals(listOf(soup), index.matchingFoods(listOf(salmon, soup), "prepared meal"))
     }
 }

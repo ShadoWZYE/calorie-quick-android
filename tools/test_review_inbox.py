@@ -56,6 +56,11 @@ class ReviewInboxStoreTest(unittest.TestCase):
                 "screens": [{
                     "screen": "TODAY", "totalFrames": 600, "jankyFrames": 60,
                     "jankRate": 0.1, "severeFrames": 3, "maxFrameDurationMillis": 180,
+                    "totalJankDurationMillis": 4200,
+                }, {
+                    "screen": "HISTORY", "totalFrames": 1, "jankyFrames": 1,
+                    "jankRate": 1.0, "severeFrames": 0, "maxFrameDurationMillis": 49,
+                    "totalJankDurationMillis": 49,
                 }],
             }],
             "productDataIssues": [{

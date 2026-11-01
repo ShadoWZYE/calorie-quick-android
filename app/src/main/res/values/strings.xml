@@ -35,6 +35,8 @@
     <string name="open_food_facts_results">Open Food Facts</string>
     <string name="open_food_facts_error">Open Food Facts could not be reached. Check your connection and try again.</string>
     <string name="open_food_facts_rate_limited">Open Food Facts is receiving too many requests. Please wait a moment and retry.</string>
+    <string name="open_food_facts_load_more_failed">More results could not be loaded. Check your connection, then retry.</string>
+    <string name="retry_load_more_results">Retry loading more</string>
     <string name="review_imported_food">Review imported food</string>
     <string name="review_scanned_label">Review scanned label</string>
     <string name="ocr_review_notice">Text was read on this device. Confirm every value against the package before saving.</string>

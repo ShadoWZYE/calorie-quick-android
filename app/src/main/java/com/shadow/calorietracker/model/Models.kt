@@ -135,6 +135,38 @@ data class Food(
     )
 }
 
+/**
+ * Pre-normalized catalogue text for interactive local search. Building this once when the
+ * catalogue changes avoids repeating Unicode normalization and regex replacement for every
+ * food on every typed character.
+ */
+class FoodSearchIndex private constructor(
+    private val searchableTextByFoodId: Map<String, String>,
+) {
+    fun matchingFoods(foods: List<Food>, query: String): List<Food> {
+        val normalizedQuery = query.normalizedFoodText()
+        if (normalizedQuery.isBlank()) return emptyList()
+        return foods.filter { food -> searchableTextByFoodId[food.id]?.contains(normalizedQuery) == true }
+    }
+
+    companion object {
+        fun build(foods: List<Food>, recipes: Map<String, RecipeTemplate>): FoodSearchIndex {
+            val indexed = foods.associate { food ->
+                val recipeIngredientNames = recipes[food.id]?.ingredients.orEmpty()
+                    .flatMap { ingredient -> ingredient.foodName.all() }
+                val searchableFields = food.names.all() +
+                    food.details.all() +
+                    food.aliases +
+                    listOfNotNull(food.barcode) +
+                    food.categoryKey.searchTerms() +
+                    recipeIngredientNames
+                food.id to searchableFields.joinToString(" ").normalizedFoodText()
+            }
+            return FoodSearchIndex(indexed)
+        }
+    }
+}
+
 enum class FoodSourceType { BUILT_IN, PERSONAL, OPEN_FOOD_FACTS, OCR, RECIPE }
 enum class CatalogueOrigin { CALORIE_QUICK, OPT_IN, OPEN_FOOD_FACTS }
 

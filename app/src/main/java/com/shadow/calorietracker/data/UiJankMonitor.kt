@@ -9,6 +9,13 @@ import java.util.concurrent.atomic.AtomicReference
 
 object UiPerformanceContext {
     @Volatile var currentScreen: String = "UNKNOWN"
+    @Volatile var currentInteraction: String = ""
+
+    fun frameLabel(): String = currentInteraction
+        .take(60)
+        .ifBlank { null }
+        ?.let { "${currentScreen.take(80)}:$it" }
+        ?: currentScreen.take(80).ifBlank { "UNKNOWN" }
 }
 
 data class UiJankScreenSummary(
@@ -95,7 +102,7 @@ class UiJankMonitor(
     private val activeSession = AtomicReference<JankSessionAccumulator?>(null)
     private val jankStats = JankStats.createAndTrack(window) { frame ->
         activeSession.get()?.record(
-            screen = UiPerformanceContext.currentScreen,
+            screen = UiPerformanceContext.frameLabel(),
             durationMillis = frame.frameDurationUiNanos / 1_000_000L,
             isJank = frame.isJank,
         )

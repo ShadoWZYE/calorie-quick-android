@@ -158,6 +158,8 @@ class ReviewInboxStore:
             try:
                 review = json.loads(path.read_text(encoding="utf-8"))
                 changed = self._ensure_analysis_fields(review)
+                changed = self._repair_jank_attribution(review) or changed
+                changed = self._remove_stale_performance_findings(review) or changed
                 changed = self._reconcile_implementation_status(review) or changed
                 if changed:
                     self.save_review(review)
@@ -187,6 +189,8 @@ class ReviewInboxStore:
         if review_path.exists():
             existing = json.loads(review_path.read_text(encoding="utf-8"))
             self._ensure_analysis_fields(existing)
+            self._repair_jank_attribution(existing)
+            self._remove_stale_performance_findings(existing)
             self._reconcile_implementation_status(existing)
             existing["sourceArchive"] = str(retained_archive)
             existing["sourceArchiveOriginal"] = str(archive_path)
@@ -263,9 +267,20 @@ class ReviewInboxStore:
                 ),
             )
 
+        current_version = str((report.get("build") or {}).get("versionName") or "")
+        has_current_performance = any(
+            isinstance(operation, dict) and operation.get("appVersion") == current_version
+            for operation in support.get("performance", [])
+        )
         slow_operations = [
             operation for operation in support.get("performance", [])
-            if isinstance(operation, dict) and (
+            if isinstance(operation, dict)
+            and (
+                not current_version
+                or operation.get("appVersion") == current_version
+                or not operation.get("appVersion") and not has_current_performance
+            )
+            and (
                 operation.get("durationMillis", 0) >= 1_500 or operation.get("outcome") != "success"
             )
         ]
@@ -286,8 +301,17 @@ class ReviewInboxStore:
                 ),
             )
 
+        has_current_jank = any(
+            isinstance(session, dict) and session.get("appVersion") == current_version
+            for session in support.get("uiJank", [])
+        )
         for session in support.get("uiJank", []):
             if not isinstance(session, dict):
+                continue
+            if current_version and (
+                session.get("appVersion") and session.get("appVersion") != current_version
+                or not session.get("appVersion") and has_current_jank
+            ):
                 continue
             jank_rate = float(session.get("jankRate") or 0)
             severe_frames = int(session.get("severeFrames") or 0)
@@ -295,7 +319,20 @@ class ReviewInboxStore:
             if jank_rate < 0.05 and severe_frames < 2 and max_frame < 150:
                 continue
             screens = [item for item in session.get("screens", []) if isinstance(item, dict)]
-            worst = max(screens, key=lambda item: float(item.get("jankRate") or 0), default={})
+            # A tiny screen sample can report a 100% rate from a single transition frame and
+            # falsely take ownership of a long session. Attribute the finding to the screen
+            # responsible for the most accumulated jank, using severity and duration as
+            # fallbacks for older bundles.
+            worst = max(
+                screens,
+                key=lambda item: (
+                    int(item.get("totalJankDurationMillis") or 0),
+                    int(item.get("severeFrames") or 0),
+                    int(item.get("maxFrameDurationMillis") or 0),
+                    int(item.get("jankyFrames") or 0),
+                ),
+                default={},
+            )
             session_id = str(session.get("id") or "unknown")
             description = (
                 f"screen={worst.get('screen') or 'unknown'}; "
@@ -539,6 +576,98 @@ class ReviewInboxStore:
         temporary = path.with_suffix(".tmp")
         temporary.write_text(json.dumps(review, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
         temporary.replace(path)
+
+    def _repair_jank_attribution(self, review: dict[str, Any]) -> bool:
+        """Repair findings created before screen attribution used accumulated impact."""
+        archive_path = Path(str(review.get("sourceArchive") or ""))
+        if not archive_path.is_file():
+            return False
+        try:
+            with zipfile.ZipFile(archive_path) as archive:
+                support = self._read_json(archive, "support/support.json") or {}
+        except (OSError, zipfile.BadZipFile):
+            return False
+        sessions = {
+            str(session.get("id")): session
+            for session in support.get("uiJank", [])
+            if isinstance(session, dict) and session.get("id")
+        }
+        changed = False
+        for item in review.get("items", []):
+            item_id = str(item.get("id") or "")
+            if not item_id.startswith("jank:"):
+                continue
+            session = sessions.get(item_id.removeprefix("jank:"))
+            if not session:
+                continue
+            screens = [screen for screen in session.get("screens", []) if isinstance(screen, dict)]
+            worst = max(
+                screens,
+                key=lambda screen: (
+                    int(screen.get("totalJankDurationMillis") or 0),
+                    int(screen.get("severeFrames") or 0),
+                    int(screen.get("maxFrameDurationMillis") or 0),
+                    int(screen.get("jankyFrames") or 0),
+                ),
+                default={},
+            )
+            screen_name = str(worst.get("screen") or "unknown")
+            description = (
+                f"screen={screen_name}; "
+                f"janky frames={session.get('jankyFrames', 0)}/{session.get('totalFrames', 0)} "
+                f"({float(session.get('jankRate') or 0) * 100:.1f}%); "
+                f"severe frames={session.get('severeFrames', 0)}; "
+                f"maximum frame={session.get('maxFrameDurationMillis', 0)} ms"
+            )
+            updates = {"title": f"UI stutter: {screen_name}", "description": description}
+            for key, value in updates.items():
+                if item.get(key) != value:
+                    item[key] = value
+                    changed = True
+        return changed
+
+    def _remove_stale_performance_findings(self, review: dict[str, Any]) -> bool:
+        """Keep historical telemetry in the ZIP without presenting it as current-version work."""
+        current_version = str((review.get("build") or {}).get("versionName") or "")
+        archive_path = Path(str(review.get("sourceArchive") or ""))
+        if not current_version or not archive_path.is_file():
+            return False
+        try:
+            with zipfile.ZipFile(archive_path) as archive:
+                support = self._read_json(archive, "support/support.json") or {}
+        except (OSError, zipfile.BadZipFile):
+            return False
+        versions_by_id = {}
+        performance_records = [
+            record for record in support.get("performance", []) if isinstance(record, dict)
+        ]
+        jank_records = [record for record in support.get("uiJank", []) if isinstance(record, dict)]
+        for record in [*performance_records, *jank_records]:
+            if isinstance(record, dict) and record.get("id"):
+                versions_by_id[str(record["id"])] = str(record.get("appVersion") or "")
+        current_ids_exist = {
+            "performance": any(record.get("appVersion") == current_version for record in performance_records),
+            "jank": any(record.get("appVersion") == current_version for record in jank_records),
+        }
+        retained = []
+        changed = False
+        for item in review.get("items", []):
+            item_id = str(item.get("id") or "")
+            if item.get("sourceType") != "PERFORMANCE_DIAGNOSTIC":
+                retained.append(item)
+                continue
+            raw_id = item_id.split(":", 1)[-1]
+            recorded_version = versions_by_id.get(raw_id, "")
+            kind = item_id.split(":", 1)[0]
+            if recorded_version and recorded_version != current_version or (
+                not recorded_version and current_ids_exist.get(kind, False)
+            ):
+                changed = True
+                continue
+            retained.append(item)
+        if changed:
+            review["items"] = retained
+        return changed
 
     @staticmethod
     def _ensure_analysis_fields(review: dict[str, Any]) -> bool:

@@ -97,6 +97,7 @@ data class FoodLookupState(
     val page: Int = 0,
     val hasMore: Boolean = false,
     val loadingMore: Boolean = false,
+    val loadMoreFailed: Boolean = false,
     val publishingResults: Boolean = false,
 )
 
@@ -518,11 +519,14 @@ class CalorieViewModel(application: Application) : AndroidViewModel(application)
             }
             return
         }
-        _foodLookupState.value = current.copy(loadingMore = true)
+        _foodLookupState.value = current.copy(loadingMore = true, loadMoreFailed = false)
         lookupJob = viewModelScope.launch {
             val nextResultPage = runCatching { openFoodFacts.searchPage(normalized, locale, nextPage) }
                 .getOrElse {
-                    _foodLookupState.value = _foodLookupState.value.copy(loadingMore = false)
+                    _foodLookupState.value = _foodLookupState.value.copy(
+                        loadingMore = false,
+                        loadMoreFailed = true,
+                    )
                     return@launch
                 }
             val nextResults = nextResultPage.foods
@@ -556,6 +560,7 @@ class CalorieViewModel(application: Application) : AndroidViewModel(application)
             page = page,
             hasMore = false,
             loadingMore = isLoadMore,
+            loadMoreFailed = false,
             publishingResults = true,
         )
         resultPage.foods.forEach { food ->

@@ -103,6 +103,9 @@ dependencies {
     implementation("androidx.lifecycle:lifecycle-runtime-compose:2.11.0")
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.11.0")
     implementation("androidx.metrics:metrics-performance:1.0.0")
+    // Direct APK installs do not receive Play's install-time profile compilation. This installs
+    // the bundled Compose/AndroidX Baseline Profiles for field and sideloaded release builds.
+    implementation("androidx.profileinstaller:profileinstaller:1.4.1")
     implementation("com.google.android.gms:play-services-code-scanner:16.1.0")
     implementation("com.google.android.gms:play-services-mlkit-document-scanner:16.0.0")
     implementation("com.google.mlkit:text-recognition:16.0.1")

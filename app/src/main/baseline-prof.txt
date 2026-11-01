@@ -1,0 +1,12 @@
+# CalorieQuick critical UI paths collected from launch, Today search, recipe browser, and quick add.
+# Library-provided profiles cover most Compose code; these additional hot paths were still being
+# JIT-compiled during the first bottom-sheet animation in sideloaded field builds.
+HSPLcom/shadow/calorietracker/ui/CalorieQuickAppKt;->**(**)**
+HSPLcom/shadow/calorietracker/ui/CalorieQuickAppKt**->**(**)**
+HSPLcom/shadow/calorietracker/model/FoodSearchIndex;->**(**)**
+HSPLandroidx/compose/runtime/CompositionImpl;->recordReadOf(Ljava/lang/Object;)V
+HSPLandroidx/compose/runtime/GapComposer;->exitGroup(IZ)V
+HSPLandroidx/compose/runtime/Recomposer$runRecomposeAndApplyChanges$2;->invokeSuspend$lambda$2(Landroidx/compose/runtime/Recomposer;Landroidx/collection/MutableScatterSet;Landroidx/collection/MutableScatterSet;Ljava/util/List;Ljava/util/List;Landroidx/collection/MutableScatterSet;Ljava/util/List;Landroidx/collection/MutableScatterSet;Ljava/util/Set;J)Lkotlin/Unit;
+HSPLandroidx/compose/runtime/snapshots/SnapshotKt;->resetGlobalSnapshotLocked(Landroidx/compose/runtime/snapshots/GlobalSnapshot;Lkotlin/jvm/functions/Function1;)Ljava/lang/Object;
+HSPLandroidx/compose/runtime/snapshots/SnapshotKt;->valid(JJLandroidx/compose/runtime/snapshots/SnapshotIdSet;)Z
+HSPLkotlinx/coroutines/CancellableContinuationImpl;->isReusable()Z

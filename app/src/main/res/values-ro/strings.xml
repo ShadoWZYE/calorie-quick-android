@@ -35,6 +35,8 @@
     <string name="open_food_facts_results">Open Food Facts</string>
     <string name="open_food_facts_error">Open Food Facts nu poate fi accesat. Verifică conexiunea și încearcă din nou.</string>
     <string name="open_food_facts_rate_limited">Open Food Facts primește prea multe solicitări. Așteaptă puțin și încearcă din nou.</string>
+    <string name="open_food_facts_load_more_failed">Nu s-au putut încărca mai multe rezultate. Verifică conexiunea, apoi încearcă din nou.</string>
+    <string name="retry_load_more_results">Reîncearcă încărcarea</string>
     <string name="review_imported_food">Verifică alimentul importat</string>
     <string name="review_scanned_label">Verifică eticheta scanată</string>
     <string name="ocr_review_notice">Textul a fost citit pe acest dispozitiv. Confirmă fiecare valoare cu ambalajul înainte de salvare.</string>
